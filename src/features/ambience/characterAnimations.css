@@ -1,0 +1,163 @@
+/* =============================================
+   ゴーストキャラクター アニメーション定義
+   ============================================= */
+
+/* ふわふわ浮遊（通常時） */
+@keyframes ghostFloat {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-10px); }
+}
+
+/* スリープ（深呼吸） */
+@keyframes ghostSleepy {
+  0%, 100% { transform: translateY(0px) scale(1, 1); }
+  50%       { transform: translateY(-2px) scale(1.03, 0.96); }
+}
+
+/* 考え中（ゆらゆら） */
+@keyframes ghostThinking {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25%       { transform: rotate(-5deg) translateY(-5px); }
+  75%       { transform: rotate(5deg) translateY(-5px); }
+}
+
+/* びっくり（クリック時） */
+@keyframes ghostSurprised {
+  0%   { transform: scale(1, 1); }
+  20%  { transform: scale(0.95, 1.08) translateY(-4px); }
+  60%  { transform: scale(1.02, 0.98) translateY(1.5px); }
+  100% { transform: scale(1, 1) translateY(0); }
+}
+
+/* 喜ぶ（くるっとジャンプ） */
+@keyframes ghostHappy {
+  0%   { transform: translateY(0) scale(1, 1); }
+  20%  { transform: translateY(4px) scale(1.05, 0.95); } 
+  50%  { transform: translateY(-16px) scale(0.95, 1.05) rotate(12deg); }
+  75%  { transform: translateY(-6px) scale(1, 1) rotate(-8deg); }
+  100% { transform: translateY(0) scale(1, 1) rotate(0deg); }
+}
+
+/* 目：まばたき ＋ きょろきょろ視線移動 */
+@keyframes ghostEyeAnim {
+  0%, 35% { transform: scaleY(1) translateX(0); }
+  37%     { transform: scaleY(0.08) translateX(0); } /* まばたき */
+  39%     { transform: scaleY(1) translateX(0); }
+  45%, 55% { transform: scaleY(1) translateX(3.5px); } /* 右横目 */
+  60%     { transform: scaleY(0.08) translateX(3.5px); } /* まばたき */
+  62%     { transform: scaleY(1) translateX(3.5px); }
+  70%, 80% { transform: scaleY(1) translateX(-3.5px); } /* 左横目 */
+  85%, 95% { transform: scaleY(1) translateX(0); }   /* 正面 */
+  97%     { transform: scaleY(0.08) translateX(0); } /* まばたき */
+  100%    { transform: scaleY(1) translateX(0); }
+}
+
+/* 吹き出し登場 */
+@keyframes bubbleSlideIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ========== クラス定義 ========== */
+
+.ghost-float {
+  animation: ghostFloat 3.2s ease-in-out infinite;
+  display: block;
+}
+
+.ghost-sleepy {
+  animation: ghostSleepy 4.0s ease-in-out infinite;
+  display: block;
+  transform-origin: bottom center;
+}
+
+.ghost-thinking {
+  animation: ghostThinking 2.5s ease-in-out infinite;
+  display: block;
+  transform-origin: bottom center;
+}
+
+.ghost-surprised {
+  animation: ghostSurprised 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  display: block;
+  transform-origin: bottom center;
+}
+
+.ghost-happy {
+  animation: ghostHappy 0.7s ease-in-out forwards;
+  display: block;
+  transform-origin: center center;
+}
+
+/* SVG 内 ellipse に付与。transform-box: fill-box で要素中心を基準にする */
+.ghost-eye {
+  animation: ghostEyeAnim 8s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.ghost-eye-right {
+  animation-delay: 0s;
+}
+
+.ghost-bubble-anim {
+  animation: bubbleSlideIn 0.3s ease-out both;
+}
+
+/* =============================================
+   ウィジェット全体の登場・退場
+   ============================================= */
+
+@keyframes widgetFadeIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes widgetFadeOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(10px) scale(0.9); }
+}
+
+.ghost-widget-in {
+  animation: widgetFadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2) forwards;
+}
+
+.ghost-widget-out {
+  animation: widgetFadeOut 0.3s ease-in forwards;
+}
+
+/* =============================================
+   パーティクルエフェクト（喜ぶ時）
+   ============================================= */
+
+.particle {
+  position: absolute;
+  pointer-events: none;
+  font-size: 16px;
+  opacity: 0;
+  z-index: 110;
+  user-select: none;
+}
+
+.particle-1 {
+  top: 10px; right: -5px;
+  animation: particlePop 0.7s ease-out forwards;
+}
+
+.particle-2 {
+  top: 40px; left: -15px;
+  animation: particlePop 0.8s ease-out 0.1s forwards;
+  font-size: 14px;
+}
+
+.particle-3 {
+  top: -15px; left: 25px;
+  animation: particlePop 0.65s ease-out 0.05s forwards;
+  font-size: 20px;
+}
+
+@keyframes particlePop {
+  0%   { transform: translateY(0) scale(0.5) rotate(-10deg); opacity: 1; }
+  50%  { transform: translateY(-25px) scale(1.2) rotate(10deg); opacity: 1; }
+  100% { transform: translateY(-35px) scale(1.5) rotate(20deg); opacity: 0; }
+}

@@ -1,0 +1,796 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Shippori+Mincho:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;700&family=Sawarabi+Mincho&family=Zen+Old+Mincho:wght@400;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Klee+One:wght@400;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================================
+   CSS変数（設計書 §4 カラーパレット）
+   ========================================= */
+:root {
+  /* ベース（屋根裏の木材・闇） */
+  --bg-deep:       #1a1714;
+  --bg:            #242019;
+  --bg-surface:    #2e2923;
+  --bg-elevated:   #3a332c;
+
+  /* テキスト */
+  --text:          #e8e0d4;
+  --text-mid:      #b8ad9e;
+  --text-muted:    #7a7068;
+
+  /* アクセント（ランプの灯り・琥珀色） */
+  --accent:        #c4956a;
+  --accent-hover:  #d4a87a;
+  --accent-soft:   #c4956a33;
+
+  /* ボーダー */
+  --border:        #3e3730;
+  --border-light:  #4a423a;
+
+  /* セマンティック */
+  --success:       #7aad8a;
+  --warning:       #c9a55a;
+  --danger:        #b07070;
+
+  /* 特殊 */
+  --lamp:          #f5e6c8;
+  --lamp-glow:     rgba(245, 230, 200, 0.08);
+  --lamp-glow-strong: rgba(245, 230, 200, 0.15);
+
+  /* タイポグラフィ */
+  --font-heading: 'Shippori Mincho', serif;
+  --font-ui:      'Noto Sans JP', sans-serif;
+  --font-editor:  '游明朝', 'Yu Mincho', 'Noto Serif JP', serif;
+}
+
+/* =========================================
+   ライトモード（和紙テーマ）
+   柔らかな生成り色と墨色で構成
+   ========================================= */
+[data-theme="light"] {
+  /* ベース（和紙・生成り） */
+  --bg-deep:       #ebe5da;
+  --bg:            #f5f0e8;
+  --bg-surface:    #faf7f2;
+  --bg-elevated:   #ffffff;
+
+  /* テキスト（墨色） */
+  --text:          #2c2520;
+  --text-mid:      #5c544a;
+  --text-muted:    #9a9084;
+
+  /* アクセント（落ち着いた琥珀） */
+  --accent:        #9e7348;
+  --accent-hover:  #b08050;
+  --accent-soft:   rgba(158, 115, 72, 0.12);
+
+  /* ボーダー */
+  --border:        #ddd6ca;
+  --border-light:  #c8bfb2;
+
+  /* セマンティック */
+  --success:       #5a8f6a;
+  --warning:       #a68830;
+  --danger:        #a85050;
+
+  /* 特殊 */
+  --lamp:          #d4b896;
+  --lamp-glow:     rgba(158, 115, 72, 0.06);
+  --lamp-glow-strong: rgba(158, 115, 72, 0.12);
+}
+
+/* =========================================
+   ベーススタイル
+   ========================================= */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* スクロールバー */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* テキスト選択 */
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+/* フォーカスリング（設計原則: lampのglow） */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 8px var(--lamp);
+}
+
+/* =========================================
+   アンビエント効果
+   ノイズテクスチャでデジタル臭さを軽減
+   ========================================= */
+
+/* ノイズテクスチャオーバーレイ（SVGベース） */
+.ambient-noise::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ランプの光源グラデーション（ページ上部から降り注ぐ暖かい光） */
+.ambient-lamp-glow::after {
+  content: '';
+  position: fixed;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 400px;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(196, 149, 106, 0.07) 0%,
+    rgba(196, 149, 106, 0.03) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+  animation: lampBreath 6s ease-in-out infinite;
+}
+
+/* ランプの呼吸アニメーション */
+@keyframes lampBreath {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.6; }
+}
+
+/* =========================================
+   共通コンポーネントスタイル
+   ========================================= */
+
+/* ボタン */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 200ms ease-out;
+  border: 1px solid transparent;
+  user-select: none;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg-deep);
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 16px rgba(196, 149, 106, 0.25);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-mid);
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  background: var(--bg-surface);
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+}
+
+/* パネル */
+.panel {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+}
+
+/* モーダルオーバーレイ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 16, 12, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: fadeIn 250ms ease-out;
+}
+
+.modal-box {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 28px;
+  min-width: 360px;
+  max-width: 520px;
+  width: 100%;
+  box-shadow:
+    0 8px 32px rgba(20, 16, 12, 0.5),
+    0 0 0 1px rgba(196, 149, 106, 0.05);
+  animation: modalEnter 300ms ease-out;
+}
+
+/* 入力フィールド */
+.input {
+  width: 100%;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  transition: border-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft), 0 0 12px rgba(196, 149, 106, 0.1);
+}
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+/* =========================================
+   アニメーション
+   ========================================= */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes modalEnter {
+  from {
+    transform: translateY(16px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ページ遷移用フェードイン */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: pageEnter 400ms ease-out;
+}
+
+/* =========================================
+   カードコンポーネント
+   ========================================= */
+.card {
+  position: relative;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  transition: all 300ms ease-out;
+  overflow: hidden;
+}
+
+/* カード上端のアクセントライン */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 30%,
+    var(--lamp) 50%,
+    var(--accent) 70%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+
+.card:hover {
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px rgba(20, 16, 12, 0.4),
+    0 0 20px rgba(196, 149, 106, 0.06);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+/* =========================================
+   ヘッダーコンポーネント
+   ========================================= */
+
+/* ヘッダー下部のグラデーションライン（ランプ光が漏れるイメージ） */
+.header-glow-line {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(196, 149, 106, 0.2) 20%,
+    rgba(196, 149, 106, 0.4) 50%,
+    rgba(196, 149, 106, 0.2) 80%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+/* ヘッダーアイコンボタン */
+.header-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 200ms ease-out;
+  flex-shrink: 0;
+}
+
+.header-icon-btn:hover {
+  color: var(--text);
+  background: var(--bg-surface);
+  border-color: var(--border);
+}
+
+.header-icon-btn.active {
+  color: var(--bg-deep);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(196, 149, 106, 0.2);
+}
+
+.header-icon-btn.active:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.header-icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ツールチップ */
+.header-icon-btn .tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-light);
+  color: var(--text-mid);
+  font-size: 11px;
+  font-family: var(--font-ui);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  box-shadow: 0 4px 12px rgba(20, 16, 12, 0.4);
+  z-index: 60;
+}
+
+.header-icon-btn:hover .tooltip {
+  opacity: 1;
+}
+
+/* ラベル付きアイコンボタン（保存ボタンなど） */
+.header-icon-btn-labeled {
+  width: auto;
+  padding: 0 12px;
+  gap: 5px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* ヘッダーボタングループ */
+.header-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(46, 41, 35, 0.5);
+  border: 1px solid var(--border);
+}
+
+/* =========================================
+   タイトルグロウ効果
+   ========================================= */
+.title-glow {
+  text-shadow:
+    0 0 20px rgba(196, 149, 106, 0.3),
+    0 0 40px rgba(196, 149, 106, 0.1);
+  animation: titleBreath 5s ease-in-out infinite;
+}
+
+@keyframes titleBreath {
+  0%, 100% { text-shadow: 0 0 20px rgba(196, 149, 106, 0.3), 0 0 40px rgba(196, 149, 106, 0.1); }
+  50%      { text-shadow: 0 0 24px rgba(196, 149, 106, 0.4), 0 0 48px rgba(196, 149, 106, 0.15); }
+}
+
+/* =========================================
+   新規作成カード
+   ========================================= */
+.new-card {
+  position: relative;
+  border-radius: 10px;
+  border: 1.5px dashed var(--border-light);
+  background: transparent;
+  transition: all 300ms ease-out;
+  overflow: hidden;
+}
+
+.new-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  background: radial-gradient(
+    circle at center,
+    rgba(196, 149, 106, 0.04) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+  pointer-events: none;
+}
+
+.new-card:hover {
+  border-color: var(--accent);
+  border-style: solid;
+  background: rgba(196, 149, 106, 0.03);
+}
+
+.new-card:hover::after {
+  opacity: 1;
+}
+
+/* =========================================
+   装飾用セパレータ
+   ========================================= */
+.separator-ornament {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.3;
+}
+
+.separator-ornament::before,
+.separator-ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent),
+    transparent
+  );
+}
+
+/* =========================================
+   エディタ
+   ========================================= */
+.editor-content {
+  font-family: var(--font-editor);
+  font-size: 16px;
+  line-height: 2.2;
+  color: var(--text);
+  caret-color: var(--accent);
+  outline: none;
+  min-height: 100%;
+  padding: 40px 72px;
+}
+
+/* 段落間の余白（行間よりやや広め） */
+.editor-content p {
+  margin: 0;
+  /* 本文先頭の字下げはAutoIndent拡張で処理 */
+}
+
+/* 空段落（改行のみ）は行高を維持 */
+.editor-content p:empty::before {
+  content: '\00a0';
+}
+
+/* 太字 */
+.editor-content strong {
+  color: var(--text);
+}
+
+/* 斜体 */
+.editor-content em {
+  color: var(--text-mid);
+}
+
+/* 縦書きモード */
+.editor-tategaki .editor-content {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 60px 40px;
+  height: 100%;
+  width: auto;
+  max-width: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* 検索ハイライト */
+.search-result {
+  background: color-mix(in srgb, var(--warning) 35%, transparent);
+  border-radius: 2px;
+  outline: 1px solid var(--warning);
+}
+
+.search-result-current {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+  outline: 1px solid var(--accent);
+}
+
+/* ルビ */
+ruby {
+  ruby-align: center;
+}
+rt {
+  font-size: 0.5em;
+  color: var(--text-mid);
+}
+
+/* 傍点 */
+.doten {
+  text-emphasis: filled circle;
+  text-emphasis-position: over right;
+}
+
+/* ツールバーボタンホバー（グローバル補完） */
+.toolbar-btn:hover {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+}
+
+/* =========================================
+   校正ハイライト
+   ========================================= */
+.proofread-highlight {
+  background: color-mix(in srgb, var(--warning) 25%, transparent);
+  border-bottom: 2px wavy var(--warning);
+}
+
+/* =========================================
+   差分ビュー
+   ========================================= */
+.diff-added {
+  background: color-mix(in srgb, var(--success) 25%, transparent);
+}
+
+.diff-removed {
+  background: color-mix(in srgb, var(--danger) 25%, transparent);
+  text-decoration: line-through;
+  text-decoration-color: var(--danger);
+}
+
+/* =========================================
+   設定モーダル（select要素の暗色対応）
+   ========================================= */
+select.input {
+  appearance: auto;
+  background: var(--bg-deep);
+  color: var(--text);
+}
+
+select.input option {
+  background: var(--bg-deep);
+  color: var(--text);
+}
+
+/* =========================================
+   ライトモード固有のオーバーライド
+   ========================================= */
+
+/* モーダル背景 */
+[data-theme="light"] .modal-overlay {
+  background: rgba(60, 50, 40, 0.3);
+}
+
+[data-theme="light"] .modal-box {
+  box-shadow:
+    0 8px 32px rgba(60, 50, 40, 0.15),
+    0 0 0 1px rgba(158, 115, 72, 0.08);
+}
+
+/* カードのホバー影 */
+[data-theme="light"] .card:hover {
+  box-shadow:
+    0 8px 24px rgba(60, 50, 40, 0.1),
+    0 0 20px rgba(158, 115, 72, 0.06);
+}
+
+/* ヘッダーボタングループ背景 */
+[data-theme="light"] .header-btn-group {
+  background: rgba(235, 229, 218, 0.6);
+}
+
+/* ツールチップの影 */
+[data-theme="light"] .header-icon-btn .tooltip {
+  box-shadow: 0 4px 12px rgba(60, 50, 40, 0.12);
+}
+
+/* アクティブボタンの影 */
+[data-theme="light"] .header-icon-btn.active {
+  box-shadow: 0 0 12px rgba(158, 115, 72, 0.15);
+}
+
+/* プライマリボタンの影 */
+[data-theme="light"] .btn-primary:hover {
+  box-shadow: 0 0 16px rgba(158, 115, 72, 0.2);
+}
+
+/* タイトルグロウ（ライトモード: 控えめに） */
+[data-theme="light"] .title-glow {
+  text-shadow:
+    0 0 20px rgba(158, 115, 72, 0.15),
+    0 0 40px rgba(158, 115, 72, 0.05);
+  animation: titleBreathLight 5s ease-in-out infinite;
+}
+
+@keyframes titleBreathLight {
+  0%, 100% { text-shadow: 0 0 20px rgba(158, 115, 72, 0.15), 0 0 40px rgba(158, 115, 72, 0.05); }
+  50%      { text-shadow: 0 0 24px rgba(158, 115, 72, 0.2), 0 0 48px rgba(158, 115, 72, 0.08); }
+}
+
+/* ランプグロウ（ライトモード: 暖かみの淡い光） */
+[data-theme="light"] .ambient-lamp-glow::after {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(158, 115, 72, 0.04) 0%,
+    rgba(158, 115, 72, 0.02) 40%,
+    transparent 70%
+  );
+}
+
+/* ノイズテクスチャ（ライトモード: わずかに強調） */
+[data-theme="light"] .ambient-noise::before {
+  opacity: 0.035;
+}
+
+/* ヘッダーグロウライン */
+[data-theme="light"] .header-glow-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(158, 115, 72, 0.15) 20%,
+    rgba(158, 115, 72, 0.3) 50%,
+    rgba(158, 115, 72, 0.15) 80%,
+    transparent 100%
+  );
+}
+
+/* 新規カードのホバーグロウ */
+[data-theme="light"] .new-card::after {
+  background: radial-gradient(
+    circle at center,
+    rgba(158, 115, 72, 0.05) 0%,
+    transparent 70%
+  );
+}
+
+[data-theme="light"] .new-card:hover {
+  background: rgba(158, 115, 72, 0.04);
+}
+
+/* スクロールバー */
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: var(--border);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* フォーカスリング */
+[data-theme="light"] :focus-visible {
+  box-shadow: 0 0 8px var(--lamp);
+}
+
+/* ========================================= */
+/* AIチャット マークダウン（AiPanel.tsx）     */
+/* ========================================= */
+
+/* 吹き出し末尾のブロック要素の余白を除去 */
+.ai-markdown > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* インライン強調 */
+.ai-markdown strong {
+  font-weight: 600;
+}
+
+.ai-markdown em {
+  font-style: italic;
+}

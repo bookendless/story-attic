@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Temp
+*.tmp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.claude/
+
+# Vite
+*.local
+
+# Tauri (Rust)
+src-tauri/target/
+
+# Test / coverage
+coverage/
+
+# Vitest
+.vitest/
