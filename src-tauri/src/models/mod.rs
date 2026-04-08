@@ -11,6 +11,7 @@ pub mod glossary;
 pub mod memo;
 pub mod material;
 pub mod plot;
+pub mod writing_support;
 
 pub use project::*;
 pub use episode::*;
@@ -24,3 +25,4 @@ pub use glossary::*;
 pub use memo::*;
 pub use material::*;
 pub use plot::*;
+pub use writing_support::*;

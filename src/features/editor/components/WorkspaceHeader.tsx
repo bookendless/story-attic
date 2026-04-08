@@ -95,8 +95,9 @@ export function WorkspaceHeader() {
     setSoundSettings,
     characterSettings,
     setCharacterSettings,
-    aiPanelVisible,
-    toggleAiPanel,
+    rightPanelVisible,
+    toggleRightPanel,
+    toggleWritingSupportModal,
   } = useUIStore();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -350,13 +351,21 @@ export function WorkspaceHeader() {
             )}
           </div>
 
-          {/* AI チャット */}
+          {/* 執筆支援 */}
+          <HeaderButton
+            icon={<IconAnalysis size={20} />}
+            label="執筆支援"
+            shortLabel="執筆"
+            onClick={toggleWritingSupportModal}
+          />
+
+          {/* 右パネル（AI・人物・用語等） */}
           <HeaderButton
             icon={<IconAi size={20} />}
-            label="AIアシスタント"
-            shortLabel="AI"
-            active={aiPanelVisible}
-            onClick={toggleAiPanel}
+            label="右パネル"
+            shortLabel="パネル"
+            active={rightPanelVisible}
+            onClick={toggleRightPanel}
           />
 
           {/* 設定（独立） */}

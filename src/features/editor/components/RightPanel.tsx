@@ -22,6 +22,7 @@ import { CharacterPanel } from '@/features/characters/CharacterPanel';
 import { GlossaryPanel } from '@/features/glossary/GlossaryPanel';
 import { MemoPanel } from '@/features/memo/MemoPanel';
 import { MaterialPanel } from '@/features/material/MaterialPanel';
+import { PlotPanel } from '@/features/plot/PlotPanel';
 
 // =========================================
 // タブ定義
@@ -187,7 +188,7 @@ function TabContent({
     case 'ai':
       return <AiTabContent chatRef={chatRef} />;
     case 'plot':
-      return <PlaceholderContent label="プロット" />;
+      return <PlotPanel />;
     case 'character':
       return <CharacterPanel />;
     case 'glossary':
@@ -237,18 +238,6 @@ function AiTabContent({ chatRef }: { chatRef: React.RefObject<AiChatHandle | nul
       </div>
       <AiQuickActions chatRef={chatRef} />
       <AiChat chatRef={chatRef} />
-    </div>
-  );
-}
-
-/** 未実装タブ用プレースホルダー */
-function PlaceholderContent({ label }: { label: string }) {
-  return (
-    <div
-      className="flex items-center justify-center h-full"
-      style={{ color: 'var(--text-muted)' }}
-    >
-      <span className="text-sm">{label}（準備中��</span>
     </div>
   );
 }

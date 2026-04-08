@@ -223,6 +223,9 @@ interface UIState {
   /** 右パネルの幅 (px) */
   rightPanelWidth: number;
 
+  /** 執筆支援モーダル表示 */
+  writingSupportModalVisible: boolean;
+
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleSearchBar: () => void;
@@ -244,6 +247,7 @@ interface UIState {
   setRightPanelWidth: (width: number) => void;
   /** 右パネルを開いて指定タブに切り替える */
   openRightPanelTab: (tab: RightPanelTab) => void;
+  toggleWritingSupportModal: () => void;
 }
 
 const initialAmbience = loadAmbienceSettings();
@@ -267,6 +271,7 @@ export const useUIStore = create<UIState>((set) => ({
   aiPanelMode: 'sidebar',
   activeRightTab: 'ai' as RightPanelTab,
   rightPanelWidth: loadRightPanelWidth(),
+  writingSupportModalVisible: false,
 
   toggleLeftPanel: () =>
     set((s) => ({ leftPanelVisible: !s.leftPanelVisible })),
@@ -323,4 +328,6 @@ export const useUIStore = create<UIState>((set) => ({
   },
   openRightPanelTab: (tab) =>
     set({ rightPanelVisible: true, activeRightTab: tab }),
+  toggleWritingSupportModal: () =>
+    set((s) => ({ writingSupportModalVisible: !s.writingSupportModalVisible })),
 }));

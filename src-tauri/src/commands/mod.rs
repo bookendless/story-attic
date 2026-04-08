@@ -13,3 +13,4 @@ pub mod glossary;
 pub mod memo;
 pub mod material;
 pub mod plot;
+pub mod writing_support;

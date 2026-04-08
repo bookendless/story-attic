@@ -123,6 +123,10 @@ pub fn run() {
             commands::plot::create_timeline,
             commands::plot::save_timeline,
             commands::plot::delete_timeline,
+            // 執筆支援
+            commands::writing_support::save_diary_entry,
+            commands::writing_support::get_diary_entries,
+            commands::writing_support::get_diary_entries_range,
         ])
         .run(tauri::generate_context!())
         .expect("Tauriアプリケーションの起動に失敗しました");

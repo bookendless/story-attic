@@ -14,6 +14,7 @@ import { CharacterWidget } from '@/features/ambience/CharacterWidget';
 import { AiPanel } from '@/features/ai/AiPanel';
 import { AnalysisModal } from '@/features/analysis/AnalysisModal';
 import { SettingsModal } from '@/features/settings/SettingsModal';
+import { WritingSupportModal } from '@/features/writing-support/WritingSupportModal';
 
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
@@ -88,6 +89,7 @@ export function WorkspacePage() {
       {/* モーダル */}
       <AnalysisModal />
       <SettingsModal />
+      <WritingSupportModal />
     </div>
   );
 }

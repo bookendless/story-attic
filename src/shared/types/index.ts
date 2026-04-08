@@ -352,3 +352,95 @@ export const DEFAULT_MATERIAL_DATA: MaterialData = {
   source: '',
   url: '',
 };
+
+// =========================================
+// プロット
+// =========================================
+
+export interface Plot {
+  id: string;
+  projectId: string;
+  title: string;
+  plotType: string;
+  theme: string;
+  data: string;
+  sortOrder: number;
+}
+
+export interface PlotNode {
+  id: string;
+  label: string;
+  content: string;
+  children: PlotNode[];
+}
+
+export interface PlotData {
+  nodes: PlotNode[];
+}
+
+export const DEFAULT_PLOT_DATA: PlotData = { nodes: [] };
+
+export const PLOT_TYPE_PRESETS: Record<string, string[]> = {
+  '起承転結': ['起', '承', '転', '結'],
+  '序破急': ['序', '破', '急'],
+  '三幕構成': ['第一幕', '第二幕', '第三幕'],
+  'カスタム': [],
+};
+
+// =========================================
+// プロット構造
+// =========================================
+
+export interface PlotStructure {
+  projectId: string;
+  data: string;
+}
+
+export interface PlotStructureData {
+  theme: string;
+  protagonist: string;
+  antagonist: string;
+  conflict: string;
+  ending: string;
+  notes: string;
+}
+
+export const DEFAULT_PLOT_STRUCTURE_DATA: PlotStructureData = {
+  theme: '', protagonist: '', antagonist: '', conflict: '', ending: '', notes: '',
+};
+
+// =========================================
+// タイムライン
+// =========================================
+
+export interface Timeline {
+  id: string;
+  projectId: string;
+  chapterId: string | null;
+  data: string;
+}
+
+export interface TimelineCell {
+  value: string;
+}
+
+export interface TimelineData {
+  headers: string[];
+  rows: TimelineCell[][];
+}
+
+export const DEFAULT_TIMELINE_DATA: TimelineData = {
+  headers: ['時間', 'イベント', '場所', '人物', 'メモ'],
+  rows: [],
+};
+
+// =========================================
+// 執筆日記
+// =========================================
+
+export interface DiaryEntry {
+  projectId: string;
+  date: string;
+  charCount: number;
+  sessionSec: number;
+}

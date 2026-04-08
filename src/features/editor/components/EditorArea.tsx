@@ -16,6 +16,7 @@ import { ProofreadPanel } from '@/features/analysis/ProofreadPanel';
 import { DiffView } from '@/features/analysis/DiffView';
 import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
+import { SelectionPopup } from './SelectionPopup';
 
 // debounce ユーティリティ
 function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
@@ -196,6 +197,9 @@ export function EditorArea() {
       {settings.show_char_count && editor && (
         <StatusBar editor={editor} />
       )}
+
+      {/* 選択語句ポップアップ */}
+      {editor && <SelectionPopup editor={editor} />}
     </div>
   );
 }
