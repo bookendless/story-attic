@@ -1,17 +1,14 @@
 /**
  * AIクイックアクション
- * プリセットプロンプトをワンクリックで送信する。
- * AiChat の chatRef を通じてメッセージを注入する。
+ * プリセットプロンプトをチャット欄に挿入する（直接送信ではなく編集可能）。
  */
 
-import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAiStore } from '@/shared/stores/aiStore';
 import type { AiChatHandle } from './AiChat';
 
 /** プリセットアクション定義 */
 interface QuickAction {
   label: string;
-  /** 送信するプロンプトを生成する関数。本文スニペットは自動付加される */
   prompt: string;
 }
 
@@ -24,31 +21,17 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'タイトル案を出して', prompt: '以下の内容にふさわしいタイトル案を5つ提案してください。' },
 ];
 
-/** 本文からコンテキストスニペットを取得する最大文字数 */
-const CONTEXT_MAX_CHARS = 1200;
-
 interface AiQuickActionsProps {
   chatRef: React.RefObject<AiChatHandle | null>;
 }
 
 export function AiQuickActions({ chatRef }: AiQuickActionsProps) {
   const isStreaming = useAiStore((s) => s.isStreaming);
-  const currentEpisode = useEditorStore((s) => s.currentEpisode);
 
   const handleClick = (action: QuickAction) => {
     if (!chatRef.current) return;
-
-    // エディタ本文の末尾をコンテキストとして付加
-    const body = currentEpisode?.body ?? '';
-    const snippet = body.length > CONTEXT_MAX_CHARS
-      ? '…' + body.slice(-CONTEXT_MAX_CHARS)
-      : body;
-
-    const fullPrompt = snippet
-      ? `${action.prompt}\n\n---\n${snippet}`
-      : action.prompt;
-
-    chatRef.current.sendMessage(fullPrompt);
+    // チャット欄にテンプレートを挿入（直接送信しない）
+    chatRef.current.insertTemplate(action.prompt);
   };
 
   return (

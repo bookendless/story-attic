@@ -1,7 +1,7 @@
 /**
  * キャラクターパネル — 右パネル内の「人物」タブ
  *
- * リスト表示と詳細表示を切り替える。
+ * 一覧表示に特化。詳細編集はモーダルで行う。
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -10,12 +10,12 @@ import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import { useAppStore } from '@/shared/stores/appStore';
 import type { Character, Tag } from '@/shared/types';
 import { CharacterList } from './CharacterList';
-import { CharacterDetail } from './CharacterDetail';
+import { CharacterEditModal } from './CharacterEditModal';
 
 export function CharacterPanel() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
 
   const loadCharacters = useCallback(async () => {
@@ -32,9 +32,9 @@ export function CharacterPanel() {
     loadCharacters();
   }, [loadCharacters]);
 
-  // 選択中キャラクターのタグを取得
+  // 編集中キャラクターのタグを取得
   const loadTags = useCallback(async () => {
-    if (!projectId || !selectedId) {
+    if (!projectId || !editingId) {
       setTags([]);
       return;
     }
@@ -42,13 +42,13 @@ export function CharacterPanel() {
       const result = await invoke<unknown[]>('get_tags', {
         projectId,
         entityType: 'character',
-        entityId: selectedId,
+        entityId: editingId,
       });
       setTags(toCamelCase<Tag[]>(result));
     } catch {
       /* 無視 */
     }
-  }, [projectId, selectedId]);
+  }, [projectId, editingId]);
 
   useEffect(() => {
     loadTags();
@@ -63,7 +63,7 @@ export function CharacterPanel() {
         category: '',
       });
       await loadCharacters();
-      setSelectedId(id);
+      setEditingId(id);
     } catch {
       /* 無視 */
     }
@@ -72,35 +72,36 @@ export function CharacterPanel() {
   const handleDelete = useCallback(async (id: string) => {
     try {
       await invoke('delete_character', { id });
-      if (selectedId === id) setSelectedId(null);
+      if (editingId === id) setEditingId(null);
       await loadCharacters();
     } catch {
       /* 無視 */
     }
-  }, [selectedId, loadCharacters]);
+  }, [editingId, loadCharacters]);
 
-  const selected = characters.find((c) => c.id === selectedId) ?? null;
+  const editing = characters.find((c) => c.id === editingId) ?? null;
 
   if (!projectId) return null;
 
   return (
     <div className="flex flex-col h-full">
-      {selected ? (
-        <CharacterDetail
-          character={selected}
+      <CharacterList
+        characters={characters}
+        onSelect={setEditingId}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+        onReload={loadCharacters}
+      />
+
+      {/* 編集モーダル */}
+      {editing && (
+        <CharacterEditModal
+          character={editing}
           tags={tags}
           projectId={projectId}
-          onBack={() => setSelectedId(null)}
+          onClose={() => setEditingId(null)}
           onUpdate={loadCharacters}
           onTagsChange={loadTags}
-        />
-      ) : (
-        <CharacterList
-          characters={characters}
-          onSelect={setSelectedId}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onReload={loadCharacters}
         />
       )}
     </div>

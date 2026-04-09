@@ -264,3 +264,102 @@ export function IconExport({ size = defaults.size, className }: IconProps) {
     </svg>
   );
 }
+
+// =========================================
+// ツールバー用アイコン (Phase 6)
+// =========================================
+
+/** 元に戻す（反時計回り矢印） */
+export function IconUndo({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 6h7a3.5 3.5 0 010 7H8" />
+      <path d="M6 3L3 6l3 3" />
+    </svg>
+  );
+}
+
+/** やり直し（時計回り矢印） */
+export function IconRedo({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M13 6H6a3.5 3.5 0 000 7h2" />
+      <path d="M10 3l3 3-3 3" />
+    </svg>
+  );
+}
+
+/** ルビ（文字の上にふりがな） */
+export function IconRuby({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <text x="4" y="13" fontSize="9" fill="currentColor" stroke="none" fontFamily="sans-serif">字</text>
+      <text x="4.5" y="5" fontSize="4.5" fill="currentColor" stroke="none" fontFamily="sans-serif">じ</text>
+    </svg>
+  );
+}
+
+/** 傍点（文字の横に点） */
+export function IconDoten({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <text x="4" y="13" fontSize="10" fill="currentColor" stroke="none" fontFamily="sans-serif">文</text>
+      <circle cx="4.5" cy="3" r="1" fill="currentColor" stroke="none" />
+      <circle cx="8" cy="3" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** フォント縮小（A-） */
+export function IconFontMinus({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 12L6.5 3h1L11 12" />
+      <path d="M4.5 9h5" />
+      <path d="M12 8h2.5" />
+    </svg>
+  );
+}
+
+/** フォント拡大（A+） */
+export function IconFontPlus({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 12L5.5 3h1L10 12" />
+      <path d="M3.5 9h5" />
+      <path d="M12.5 6.5v3M11 8h3" />
+    </svg>
+  );
+}
+
+/** エディタ幅切替（左右矢印） */
+export function IconEditorWidth({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 8h12" />
+      <path d="M5 5L2 8l3 3" />
+      <path d="M11 5l3 3-3 3" />
+    </svg>
+  );
+}
+
+/** 集中モード（左パネル非表示） */
+export function IconFocus({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+      <path d="M6 2v12" />
+    </svg>
+  );
+}
+
+/** パネル表示（左パネル表示） */
+export function IconPanelShow({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+      <path d="M6 2v12" />
+      <rect x="2" y="2" width="4" height="12" rx="1" fill="currentColor" opacity="0.15" stroke="none" />
+    </svg>
+  );
+}

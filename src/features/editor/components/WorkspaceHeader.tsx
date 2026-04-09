@@ -23,6 +23,7 @@ import {
   IconSoundOff,
   IconGhost,
   IconAi,
+  IconMaterial,
 } from '@/shared/components/Icons';
 
 /** アイコンボタン（ツールチップ付き） */
@@ -97,6 +98,8 @@ export function WorkspaceHeader() {
     setCharacterSettings,
     rightPanelVisible,
     toggleRightPanel,
+    aiPanelVisible,
+    toggleAiPanel,
     toggleWritingSupportModal,
   } = useUIStore();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
@@ -359,9 +362,18 @@ export function WorkspaceHeader() {
             onClick={toggleWritingSupportModal}
           />
 
-          {/* 右パネル（AI・人物・用語等） */}
+          {/* AIアシスタント（フローティング） */}
           <HeaderButton
             icon={<IconAi size={20} />}
+            label="AIアシスタント"
+            shortLabel="AI"
+            active={aiPanelVisible}
+            onClick={toggleAiPanel}
+          />
+
+          {/* 右パネル（人物・用語等） */}
+          <HeaderButton
+            icon={<IconMaterial size={20} />}
             label="右パネル"
             shortLabel="パネル"
             active={rightPanelVisible}

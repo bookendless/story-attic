@@ -1,6 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useUIStore } from '@/shared/stores/uiStore';
+import {
+  IconUndo, IconRedo, IconRuby, IconDoten,
+  IconFontMinus, IconFontPlus, IconEditorWidth,
+  IconFocus, IconPanelShow,
+} from '@/shared/components/Icons';
 
 interface Props {
   editor: Editor;
@@ -184,7 +189,7 @@ export function EditorToolbar({ editor }: Props) {
           disabled={!canUndo}
           title="元に戻す (Ctrl+Z)"
         >
-          ↩ 元に戻す
+          <IconUndo size={14} />
         </button>
         <button
           style={btn(false, !canRedo)}
@@ -192,7 +197,7 @@ export function EditorToolbar({ editor }: Props) {
           disabled={!canRedo}
           title="やり直し (Ctrl+Y)"
         >
-          ↪ やり直し
+          <IconRedo size={14} />
         </button>
 
         {sep}
@@ -220,17 +225,17 @@ export function EditorToolbar({ editor }: Props) {
           style={btn(false, editor.state.selection.empty)}
           onClick={handleRuby}
           disabled={editor.state.selection.empty}
-          title="選択テキストにルビを設定"
+          title="ルビを設定"
         >
-          ルビ《》
+          <IconRuby size={14} />
         </button>
         <button
           style={btn(isDoten, editor.state.selection.empty)}
           onClick={() => editor.chain().focus().toggleDoten().run()}
           disabled={editor.state.selection.empty}
-          title="傍点（選択テキストに傍点を付ける）"
+          title="傍点を付ける"
         >
-          ﹅傍点
+          <IconDoten size={14} />
         </button>
 
         {sep}
@@ -241,7 +246,7 @@ export function EditorToolbar({ editor }: Props) {
           onClick={() => changeFontSize(-1)}
           title="文字を小さく"
         >
-          A－
+          <IconFontMinus size={14} />
         </button>
         <span
           style={{
@@ -258,7 +263,7 @@ export function EditorToolbar({ editor }: Props) {
           onClick={() => changeFontSize(1)}
           title="文字を大きく"
         >
-          A＋
+          <IconFontPlus size={14} />
         </button>
 
         {sep}
@@ -267,9 +272,9 @@ export function EditorToolbar({ editor }: Props) {
         <button
           style={btn()}
           onClick={cycleEditorWidth}
-          title="エディタ幅を切り替え（標準 → ワイド → 全幅）"
+          title={`エディタ幅: ${widthLabels[settings.editor_max_width] ?? '標準幅'}（クリックで切替）`}
         >
-          ⇔ {widthLabels[settings.editor_max_width] ?? '標準幅'}
+          <IconEditorWidth size={14} />
         </button>
 
         {sep}
@@ -278,9 +283,9 @@ export function EditorToolbar({ editor }: Props) {
         <button
           style={btn(!leftPanelVisible)}
           onClick={toggleLeftPanel}
-          title="左パネルを隠して集中モード"
+          title={leftPanelVisible ? '左パネルを隠す（集中モード）' : '左パネルを表示'}
         >
-          {leftPanelVisible ? '◁ 隠す' : '▷ 表示'}
+          {leftPanelVisible ? <IconFocus size={14} /> : <IconPanelShow size={14} />}
         </button>
       </div>
 

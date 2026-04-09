@@ -1,61 +1,27 @@
 /**
- * 執筆タイマー — カウントダウン・チャレンジモード
+ * 執筆タイマー — uiStoreのタイマー状態と同期
+ * StatusBarのタイマーと共通の状態を使用
  */
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState } from 'react';
+import { useUIStore } from '@/shared/stores/uiStore';
 
-interface WritingTimerProps {
-  onSessionEnd?: (durationSec: number) => void;
+/** 秒数を MM:SS にフォーマット */
+function formatTime(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-export function WritingTimer({ onSessionEnd }: WritingTimerProps) {
+export function WritingTimer() {
+  const { timerRunning, timerRemaining, startTimer, stopTimer } = useUIStore();
   const [minutes, setMinutes] = useState(25);
-  const [remaining, setRemaining] = useState(0);
-  const [running, setRunning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef = useRef<number>(0);
-
-  const start = useCallback(() => {
-    const totalSec = minutes * 60;
-    setRemaining(totalSec);
-    setRunning(true);
-    startTimeRef.current = Date.now();
-
-    timerRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const left = Math.max(0, totalSec - elapsed);
-      setRemaining(left);
-      if (left <= 0) {
-        if (timerRef.current) clearInterval(timerRef.current);
-        setRunning(false);
-        onSessionEnd?.(totalSec);
-      }
-    }, 1000);
-  }, [minutes, onSessionEnd]);
-
-  const stop = useCallback(() => {
-    if (timerRef.current) clearInterval(timerRef.current);
-    setRunning(false);
-    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    if (elapsed > 10) onSessionEnd?.(elapsed);
-    setRemaining(0);
-  }, [onSessionEnd]);
-
-  useEffect(() => {
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, []);
-
-  const formatTime = (sec: number) => {
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
 
   return (
     <div className="flex flex-col gap-3">
       <h3 className="text-xs font-medium" style={{ color: 'var(--text)' }}>執筆タイマー</h3>
 
-      {!running ? (
+      {!timerRunning ? (
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -70,7 +36,7 @@ export function WritingTimer({ onSessionEnd }: WritingTimerProps) {
           <button
             className="text-xs px-3 py-1 rounded"
             style={{ background: 'var(--accent)', color: 'var(--bg-deep)', border: 'none', cursor: 'pointer' }}
-            onClick={start}
+            onClick={() => startTimer(minutes)}
           >
             開始
           </button>
@@ -79,14 +45,14 @@ export function WritingTimer({ onSessionEnd }: WritingTimerProps) {
         <div className="flex items-center gap-3">
           <span
             className="text-lg font-mono"
-            style={{ color: remaining <= 60 ? 'var(--danger)' : 'var(--accent)', fontFamily: 'var(--font-heading)' }}
+            style={{ color: timerRemaining <= 60 ? 'var(--danger)' : 'var(--accent)', fontFamily: 'var(--font-heading)' }}
           >
-            {formatTime(remaining)}
+            {formatTime(timerRemaining)}
           </span>
           <button
             className="text-xs px-3 py-1 rounded"
             style={{ background: 'var(--danger)', color: '#fff', border: 'none', cursor: 'pointer' }}
-            onClick={stop}
+            onClick={stopTimer}
           >
             停止
           </button>
@@ -94,7 +60,7 @@ export function WritingTimer({ onSessionEnd }: WritingTimerProps) {
       )}
 
       <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-        タイマー終了時に執筆セッションが記録されます
+        タイマーはステータスバーからも操作できます
       </div>
     </div>
   );

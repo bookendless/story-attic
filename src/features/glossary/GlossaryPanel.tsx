@@ -1,5 +1,7 @@
 /**
  * 用語集パネル — 右パネル内の「用語」タブ
+ *
+ * 一覧表示に特化。詳細編集はモーダルで行う。
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -8,12 +10,12 @@ import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import { useAppStore } from '@/shared/stores/appStore';
 import type { GlossaryItem, Tag } from '@/shared/types';
 import { GlossaryList } from './GlossaryList';
-import { GlossaryDetail } from './GlossaryDetail';
+import { GlossaryEditModal } from './GlossaryEditModal';
 
 export function GlossaryPanel() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const [items, setItems] = useState<GlossaryItem[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
 
   const loadItems = useCallback(async () => {
@@ -27,14 +29,14 @@ export function GlossaryPanel() {
   useEffect(() => { loadItems(); }, [loadItems]);
 
   const loadTags = useCallback(async () => {
-    if (!projectId || !selectedId) { setTags([]); return; }
+    if (!projectId || !editingId) { setTags([]); return; }
     try {
       const result = await invoke<unknown[]>('get_tags', {
-        projectId, entityType: 'glossary', entityId: selectedId,
+        projectId, entityType: 'glossary', entityId: editingId,
       });
       setTags(toCamelCase<Tag[]>(result));
     } catch { /* 無視 */ }
-  }, [projectId, selectedId]);
+  }, [projectId, editingId]);
 
   useEffect(() => { loadTags(); }, [loadTags]);
 
@@ -45,38 +47,38 @@ export function GlossaryPanel() {
         projectId, term: '新しい用語', category: '',
       });
       await loadItems();
-      setSelectedId(id);
+      setEditingId(id);
     } catch { /* 無視 */ }
   }, [projectId, loadItems]);
 
   const handleDelete = useCallback(async (id: string) => {
     try {
       await invoke('delete_glossary', { id });
-      if (selectedId === id) setSelectedId(null);
+      if (editingId === id) setEditingId(null);
       await loadItems();
     } catch { /* 無視 */ }
-  }, [selectedId, loadItems]);
+  }, [editingId, loadItems]);
 
-  const selected = items.find((i) => i.id === selectedId) ?? null;
+  const editing = items.find((i) => i.id === editingId) ?? null;
   if (!projectId) return null;
 
   return (
     <div className="flex flex-col h-full">
-      {selected ? (
-        <GlossaryDetail
-          item={selected}
+      <GlossaryList
+        items={items}
+        onSelect={setEditingId}
+        onCreate={handleCreate}
+        onDelete={handleDelete}
+      />
+
+      {editing && (
+        <GlossaryEditModal
+          item={editing}
           tags={tags}
           projectId={projectId}
-          onBack={() => setSelectedId(null)}
+          onClose={() => setEditingId(null)}
           onUpdate={loadItems}
           onTagsChange={loadTags}
-        />
-      ) : (
-        <GlossaryList
-          items={items}
-          onSelect={setSelectedId}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
         />
       )}
     </div>

@@ -1,7 +1,7 @@
 /**
  * AIチャットUI
  * メッセージ一覧・入力・ストリーミング送受信を担当する。
- * AiPanel からレイアウトモードに依存しない形で利用される。
+ * 送信時にペルソナ・口調・コンテキストからシステムプロンプトを動的構築する。
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -9,26 +9,113 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '@/shared/stores/appStore';
-import { useAiStore, type ChatMessage } from '@/shared/stores/aiStore';
+import { useEditorStore } from '@/shared/stores/editorStore';
+import {
+  useAiStore, type ChatMessage,
+  PERSONA_PROMPTS, TONE_PREFIXES, CONTEXT_MAX_CHARS,
+} from '@/shared/stores/aiStore';
 import { useUIStore } from '@/shared/stores/uiStore';
-import type { AiChunkPayload, AiMessage } from '@/shared/types';
+import { toCamelCase } from '@/shared/hooks/useTauriCommand';
+import type {
+  AiChunkPayload, AiMessage, AiContextSource,
+  Character, CharacterData,
+  GlossaryItem, GlossaryData,
+  Plot, PlotData,
+  Material, MaterialData,
+} from '@/shared/types';
 
-/** 外部からメッセージ送信をトリガーするためのハンドル */
+/** 外部からメッセージ送信・テンプレート挿入をトリガーするためのハンドル */
 export interface AiChatHandle {
   sendMessage: (text: string) => void;
+  insertTemplate: (text: string) => void;
 }
 
 interface AiChatProps {
-  /** 外部（クイックアクション等）からの送信用 ref */
   chatRef?: React.RefObject<AiChatHandle | null>;
+}
+
+/** コンテキストデータをテキストにシリアライズ */
+function truncate(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max) + '…（省略）' : text;
+}
+
+/** コンテキストソースからデータを取得してテキスト化 */
+async function fetchContextData(
+  sources: AiContextSource[],
+  projectId: string,
+  episodeBody: string,
+): Promise<string> {
+  const parts: string[] = [];
+
+  for (const source of sources) {
+    try {
+      switch (source) {
+        case 'body': {
+          const snippet = truncate(episodeBody, CONTEXT_MAX_CHARS.body);
+          if (snippet) parts.push(`【本文】\n${snippet}`);
+          break;
+        }
+        case 'characters': {
+          const raw = await invoke<unknown[]>('get_characters', { projectId });
+          const chars = toCamelCase<Character[]>(raw);
+          const text = chars.map((c) => {
+            const d: CharacterData = JSON.parse(c.data || '{}');
+            const profile = d.profile;
+            return `${c.name}（${c.category}）: ${profile?.personality || ''} ${profile?.background || ''}`.trim();
+          }).join('\n');
+          if (text) parts.push(`【人物】\n${truncate(text, CONTEXT_MAX_CHARS.characters)}`);
+          break;
+        }
+        case 'glossary': {
+          const raw = await invoke<unknown[]>('get_glossary', { projectId });
+          const items = toCamelCase<GlossaryItem[]>(raw);
+          const text = items.map((g) => {
+            const d: GlossaryData = JSON.parse(g.data || '{}');
+            return `${g.term}（${g.category}）: ${d.description || ''}`.trim();
+          }).join('\n');
+          if (text) parts.push(`【用語】\n${truncate(text, CONTEXT_MAX_CHARS.glossary)}`);
+          break;
+        }
+        case 'plot': {
+          const raw = await invoke<unknown[]>('get_plots', { projectId });
+          const plots = toCamelCase<Plot[]>(raw);
+          const text = plots.map((p) => {
+            const d: PlotData = JSON.parse(p.data || '{}');
+            const nodes = d.nodes?.map((n) => `  ${n.label}: ${n.content}`).join('\n') || '';
+            return `${p.title}（${p.plotType}）\n${nodes}`.trim();
+          }).join('\n\n');
+          if (text) parts.push(`【プロット】\n${truncate(text, CONTEXT_MAX_CHARS.plot)}`);
+          break;
+        }
+        case 'worldbuilding': {
+          const raw = await invoke<unknown[]>('get_materials', { projectId });
+          const materials = toCamelCase<Material[]>(raw);
+          const text = materials
+            .filter((m) => m.category === '世界観' || m.book === '世界観')
+            .map((m) => {
+              const d: MaterialData = JSON.parse(m.data || '{}');
+              return `${m.title}: ${d.content || ''}`.trim();
+            }).join('\n');
+          if (text) parts.push(`【世界観】\n${truncate(text, CONTEXT_MAX_CHARS.worldbuilding)}`);
+          break;
+        }
+      }
+    } catch {
+      // コンテキスト取得失敗は無視して続行
+    }
+  }
+
+  return parts.join('\n\n');
 }
 
 export function AiChat({ chatRef }: AiChatProps) {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
+  const currentEpisode = useEditorStore((s) => s.currentEpisode);
   const {
     messages, isStreaming, streamBuffer,
     addUserMessage, startAssistantMessage, appendChunk,
     finalizeAssistantMessage, setStreamError, clearHistory,
+    persona, tone, contextSources,
   } = useAiStore();
   const theme = useUIStore((s) => s.theme);
   const [input, setInput] = useState('');
@@ -64,8 +151,29 @@ export function AiChat({ chatRef }: AiChatProps) {
         appendChunk(content);
       });
 
+      // システムプロンプトを動的構築
+      const systemParts: string[] = [
+        PERSONA_PROMPTS[persona],
+        TONE_PREFIXES[tone],
+      ];
+
+      // コンテキストデータを取得
+      if (contextSources.length > 0) {
+        const contextText = await fetchContextData(
+          contextSources,
+          currentProjectId,
+          currentEpisode?.body ?? '',
+        );
+        if (contextText) {
+          systemParts.push('以下は参考情報です。必要に応じて活用してください。\n\n' + contextText);
+        }
+      }
+
+      const systemPrompt = systemParts.join('\n\n');
+
       // 'error' ロールはUI表示用なのでRustへ送らずに除外する
       const wireMessages: AiMessage[] = [
+        { role: 'system', content: systemPrompt },
         ...messages
           .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'error')
           .map((m) => ({ role: m.role, content: m.content })),
@@ -79,12 +187,19 @@ export function AiChat({ chatRef }: AiChatProps) {
       setStreamError(String(e));
       unlistenFn?.();
     }
-  }, [isStreaming, currentProjectId, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, setStreamError]);
+  }, [isStreaming, currentProjectId, currentEpisode, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, setStreamError, persona, tone, contextSources]);
 
-  // 外部から送信できるよう ref を公開
+  // 外部から送信・テンプレート挿入できるよう ref を公開
   useEffect(() => {
     if (chatRef && 'current' in chatRef) {
-      (chatRef as React.MutableRefObject<AiChatHandle | null>).current = { sendMessage: doSend };
+      (chatRef as React.MutableRefObject<AiChatHandle | null>).current = {
+        sendMessage: doSend,
+        insertTemplate: (text: string) => {
+          setInput(text);
+          // テキストエリアにフォーカス
+          setTimeout(() => textareaRef.current?.focus(), 50);
+        },
+      };
     }
   }, [chatRef, doSend]);
 

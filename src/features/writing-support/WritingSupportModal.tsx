@@ -2,8 +2,6 @@
  * 執筆支援モーダル — 目標設定・タイマー・履歴・日記カレンダーを統合
  */
 
-import { useCallback } from 'react';
-import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
@@ -17,21 +15,7 @@ export function WritingSupportModal() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const { currentEpisode } = useEditorStore();
 
-  // 現在のエピソードの文字数を取得
   const currentCharCount = currentEpisode?.charCount ?? 0;
-
-  const handleSessionEnd = useCallback(async (durationSec: number) => {
-    if (!projectId) return;
-    const today = new Date().toISOString().slice(0, 10);
-    try {
-      await invoke('save_diary_entry', {
-        projectId,
-        date: today,
-        charCount: currentCharCount,
-        sessionSec: durationSec,
-      });
-    } catch { /* 無視 */ }
-  }, [projectId, currentCharCount]);
 
   if (!writingSupportModalVisible) return null;
 
@@ -65,7 +49,7 @@ export function WritingSupportModal() {
 
           <div style={{ borderTop: '1px solid var(--border)' }} />
 
-          <WritingTimer onSessionEnd={handleSessionEnd} />
+          <WritingTimer />
 
           <div style={{ borderTop: '1px solid var(--border)' }} />
 

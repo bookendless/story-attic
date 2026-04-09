@@ -192,6 +192,19 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 };
 
 // =========================================
+// AIペルソナ・口調・コンテキスト
+// =========================================
+
+/** AIペルソナ */
+export type AiPersona = 'reader' | 'editor' | 'assistant';
+
+/** AI口調 */
+export type AiTone = 'formal' | 'casual' | 'harsh';
+
+/** AIコンテキストソース */
+export type AiContextSource = 'body' | 'characters' | 'glossary' | 'plot' | 'worldbuilding';
+
+// =========================================
 // スナップショット
 // =========================================
 

@@ -20,7 +20,7 @@ export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const { openProject, currentProject } = useProjectStore();
   const { loadChapterTree } = useEditorStore();
-  const { leftPanelVisible, rightPanelVisible, rightPanelWidth, aiPanelVisible, aiPanelMode, setSettings } = useUIStore();
+  const { leftPanelVisible, rightPanelVisible, rightPanelWidth, aiPanelVisible, setSettings } = useUIStore();
 
   // 自動保存フック
   useAutoSave();
@@ -80,8 +80,8 @@ export function WorkspacePage() {
         </div>
       </div>
 
-      {/* AI チャットパネル（フローティング — floating モード時のみ） */}
-      {aiPanelMode === 'floating' && aiPanelVisible && <AiPanel />}
+      {/* AI チャットパネル（フローティング） */}
+      {aiPanelVisible && <AiPanel />}
 
       {/* キャラクターウィジェット */}
       <CharacterWidget />

@@ -1,24 +1,25 @@
 /**
  * 目標設定 — 目標文字数・締切・進捗バー
+ * uiStoreのdailyGoalと同期し、StatusBarの進捗バーに反映
  */
 
 import { useState } from 'react';
+import { useUIStore } from '@/shared/stores/uiStore';
 
 interface GoalSettingProps {
   currentCharCount: number;
 }
 
 export function GoalSetting({ currentCharCount }: GoalSettingProps) {
-  const [goalChars, setGoalChars] = useState(() => {
-    try { return Number(localStorage.getItem('story-attic-goal-chars')) || 0; } catch { return 0; }
-  });
+  const { dailyGoal, setDailyGoal } = useUIStore();
+  const [goalChars, setGoalChars] = useState(dailyGoal ?? 0);
   const [deadline, setDeadline] = useState(() => {
     try { return localStorage.getItem('story-attic-goal-deadline') || ''; } catch { return ''; }
   });
 
   const saveGoal = (chars: number) => {
     setGoalChars(chars);
-    try { localStorage.setItem('story-attic-goal-chars', String(chars)); } catch { /* 無視 */ }
+    setDailyGoal(chars || null);
   };
 
   const saveDeadline = (d: string) => {

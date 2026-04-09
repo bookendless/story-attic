@@ -65,8 +65,11 @@ export const DEFAULT_CHARACTER_SETTINGS: CharacterSettings = {
   enabled: true,
 };
 
-/** 右パネルのアクティブタブ */
-export type RightPanelTab = 'plot' | 'character' | 'glossary' | 'material' | 'memo' | 'ai';
+/** 右パネルのアクティブタブ（AIは独立パネルに分離済み） */
+export type RightPanelTab = 'plot' | 'character' | 'glossary' | 'material' | 'memo';
+
+/** localStorageの旧値 'ai' を安全にフォールバックするためのバリデーション */
+const VALID_RIGHT_TABS: RightPanelTab[] = ['plot', 'character', 'glossary', 'material', 'memo'];
 
 /** 右パネル幅のデフォルト・最小・最大 */
 export const RIGHT_PANEL_DEFAULT_WIDTH = 280;
@@ -91,6 +94,30 @@ function loadRightPanelWidth(): number {
 function saveRightPanelWidth(width: number) {
   try {
     localStorage.setItem('story-attic-right-panel-width', String(width));
+  } catch {
+    /* 無視 */
+  }
+}
+
+/** localStorageから表示タブ一覧を復元 */
+function loadVisibleRightTabs(): RightPanelTab[] {
+  try {
+    const stored = localStorage.getItem('story-attic-visible-right-tabs');
+    if (stored) {
+      const parsed = JSON.parse(stored) as string[];
+      const valid = parsed.filter((t): t is RightPanelTab => VALID_RIGHT_TABS.includes(t as RightPanelTab));
+      if (valid.length > 0) return valid;
+    }
+  } catch {
+    /* 無視 */
+  }
+  return [...VALID_RIGHT_TABS];
+}
+
+/** 表示タブ一覧をlocalStorageに保存 */
+function saveVisibleRightTabs(tabs: RightPanelTab[]) {
+  try {
+    localStorage.setItem('story-attic-visible-right-tabs', JSON.stringify(tabs));
   } catch {
     /* 無視 */
   }
@@ -213,18 +240,26 @@ interface UIState {
   /** キャラクターウィジェット設定 */
   characterSettings: CharacterSettings;
 
-  /** AIパネル表示（フローティング用。右パネル内AIタブは rightPanelVisible で制御） */
+  /** AIパネル表示（フローティングウィンドウ） */
   aiPanelVisible: boolean;
-  /** AIパネルの表示モード */
-  aiPanelMode: 'sidebar' | 'floating';
 
   /** 右パネルのアクティブタブ */
   activeRightTab: RightPanelTab;
+  /** 表示するタブの一覧（カスタマイズ可能） */
+  visibleRightTabs: RightPanelTab[];
   /** 右パネルの幅 (px) */
   rightPanelWidth: number;
 
   /** 執筆支援モーダル表示 */
   writingSupportModalVisible: boolean;
+
+  /** 執筆タイマー状態 */
+  timerRunning: boolean;
+  timerRemaining: number;   // 残り秒数
+  timerTotal: number;       // 設定秒数
+
+  /** 目標文字数（null = 未設定） */
+  dailyGoal: number | null;
 
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
@@ -242,12 +277,20 @@ interface UIState {
   setSoundSettings: (settings: SoundSettings) => void;
   setCharacterSettings: (settings: CharacterSettings) => void;
   toggleAiPanel: () => void;
-  setAiPanelMode: (mode: 'sidebar' | 'floating') => void;
   setActiveRightTab: (tab: RightPanelTab) => void;
+  setVisibleRightTabs: (tabs: RightPanelTab[]) => void;
   setRightPanelWidth: (width: number) => void;
   /** 右パネルを開いて指定タブに切り替える */
   openRightPanelTab: (tab: RightPanelTab) => void;
   toggleWritingSupportModal: () => void;
+
+  /** タイマー操作 */
+  startTimer: (minutes: number) => void;
+  stopTimer: () => void;
+  tickTimer: () => void;
+
+  /** 目標文字数を設定（0やnullで解除） */
+  setDailyGoal: (goal: number | null) => void;
 }
 
 const initialAmbience = loadAmbienceSettings();
@@ -268,10 +311,19 @@ export const useUIStore = create<UIState>((set) => ({
   soundSettings: loadSoundSettings(),
   characterSettings: loadCharacterSettings(),
   aiPanelVisible: false,
-  aiPanelMode: 'sidebar',
-  activeRightTab: 'ai' as RightPanelTab,
+  activeRightTab: 'plot' as RightPanelTab,
+  visibleRightTabs: loadVisibleRightTabs(),
   rightPanelWidth: loadRightPanelWidth(),
   writingSupportModalVisible: false,
+  timerRunning: false,
+  timerRemaining: 0,
+  timerTotal: 0,
+  dailyGoal: (() => {
+    try {
+      const v = Number(localStorage.getItem('story-attic-goal-chars'));
+      return v > 0 ? v : null;
+    } catch { return null; }
+  })(),
 
   toggleLeftPanel: () =>
     set((s) => ({ leftPanelVisible: !s.leftPanelVisible })),
@@ -319,8 +371,21 @@ export const useUIStore = create<UIState>((set) => ({
   },
   toggleAiPanel: () =>
     set((s) => ({ aiPanelVisible: !s.aiPanelVisible })),
-  setAiPanelMode: (mode) => set({ aiPanelMode: mode }),
-  setActiveRightTab: (tab) => set({ activeRightTab: tab }),
+  setActiveRightTab: (tab) => {
+    const validTab = VALID_RIGHT_TABS.includes(tab) ? tab : 'plot';
+    set({ activeRightTab: validTab });
+  },
+  setVisibleRightTabs: (tabs) => {
+    saveVisibleRightTabs(tabs);
+    set((s) => {
+      // アクティブタブが非表示になった場合、最初の可視タブにフォールバック
+      const activeStillVisible = tabs.includes(s.activeRightTab);
+      return {
+        visibleRightTabs: tabs,
+        activeRightTab: activeStillVisible ? s.activeRightTab : (tabs[0] ?? 'plot'),
+      };
+    });
+  },
   setRightPanelWidth: (width) => {
     const clamped = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, width));
     saveRightPanelWidth(clamped);
@@ -330,4 +395,33 @@ export const useUIStore = create<UIState>((set) => ({
     set({ rightPanelVisible: true, activeRightTab: tab }),
   toggleWritingSupportModal: () =>
     set((s) => ({ writingSupportModalVisible: !s.writingSupportModalVisible })),
+
+  startTimer: (minutes) => {
+    const totalSec = minutes * 60;
+    set({ timerRunning: true, timerRemaining: totalSec, timerTotal: totalSec });
+  },
+  stopTimer: () => {
+    set({ timerRunning: false, timerRemaining: 0, timerTotal: 0 });
+  },
+  tickTimer: () =>
+    set((s) => {
+      if (!s.timerRunning || s.timerRemaining <= 0) return s;
+      const next = s.timerRemaining - 1;
+      if (next <= 0) {
+        return { timerRemaining: 0, timerRunning: false };
+      }
+      return { timerRemaining: next };
+    }),
+
+  setDailyGoal: (goal) => {
+    const value = goal && goal > 0 ? goal : null;
+    try {
+      if (value) {
+        localStorage.setItem('story-attic-goal-chars', String(value));
+      } else {
+        localStorage.removeItem('story-attic-goal-chars');
+      }
+    } catch { /* 無視 */ }
+    set({ dailyGoal: value });
+  },
 }));
