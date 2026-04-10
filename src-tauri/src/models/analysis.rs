@@ -4,9 +4,37 @@ use serde::{Deserialize, Serialize};
 // 文章分析
 // =========================================
 
+/// 語彙頻度エントリ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WordFrequency {
+    pub word: String,
+    pub count: usize,
+}
+
+/// 漢字頻度エントリ
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KanjiFrequency {
+    pub kanji: String,
+    pub count: usize,
+}
+
+/// 構造分析セクション（起承転結等の1区分）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StructureSection {
+    /// ラベル（起/承/転/結）
+    pub label: String,
+    /// 全体に対する文字数比率
+    pub char_ratio: f64,
+    /// このセクションの台詞率
+    pub dialogue_rate: f64,
+    /// このセクションの平均文長
+    pub avg_sentence_length: f64,
+}
+
 /// 文章分析の結果
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisResult {
+    // --- 基本統計 ---
     /// 文字数（タグ除外）
     pub char_count: usize,
     /// 行数
@@ -29,6 +57,54 @@ pub struct AnalysisResult {
     pub sentence_lengths: Vec<usize>,
     /// 段落ごとの台詞比率推移（グラフ用）
     pub dialogue_ratios: Vec<f64>,
+
+    // --- 語彙分析 ---
+    /// 頻出語ランキング（上位30）
+    pub word_frequencies: Vec<WordFrequency>,
+    /// 語彙多様性 (TTR: Type-Token Ratio)
+    pub vocabulary_diversity: f64,
+    /// ユニークトークン数
+    pub unique_token_count: usize,
+    /// 総トークン数
+    pub total_token_count: usize,
+
+    // --- テンポ分析 ---
+    /// 文長分散（リズム均一度の指標）
+    pub rhythm_variance: f64,
+    /// 文長標準偏差
+    pub rhythm_stddev: f64,
+    /// 段落ごとの「台詞主体か」フラグ（true=台詞主体）
+    pub dialogue_narrative_pattern: Vec<bool>,
+    /// 場面転換数（空行・セパレータ行の数）
+    pub scene_break_count: usize,
+    /// 場面転換密度（転換数 / 段落数）
+    pub scene_break_density: f64,
+
+    // --- 構造分析 ---
+    /// 起承転結の推定（4セクション）
+    pub estimated_structure: Vec<StructureSection>,
+    /// クライマックス推定位置（0.0-1.0）
+    pub climax_position: f64,
+    /// 盛り上がり曲線（10分割した各区間の強度スコア）
+    pub intensity_curve: Vec<f64>,
+
+    // --- 文体分析拡張 ---
+    /// 敬体の文数
+    pub polite_form_count: usize,
+    /// 常体の文数
+    pub plain_form_count: usize,
+    /// 敬体率
+    pub polite_form_ratio: f64,
+    /// 敬体/常体が混在している文インデックス
+    pub mixed_style_warnings: Vec<usize>,
+
+    // --- 読みやすさ ---
+    /// 推定読了時間（分）
+    pub estimated_reading_minutes: f64,
+    /// 検出された難読漢字
+    pub difficult_kanji: Vec<KanjiFrequency>,
+    /// 使用されているユニーク漢字数
+    pub unique_kanji_count: usize,
 }
 
 // =========================================

@@ -112,7 +112,25 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
 // 文章分析
 // =========================================
 
+export interface WordFrequency {
+  word: string;
+  count: number;
+}
+
+export interface KanjiFrequency {
+  kanji: string;
+  count: number;
+}
+
+export interface StructureSection {
+  label: string;
+  charRatio: number;
+  dialogueRate: number;
+  avgSentenceLength: number;
+}
+
 export interface AnalysisResult {
+  // 基本統計
   charCount: number;
   lineCount: number;
   paragraphCount: number;
@@ -124,6 +142,35 @@ export interface AnalysisResult {
   dialogueRate: number;
   sentenceLengths: number[];
   dialogueRatios: number[];
+
+  // 語彙分析
+  wordFrequencies: WordFrequency[];
+  vocabularyDiversity: number;
+  uniqueTokenCount: number;
+  totalTokenCount: number;
+
+  // テンポ分析
+  rhythmVariance: number;
+  rhythmStddev: number;
+  dialogueNarrativePattern: boolean[];
+  sceneBreakCount: number;
+  sceneBreakDensity: number;
+
+  // 構造分析
+  estimatedStructure: StructureSection[];
+  climaxPosition: number;
+  intensityCurve: number[];
+
+  // 文体分析拡張
+  politeFormCount: number;
+  plainFormCount: number;
+  politeFormRatio: number;
+  mixedStyleWarnings: number[];
+
+  // 読みやすさ
+  estimatedReadingMinutes: number;
+  difficultKanji: KanjiFrequency[];
+  uniqueKanjiCount: number;
 }
 
 // =========================================
