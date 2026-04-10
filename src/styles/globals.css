@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Xim Sans Conlang';
+  src: url('/fonts/Xim-Sans-Conlang.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 /* =========================================
    CSS変数（設計書 §4 カラーパレット）
    ========================================= */
@@ -42,6 +49,7 @@
   --font-heading: 'Shippori Mincho', serif;
   --font-ui:      'Noto Sans JP', sans-serif;
   --font-editor:  '游明朝', 'Yu Mincho', 'Noto Serif JP', serif;
+  --font-app-title: 'Xim Sans Conlang', var(--font-heading);
 }
 
 /* =========================================
@@ -793,4 +801,38 @@ select.input option {
 
 .ai-markdown em {
   font-style: italic;
+}
+
+/* =========================================
+   台詞ビュー
+   ========================================= */
+
+.dialogue-item:hover {
+  background: var(--bg-elevated) !important;
+}
+
+/* =========================================
+   原稿用紙プレビュー
+   ========================================= */
+
+.manuscript-preview-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.manuscript-grid {
+  font-feature-settings: "vrt2" 1;
+}
+
+/* =========================================
+   デュアルビュー リサイズハンドル
+   ========================================= */
+
+.dual-resize-handle:hover {
+  background: var(--accent) !important;
+}
+
+.dual-resize-handle:active {
+  background: var(--accent-hover) !important;
 }

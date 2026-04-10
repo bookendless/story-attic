@@ -32,6 +32,23 @@ pub struct AnalysisResult {
 }
 
 // =========================================
+// 台詞抽出
+// =========================================
+
+/// 抽出された台詞1件
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DialogueItem {
+    /// 台詞テキスト（括弧含む）
+    pub text: String,
+    /// 段落番号（0始まり）
+    pub paragraph_index: usize,
+    /// 段落内の文字オフセット
+    pub offset: usize,
+    /// 括弧の種類（「」=normal, 『』=double, （）=paren）
+    pub bracket_type: String,
+}
+
+// =========================================
 // 校正
 // =========================================
 

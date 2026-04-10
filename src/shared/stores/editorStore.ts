@@ -13,6 +13,10 @@ interface EditorState {
   /** 最後に自動保存が完了した時刻（ISO文字列）。nullは未実行 */
   lastAutoSavedAt: string | null;
 
+  /** デュアルビュー用：セカンダリエピソード */
+  secondaryEpisode: Episode | null;
+  secondaryIsDirty: boolean;
+
   loadChapterTree: (projectId: string) => Promise<void>;
   switchEpisode: (id: string) => Promise<void>;
   updateBody: (body: string) => void;
@@ -25,6 +29,12 @@ interface EditorState {
   reorderEpisodes: (projectId: string, orderedIds: string[]) => Promise<void>;
   assignEpisodeToChapter: (episodeId: string, chapterId: string) => Promise<void>;
   unassignEpisode: (episodeId: string) => Promise<void>;
+
+  /** デュアルビュー用：セカンダリエピソードの切替・更新・保存・クリア */
+  switchSecondaryEpisode: (id: string) => Promise<void>;
+  updateSecondaryBody: (body: string) => void;
+  saveSecondary: () => Promise<void>;
+  clearSecondary: () => void;
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
@@ -35,6 +45,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   isSaving: false,
   error: null,
   lastAutoSavedAt: null,
+  secondaryEpisode: null,
+  secondaryIsDirty: false,
 
   loadChapterTree: async (projectId: string) => {
     const raw = await invoke<unknown>('get_chapter_tree', { projectId });
@@ -134,5 +146,35 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (current) {
       await get().loadChapterTree(current.projectId);
     }
+  },
+
+  switchSecondaryEpisode: async (id: string) => {
+    // セカンダリが未保存なら先に保存
+    if (get().secondaryIsDirty) {
+      await get().saveSecondary();
+    }
+    const raw = await invoke<unknown>('get_episode', { id });
+    set({ secondaryEpisode: toCamelCase<Episode>(raw), secondaryIsDirty: false });
+  },
+
+  updateSecondaryBody: (body: string) => {
+    const secondary = get().secondaryEpisode;
+    if (!secondary) return;
+    set({ secondaryEpisode: { ...secondary, body }, secondaryIsDirty: true });
+  },
+
+  saveSecondary: async () => {
+    const { secondaryEpisode, secondaryIsDirty } = get();
+    if (!secondaryEpisode || !secondaryIsDirty) return;
+    try {
+      await invoke('save_episode', { id: secondaryEpisode.id, body: secondaryEpisode.body });
+      set({ secondaryIsDirty: false });
+    } catch (e) {
+      set({ error: String(e) });
+    }
+  },
+
+  clearSecondary: () => {
+    set({ secondaryEpisode: null, secondaryIsDirty: false });
   },
 }));

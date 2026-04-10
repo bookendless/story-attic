@@ -14,6 +14,9 @@ import { SearchBar } from './SearchBar';
 import { EditorToolbar } from './EditorToolbar';
 import { ProofreadPanel } from '@/features/analysis/ProofreadPanel';
 import { DiffView } from '@/features/analysis/DiffView';
+import { DialogueView } from './DialogueView';
+import { PreviewView } from './PreviewView';
+import { DualEditorView } from './DualEditorView';
 import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
 import { SelectionPopup } from './SelectionPopup';
@@ -156,6 +159,21 @@ export function EditorArea() {
   // 差分ビューモード
   if (editorViewMode === 'diff') {
     return <DiffView />;
+  }
+
+  // 台詞ビューモード
+  if (editorViewMode === 'dialogue') {
+    return <DialogueView />;
+  }
+
+  // プレビューモード
+  if (editorViewMode === 'preview') {
+    return <PreviewView />;
+  }
+
+  // デュアルビューモード
+  if (editorViewMode === 'dual') {
+    return <DualEditorView />;
   }
 
   // 校正ビューモード: エディタ + 校正パネルの横並び

@@ -24,7 +24,12 @@ import {
   IconGhost,
   IconAi,
   IconMaterial,
+  IconViewSwitch,
+  IconDialogue,
+  IconPreview,
+  IconDual,
 } from '@/shared/components/Icons';
+import type { EditorViewMode } from '@/shared/stores/uiStore';
 
 /** アイコンボタン（ツールチップ付き） */
 function HeaderButton({
@@ -74,6 +79,63 @@ function HeaderButton({
   );
 }
 
+/** ビュー切替ドロップダウンメニュー */
+function ViewSwitchMenu({
+  currentMode,
+  onSelect,
+  onClose,
+}: {
+  currentMode: EditorViewMode;
+  onSelect: (mode: EditorViewMode) => void;
+  onClose: () => void;
+}) {
+  const items: { mode: EditorViewMode; icon: React.ReactNode; label: string; shortcut?: string }[] = [
+    { mode: 'editor', icon: null, label: 'エディタ', shortcut: '' },
+    { mode: 'dialogue', icon: <IconDialogue size={14} />, label: '台詞一覧', shortcut: 'Ctrl+Shift+L' },
+    { mode: 'preview', icon: <IconPreview size={14} />, label: 'プレビュー', shortcut: 'Ctrl+Shift+P' },
+    { mode: 'dual', icon: <IconDual size={14} />, label: 'デュアルビュー', shortcut: 'Ctrl+Shift+D' },
+  ];
+
+  return (
+    <>
+      {/* 背景オーバーレイ */}
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="absolute top-full right-0 mt-1 z-50 rounded shadow-lg border"
+        style={{
+          background: 'var(--bg-elevated)',
+          borderColor: 'var(--border)',
+          minWidth: '180px',
+        }}
+      >
+        {items.map(({ mode, icon, label, shortcut }) => (
+          <button
+            key={mode}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
+            style={{
+              color: currentMode === mode ? 'var(--accent)' : 'var(--text)',
+              background: currentMode === mode ? 'var(--accent-soft)' : 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              if (currentMode !== mode) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = currentMode === mode ? 'var(--accent-soft)' : 'transparent';
+            }}
+            onClick={() => onSelect(mode)}
+          >
+            <span className="w-4 flex-shrink-0">{icon}</span>
+            <span className="flex-1 text-left">{label}</span>
+            {shortcut && (
+              <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{shortcut}</span>
+            )}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 export function WorkspaceHeader() {
   const navigateTo = useAppStore((s) => s.navigateTo);
   const currentProject = useProjectStore((s) => s.currentProject);
@@ -106,6 +168,7 @@ export function WorkspaceHeader() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [showAmbiencePopover, setShowAmbiencePopover] = useState(false);
+  const [showViewMenu, setShowViewMenu] = useState(false);
   const updateProject = useProjectStore((s) => s.updateProject);
 
   const handleHomeClick = () => {
@@ -310,6 +373,28 @@ export function WorkspaceHeader() {
               active={isTategaki}
               onClick={toggleTategaki}
             />
+
+            {/* ビュー切替ドロップダウン */}
+            <div className="relative">
+              <HeaderButton
+                icon={<IconViewSwitch size={20} />}
+                label="ビュー切替"
+                shortLabel="ビュー"
+                active={editorViewMode !== 'editor'}
+                disabled={!hasEpisode}
+                onClick={() => setShowViewMenu((v) => !v)}
+              />
+              {showViewMenu && (
+                <ViewSwitchMenu
+                  currentMode={editorViewMode}
+                  onSelect={(mode) => {
+                    setEditorViewMode(mode);
+                    setShowViewMenu(false);
+                  }}
+                  onClose={() => setShowViewMenu(false)}
+                />
+              )}
+            </div>
           </div>
 
           {/* 演出・サウンドグループ（ポップオーバー付き） */}

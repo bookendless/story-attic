@@ -353,6 +353,49 @@ export function IconFocus({ size = defaults.size, className }: IconProps) {
   );
 }
 
+/** 台詞ビュー（吹き出しリスト） */
+export function IconDialogue({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 2h9a1 1 0 011 1v4a1 1 0 01-1 1H6l-2 1.5V8H2a1 1 0 01-1-1V3a1 1 0 011-1z" />
+      <path d="M5 9.5h7a1 1 0 011 1v3a1 1 0 01-1 1h-1v1.5L9 13.5H5a1 1 0 01-1-1v-2a1 1 0 011-1z" />
+    </svg>
+  );
+}
+
+/** プレビュー（目のアイコン） */
+export function IconPreview({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+      <circle cx="8" cy="8" r="2.5" />
+    </svg>
+  );
+}
+
+/** デュアルビュー（左右分割） */
+export function IconDual({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="1.5" y="2" width="13" height="12" rx="1.5" />
+      <path d="M8 2v12" />
+      <path d="M4 5.5h2M4 8h2M10 5.5h2M10 8h2" />
+    </svg>
+  );
+}
+
+/** ビュー切替（グリッドアイコン） */
+export function IconViewSwitch({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="2" y="2" width="5" height="5" rx="1" />
+      <rect x="9" y="2" width="5" height="5" rx="1" />
+      <rect x="2" y="9" width="5" height="5" rx="1" />
+      <rect x="9" y="9" width="5" height="5" rx="1" />
+    </svg>
+  );
+}
+
 /** パネル表示（左パネル表示） */
 export function IconPanelShow({ size = defaults.size, className }: IconProps) {
   return (

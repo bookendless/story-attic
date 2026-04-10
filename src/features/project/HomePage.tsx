@@ -44,7 +44,7 @@ export function HomePage() {
         <div className="flex flex-col">
           <h1
             className="text-3xl font-medium tracking-[0.2em] select-none title-glow"
-            style={{ fontFamily: 'var(--font-heading)', color: 'var(--accent)' }}
+            style={{ fontFamily: 'var(--font-app-title)', color: 'var(--accent)' }}
           >
             StoryAttic
           </h1>

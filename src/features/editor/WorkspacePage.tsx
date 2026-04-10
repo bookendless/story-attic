@@ -19,8 +19,14 @@ import { WritingSupportModal } from '@/features/writing-support/WritingSupportMo
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const { openProject, currentProject } = useProjectStore();
-  const { loadChapterTree } = useEditorStore();
-  const { leftPanelVisible, rightPanelVisible, rightPanelWidth, aiPanelVisible, setSettings } = useUIStore();
+  const { loadChapterTree, save, saveSecondary } = useEditorStore();
+  const {
+    leftPanelVisible, rightPanelVisible, rightPanelWidth, aiPanelVisible,
+    setSettings, toggleAiPanel, toggleRightPanel, setEditorViewMode, editorViewMode,
+    timerRunning, startTimer, stopTimer, toggleWritingSupportModal,
+    analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
+    toggleAnalysisModal, toggleSettingsModal,
+  } = useUIStore();
 
   // 自動保存フック
   useAutoSave();
@@ -33,6 +39,77 @@ export function WorkspacePage() {
       loadChapterTree(currentProjectId);
     }
   }, [currentProjectId, openProject, loadChapterTree]);
+
+  // グローバルキーボードショートカット
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+
+      // Ctrl+Shift+A: AIパネル開閉
+      if (ctrl && shift && e.key === 'A') {
+        e.preventDefault();
+        toggleAiPanel();
+        return;
+      }
+      // Ctrl+Shift+D: デュアルビュー切替
+      if (ctrl && shift && e.key === 'D') {
+        e.preventDefault();
+        setEditorViewMode(editorViewMode === 'dual' ? 'editor' : 'dual');
+        return;
+      }
+      // Ctrl+Shift+P: プレビュー切替
+      if (ctrl && shift && e.key === 'P') {
+        e.preventDefault();
+        setEditorViewMode(editorViewMode === 'preview' ? 'editor' : 'preview');
+        return;
+      }
+      // Ctrl+Shift+L: 台詞ビュー切替
+      if (ctrl && shift && e.key === 'L') {
+        e.preventDefault();
+        setEditorViewMode(editorViewMode === 'dialogue' ? 'editor' : 'dialogue');
+        return;
+      }
+      // Ctrl+T: タイマー開始/停止
+      if (ctrl && !shift && e.key === 't') {
+        e.preventDefault();
+        if (timerRunning) {
+          stopTimer();
+        } else {
+          startTimer(25);
+        }
+        return;
+      }
+      // Ctrl+Shift+R: 右パネル開閉
+      if (ctrl && shift && e.key === 'R') {
+        e.preventDefault();
+        toggleRightPanel();
+        return;
+      }
+      // Ctrl+S: 保存（プライマリ＋セカンダリ両方）
+      if (ctrl && !shift && e.key === 's') {
+        e.preventDefault();
+        save();
+        saveSecondary();
+        return;
+      }
+      // Escape: モーダル/フローティングパネル閉じ
+      if (e.key === 'Escape') {
+        if (analysisModalVisible) { toggleAnalysisModal(); return; }
+        if (settingsModalVisible) { toggleSettingsModal(); return; }
+        if (writingSupportModalVisible) { toggleWritingSupportModal(); return; }
+        if (aiPanelVisible) { toggleAiPanel(); return; }
+        return;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    toggleAiPanel, toggleRightPanel, setEditorViewMode, editorViewMode,
+    timerRunning, startTimer, stopTimer, save, saveSecondary,
+    aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
+    toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal,
+  ]);
 
   // プロジェクトの設定をUIストアに反映
   useEffect(() => {

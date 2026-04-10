@@ -70,6 +70,7 @@ pub fn run() {
             // 文章分析・校正
             commands::analysis::analyze_text,
             commands::analysis::run_proofread,
+            commands::analysis::extract_dialogues,
             // スナップショット
             commands::snapshot::save_snapshot,
             commands::snapshot::list_snapshots,

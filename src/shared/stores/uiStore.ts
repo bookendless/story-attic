@@ -3,7 +3,10 @@ import type { ProjectSettings, ProofreadSettings } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_PROOFREAD_SETTINGS } from '../types';
 
 /** エディタのビューモード */
-export type EditorViewMode = 'editor' | 'diff' | 'proofread';
+export type EditorViewMode = 'editor' | 'diff' | 'proofread' | 'dialogue' | 'preview' | 'dual';
+
+/** プレビューのサブモード */
+export type PreviewSubMode = 'manuscript' | 'smartphone';
 
 /** カラーテーマ */
 export type ThemeMode = 'dark' | 'light';
@@ -261,6 +264,9 @@ interface UIState {
   /** 目標文字数（null = 未設定） */
   dailyGoal: number | null;
 
+  /** プレビューのサブモード（原稿用紙 or スマートフォン） */
+  previewSubMode: PreviewSubMode;
+
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleSearchBar: () => void;
@@ -291,6 +297,9 @@ interface UIState {
 
   /** 目標文字数を設定（0やnullで解除） */
   setDailyGoal: (goal: number | null) => void;
+
+  /** プレビューのサブモードを切替 */
+  setPreviewSubMode: (mode: PreviewSubMode) => void;
 }
 
 const initialAmbience = loadAmbienceSettings();
@@ -318,6 +327,7 @@ export const useUIStore = create<UIState>((set) => ({
   timerRunning: false,
   timerRemaining: 0,
   timerTotal: 0,
+  previewSubMode: 'manuscript' as PreviewSubMode,
   dailyGoal: (() => {
     try {
       const v = Number(localStorage.getItem('story-attic-goal-chars'));
@@ -412,6 +422,8 @@ export const useUIStore = create<UIState>((set) => ({
       }
       return { timerRemaining: next };
     }),
+
+  setPreviewSubMode: (previewSubMode) => set({ previewSubMode }),
 
   setDailyGoal: (goal) => {
     const value = goal && goal > 0 ? goal : null;

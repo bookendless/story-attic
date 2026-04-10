@@ -127,6 +127,17 @@ export interface AnalysisResult {
 }
 
 // =========================================
+// 台詞抽出
+// =========================================
+
+export interface DialogueItem {
+  text: string;
+  paragraphIndex: number;
+  offset: number;
+  bracketType: 'normal' | 'double' | 'paren';
+}
+
+// =========================================
 // 校正
 // =========================================
 

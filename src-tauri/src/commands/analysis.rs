@@ -1,4 +1,4 @@
-use crate::models::{AnalysisResult, ProofIssue, ProofRule};
+use crate::models::{AnalysisResult, DialogueItem, ProofIssue, ProofRule};
 
 type CmdResult<T> = Result<T, String>;
 
@@ -7,15 +7,40 @@ type CmdResult<T> = Result<T, String>;
 // =========================================
 
 /// HTMLタグを除去してプレーンテキストを返す
+/// ブロック要素の閉じタグ（</p>, </div>, <br>等）では改行を挿入する
 fn strip_html(html: &str) -> String {
     let mut result = String::with_capacity(html.len());
     let mut in_tag = false;
+    let mut tag_buf = String::new();
+
     for ch in html.chars() {
         match ch {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            _ if !in_tag => result.push(ch),
-            _ => {}
+            '<' => {
+                in_tag = true;
+                tag_buf.clear();
+            }
+            '>' if in_tag => {
+                in_tag = false;
+                let tag_lower = tag_buf.to_lowercase();
+                // ブロック要素の閉じタグまたは<br>で改行を挿入
+                if tag_lower.starts_with("/p")
+                    || tag_lower.starts_with("/div")
+                    || tag_lower.starts_with("/li")
+                    || tag_lower.starts_with("br")
+                {
+                    // 直前が改行でなければ改行を追加
+                    if !result.ends_with('\n') {
+                        result.push('\n');
+                    }
+                }
+                tag_buf.clear();
+            }
+            _ if in_tag => {
+                tag_buf.push(ch);
+            }
+            _ => {
+                result.push(ch);
+            }
         }
     }
     result
@@ -158,6 +183,66 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
         sentence_lengths,
         dialogue_ratios,
     })
+}
+
+/// 台詞を抽出する
+#[tauri::command]
+pub fn extract_dialogues(text: String) -> CmdResult<Vec<DialogueItem>> {
+    let plain = strip_html(&text);
+    let paragraphs = split_paragraphs(&plain);
+    let mut items = Vec::new();
+
+    // 括弧ペアの定義: (開き, 閉じ, タイプ名)
+    let bracket_pairs: &[(char, char, &str)] = &[
+        ('「', '」', "normal"),
+        ('『', '』', "double"),
+        ('（', '）', "paren"),
+    ];
+
+    for (para_idx, para) in paragraphs.iter().enumerate() {
+        let chars: Vec<char> = para.chars().collect();
+        let mut i = 0;
+
+        while i < chars.len() {
+            let mut matched = false;
+
+            // 各括弧ペアを検査
+            for &(open, close, btype) in bracket_pairs {
+                if chars[i] == open {
+                    // 閉じ括弧を探す
+                    let start = i;
+                    let mut depth = 1;
+                    let mut j = i + 1;
+                    while j < chars.len() && depth > 0 {
+                        if chars[j] == open {
+                            depth += 1;
+                        } else if chars[j] == close {
+                            depth -= 1;
+                        }
+                        j += 1;
+                    }
+                    if depth == 0 {
+                        let dialogue_text: String = chars[start..j].iter().collect();
+                        items.push(DialogueItem {
+                            text: dialogue_text,
+                            paragraph_index: para_idx,
+                            offset: start,
+                            bracket_type: btype.to_string(),
+                        });
+                        i = j;
+                        matched = true;
+                        break;
+                    }
+                }
+            }
+
+            if !matched {
+                i += 1;
+            }
+        }
+    }
+
+    Ok(items)
 }
 
 /// 校正ルールの定義
