@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { AnalysisResult, StructureSection } from '@/shared/types';
 
-type TabKey = 'basic' | 'vocabulary' | 'tempo' | 'structure' | 'style' | 'readability';
+type TabKey = 'structure' | 'tempo' | 'vocabulary' | 'character' | 'emotion' | 'narrative' | 'writing';
 
 const TABS: { key: TabKey; label: string }[] = [
-  { key: 'basic', label: '基本' },
+  { key: 'structure',  label: '構造' },
+  { key: 'tempo',      label: 'テンポ' },
   { key: 'vocabulary', label: '語彙' },
-  { key: 'tempo', label: 'テンポ' },
-  { key: 'structure', label: '構造' },
-  { key: 'style', label: '文体' },
-  { key: 'readability', label: '読みやすさ' },
+  { key: 'character',  label: '人物' },
+  { key: 'emotion',    label: '感情' },
+  { key: 'narrative',  label: '物語' },
+  { key: 'writing',    label: '文章' },
 ];
 
 export function AnalysisModal() {
@@ -22,18 +23,28 @@ export function AnalysisModal() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>('basic');
+  const [activeTab, setActiveTab] = useState<TabKey>('structure');
+  const [characterCount, setCharacterCount] = useState<number>(0);
 
-  useEffect(() => {
-    if (!analysisModalVisible || !currentEpisode) return;
-
+  const handleAnalyze = useCallback(() => {
+    if (!currentEpisode) return;
     setLoading(true);
     setError(null);
     invoke<unknown>('analyze_text', { text: currentEpisode.body })
       .then((raw) => setResult(toCamelCase<AnalysisResult>(raw)))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [analysisModalVisible, currentEpisode]);
+  }, [currentEpisode]);
+
+  useEffect(() => {
+    if (!analysisModalVisible) return;
+    handleAnalyze();
+    if (currentEpisode?.projectId) {
+      invoke<unknown[]>('get_characters', { projectId: currentEpisode.projectId })
+        .then((chars) => setCharacterCount(chars.length))
+        .catch(() => setCharacterCount(0));
+    }
+  }, [analysisModalVisible, currentEpisode, handleAnalyze]);
 
   if (!analysisModalVisible) return null;
 
@@ -49,11 +60,20 @@ export function AnalysisModal() {
             className="text-base font-medium"
             style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)' }}
           >
-            文章分析
+            テキスト分析
           </h2>
-          <button className="btn btn-ghost text-xs" onClick={toggleAnalysisModal}>
-            閉じる
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="btn btn-ghost text-xs"
+              onClick={handleAnalyze}
+              disabled={loading}
+            >
+              再分析
+            </button>
+            <button className="btn btn-ghost text-xs" onClick={toggleAnalysisModal}>
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* タブヘッダー */}
@@ -98,173 +118,17 @@ export function AnalysisModal() {
 
         {result && !loading && (
           <div className="space-y-5">
-            {activeTab === 'basic' && <BasicTab result={result} />}
+            {activeTab === 'structure'  && <StructureTab result={result} />}
+            {activeTab === 'tempo'      && <TempoTab result={result} />}
             {activeTab === 'vocabulary' && <VocabularyTab result={result} />}
-            {activeTab === 'tempo' && <TempoTab result={result} />}
-            {activeTab === 'structure' && <StructureTab result={result} />}
-            {activeTab === 'style' && <StyleTab result={result} />}
-            {activeTab === 'readability' && <ReadabilityTab result={result} />}
+            {activeTab === 'character'  && <CharacterTab result={result} characterCount={characterCount} />}
+            {activeTab === 'emotion'    && <EmotionTab result={result} />}
+            {activeTab === 'narrative'  && <NarrativeTab result={result} />}
+            {activeTab === 'writing'    && <WritingTab result={result} />}
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-// =========================================
-// 基本タブ
-// =========================================
-
-function BasicTab({ result }: { result: AnalysisResult }) {
-  return (
-    <>
-      <Section title="基本統計">
-        <div className="grid grid-cols-4 gap-3">
-          <StatCard label="文字数" value={result.charCount.toLocaleString()} />
-          <StatCard label="行数" value={result.lineCount.toLocaleString()} />
-          <StatCard label="段落数" value={result.paragraphCount.toLocaleString()} />
-          <StatCard label="文数" value={result.sentenceCount.toLocaleString()} />
-        </div>
-      </Section>
-
-      <Section title="文字種比率">
-        <div className="space-y-2">
-          <RateBar label="ひらがな" rate={result.hiraganaRate} color="var(--accent)" />
-          <RateBar label="カタカナ" rate={result.katakanaRate} color="var(--warning)" />
-          <RateBar label="漢字" rate={result.kanjiRate} color="var(--success)" />
-        </div>
-      </Section>
-
-      <Section title="基本指標">
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="平均文長"
-            value={`${result.avgSentenceLength.toFixed(1)} 字`}
-          />
-          <StatCard
-            label="台詞率"
-            value={`${(result.dialogueRate * 100).toFixed(1)}%`}
-          />
-        </div>
-      </Section>
-
-      {result.sentenceLengths.length > 0 && (
-        <Section title="文長推移">
-          <SentenceLengthChart lengths={result.sentenceLengths} />
-        </Section>
-      )}
-
-      {result.dialogueRatios.length > 0 && (
-        <Section title="段落別 台詞比率">
-          <DialogueRatioChart ratios={result.dialogueRatios} />
-        </Section>
-      )}
-    </>
-  );
-}
-
-// =========================================
-// 語彙タブ
-// =========================================
-
-function VocabularyTab({ result }: { result: AnalysisResult }) {
-  return (
-    <>
-      <Section title="語彙サマリ">
-        <div className="grid grid-cols-3 gap-3">
-          <StatCard
-            label="総トークン数"
-            value={result.totalTokenCount.toLocaleString()}
-          />
-          <StatCard
-            label="ユニーク数"
-            value={result.uniqueTokenCount.toLocaleString()}
-          />
-          <StatCard
-            label="語彙多様性 (TTR)"
-            value={result.vocabularyDiversity.toFixed(3)}
-          />
-        </div>
-        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-          ※ 簡易トークナイザ（2〜3文字n-gram）による参考値。TTRは1に近いほど語彙が豊富。
-        </p>
-      </Section>
-
-      <Section title="頻出語ランキング（上位30）">
-        {result.wordFrequencies.length === 0 ? (
-          <EmptyHint text="頻度2以上の語が見つかりませんでした" />
-        ) : (
-          <div
-            className="rounded-lg p-3"
-            style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <div className="space-y-1">
-              {result.wordFrequencies.map((wf, i) => (
-                <FreqRow
-                  key={`${wf.word}-${i}`}
-                  rank={i + 1}
-                  label={wf.word}
-                  count={wf.count}
-                  max={result.wordFrequencies[0].count}
-                  color="var(--accent)"
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </Section>
-    </>
-  );
-}
-
-// =========================================
-// テンポタブ
-// =========================================
-
-function TempoTab({ result }: { result: AnalysisResult }) {
-  return (
-    <>
-      <Section title="リズム指標">
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="文長 標準偏差"
-            value={result.rhythmStddev.toFixed(1)}
-          />
-          <StatCard
-            label="文長 分散"
-            value={result.rhythmVariance.toFixed(1)}
-          />
-        </div>
-        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-          ※ 標準偏差が大きいほど文長のメリハリがあり、小さいほど均一な文章。
-        </p>
-      </Section>
-
-      <Section title="場面転換">
-        <div className="grid grid-cols-2 gap-3">
-          <StatCard
-            label="転換回数"
-            value={result.sceneBreakCount.toLocaleString()}
-          />
-          <StatCard
-            label="密度（/段落）"
-            value={result.sceneBreakDensity.toFixed(3)}
-          />
-        </div>
-      </Section>
-
-      {result.dialogueNarrativePattern.length > 0 && (
-        <Section title="段落別 台詞/地の文パターン">
-          <DialoguePatternChart pattern={result.dialogueNarrativePattern} />
-          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
-            ※ 青＝地の文主体、橙＝台詞主体。偏りが続くとテンポが単調になりがち。
-          </p>
-        </Section>
-      )}
-    </>
   );
 }
 
@@ -275,6 +139,56 @@ function TempoTab({ result }: { result: AnalysisResult }) {
 function StructureTab({ result }: { result: AnalysisResult }) {
   return (
     <>
+      <Section title="基本統計">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard
+            label="総文字数（空白除く）"
+            value={result.charCount.toLocaleString()}
+            unit="文字"
+          />
+          <StatCard
+            label="総段落数"
+            value={result.paragraphCount.toLocaleString()}
+            unit="段落"
+          />
+          <StatCard
+            label="総文数"
+            value={result.sentenceCount.toLocaleString()}
+            unit="文"
+          />
+          <StatCard
+            label="平均段落長"
+            value={result.avgParagraphLength.toFixed(1)}
+            unit="文字/段落"
+            hint="短いほど読みやすい"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          <StatCard
+            label="平均文長"
+            value={result.avgSentenceLength.toFixed(1)}
+            unit="文字/文"
+          />
+          <StatCard
+            label="最長文"
+            value={result.maxSentenceLength.toLocaleString()}
+            unit="文字"
+          />
+        </div>
+      </Section>
+
+      {result.paragraphLengths.length > 0 && (
+        <Section title="段落長の推移">
+          <SentenceLengthChart lengths={result.paragraphLengths} label="段落" />
+        </Section>
+      )}
+
+      {result.paragraphLengths.length > 0 && (
+        <Section title="段落長の分布">
+          <ParagraphLengthHistogram lengths={result.paragraphLengths} />
+        </Section>
+      )}
+
       <Section title="起承転結 推定">
         <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
           ※ 文字数で機械的に4等分した参考指標です。精度は保証されません。
@@ -305,60 +219,253 @@ function StructureTab({ result }: { result: AnalysisResult }) {
 }
 
 // =========================================
-// 文体タブ
+// テンポタブ
 // =========================================
 
-function StyleTab({ result }: { result: AnalysisResult }) {
+function TempoTab({ result }: { result: AnalysisResult }) {
+  const maxVal = Math.max(
+    result.verbDensity,
+    result.dialogueRate,
+    result.adjDensity,
+    result.psychoDensity,
+    0.01,
+  );
+
   return (
     <>
-      <Section title="敬体/常体">
+      <Section title="テンポ指標">
         <div className="grid grid-cols-3 gap-3">
           <StatCard
-            label="敬体の文数"
-            value={result.politeFormCount.toLocaleString()}
+            label="イベント密度"
+            value={result.verbDensity.toFixed(2)}
+            unit="動詞/文"
+            hint="高いほど展開が速い"
           />
           <StatCard
-            label="常体の文数"
-            value={result.plainFormCount.toLocaleString()}
+            label="会話率"
+            value={`${(result.dialogueRate * 100).toFixed(1)}%`}
+            unit="テンポ感に直結"
           />
           <StatCard
-            label="敬体率"
-            value={`${(result.politeFormRatio * 100).toFixed(1)}%`}
+            label="平均文長"
+            value={result.avgSentenceLength.toFixed(1)}
+            unit="文字/文"
           />
-        </div>
-        <div className="mt-3">
-          <RateBar
-            label="敬体比率"
-            rate={result.politeFormRatio}
-            color="var(--accent)"
+          <StatCard
+            label="描写密度（形容詞）"
+            value={result.adjDensity.toFixed(2)}
+            unit="個/文"
+            hint="情景の濃さ"
+          />
+          <StatCard
+            label="心理描写密度"
+            value={result.psychoDensity.toFixed(2)}
+            unit="個/文"
+            hint="内面中心度"
+          />
+          <StatCard
+            label="段落転換率"
+            value={result.sceneBreakDensity.toFixed(2)}
+            unit="段落/千字"
+            hint="高いほど展開が小刻み"
           />
         </div>
       </Section>
 
-      <Section title="敬体/常体 混在警告">
-        {result.mixedStyleWarnings.length === 0 ? (
-          <EmptyHint text="混在箇所は検出されませんでした" />
+      <Section title="テンポ構成">
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>各要素の比率</p>
+        <div className="space-y-2">
+          <RateBar label="イベント密度" rate={result.verbDensity / maxVal} color="var(--accent)" valueLabel={result.verbDensity.toFixed(2)} />
+          <RateBar label="会話率" rate={result.dialogueRate} color="var(--warning)" valueLabel={`${(result.dialogueRate * 100).toFixed(0)}%`} />
+          <RateBar label="描写密度（形容詞）" rate={result.adjDensity / maxVal} color="#7cb8a0" valueLabel={result.adjDensity.toFixed(2)} />
+          <RateBar label="心理描写密度" rate={result.psychoDensity / maxVal} color="#a07cb8" valueLabel={result.psychoDensity.toFixed(2)} />
+        </div>
+      </Section>
+
+      {result.sentenceLengths.length > 0 && (
+        <Section title="文長の推移">
+          <SentenceLengthChart lengths={result.sentenceLengths} label="文" />
+        </Section>
+      )}
+
+      {result.dialogueNarrativePattern.length > 0 && (
+        <Section title="段落別 台詞/地の文パターン">
+          <DialoguePatternChart pattern={result.dialogueNarrativePattern} />
+          <p className="text-xs mt-2 flex items-center gap-3" style={{ color: 'var(--text-muted)' }}>
+            <span className="flex items-center gap-1">
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '2px', background: '#6b9fc4', opacity: 0.85 }} />
+              地の文主体
+            </span>
+            <span className="flex items-center gap-1">
+              <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '2px', background: '#d4834a', opacity: 0.85 }} />
+              台詞主体
+            </span>
+            <span>偏りが続くとテンポが単調になりがち。</span>
+          </p>
+        </Section>
+      )}
+    </>
+  );
+}
+
+// =========================================
+// 語彙タブ
+// =========================================
+
+function VocabularyTab({ result }: { result: AnalysisResult }) {
+  const posMax = Math.max(result.verbCount, result.adjCount, result.psychoWordCount, result.metaphorCount, 1);
+
+  return (
+    <>
+      <Section title="語彙指標">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard
+            label="語彙多様度(TTR)"
+            value={`${(result.vocabularyDiversity * 100).toFixed(1)}%`}
+            unit="異なり文字/総文字"
+            hint="高いほど文章が豊か"
+          />
+          <StatCard
+            label="難語率"
+            value={`${(result.difficultWordRate * 100).toFixed(1)}%`}
+            unit="スコア"
+            hint="高いほど読者レベルが高い"
+          />
+          <StatCard
+            label="比喩率"
+            value={`${(result.metaphorRate * 100).toFixed(1)}%`}
+            unit="16表現"
+            hint="文学性"
+          />
+          <StatCard
+            label="カタカナ語数"
+            value={result.katakanaWordCount.toLocaleString()}
+            unit="語"
+            hint="世界観・SF度"
+          />
+        </div>
+      </Section>
+
+      <Section title="頻出文字 Top 10">
+        {result.wordFrequencies.length === 0 ? (
+          <EmptyHint text="頻度2以上の語が見つかりませんでした" />
         ) : (
           <div
-            className="rounded-lg p-3 text-xs"
+            className="rounded-lg p-3"
             style={{
               background: 'var(--bg-surface)',
               border: '1px solid var(--border)',
-              color: 'var(--text)',
             }}
           >
-            <p className="mb-2" style={{ color: 'var(--warning)' }}>
-              {result.mixedStyleWarnings.length} 箇所で敬体と常体の混在を検出
-            </p>
-            <p style={{ color: 'var(--text-muted)' }}>
-              文番号:{' '}
-              {result.mixedStyleWarnings
-                .slice(0, 20)
-                .map((i) => `#${i + 1}`)
-                .join(', ')}
-              {result.mixedStyleWarnings.length > 20 && ' ...'}
-            </p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>出現回数ランキング</p>
+            <div className="space-y-1">
+              {result.wordFrequencies.slice(0, 10).map((wf, i) => (
+                <FreqRow
+                  key={`${wf.word}-${i}`}
+                  rank={i + 1}
+                  label={wf.word}
+                  count={wf.count}
+                  max={result.wordFrequencies[0].count}
+                  color="var(--accent)"
+                />
+              ))}
+            </div>
           </div>
+        )}
+      </Section>
+
+      <Section title="品詞構成（概算）">
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>動詞・形容詞・心理語・比喩表現の比率</p>
+        <div className="space-y-2">
+          <RateBar label="動詞" rate={result.verbCount / posMax} color="var(--accent)" valueLabel={`${result.verbCount}回`} />
+          <RateBar label="形容詞" rate={result.adjCount / posMax} color="var(--warning)" valueLabel={`${result.adjCount}回`} />
+          <RateBar label="心理語" rate={result.psychoWordCount / posMax} color="#a07cb8" valueLabel={`${result.psychoWordCount}回`} />
+          <RateBar label="比喩表現" rate={result.metaphorCount / posMax} color="#c87070" valueLabel={`${result.metaphorCount}回`} />
+        </div>
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+          ※ 形態素解析なしの概算値。実際の品詞とは異なる場合があります。
+        </p>
+      </Section>
+    </>
+  );
+}
+
+// =========================================
+// 人物＆視点タブ
+// =========================================
+
+function CharacterTab({
+  result,
+  characterCount,
+}: {
+  result: AnalysisResult;
+  characterCount: number;
+}) {
+  const fpRate = result.charCount > 0
+    ? (result.firstPersonCount / (result.charCount / 1000)).toFixed(2)
+    : '0.00';
+
+  return (
+    <>
+      <Section title="人物・視点の概要">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard
+            label="登録人物数"
+            value={characterCount.toLocaleString()}
+            unit="人"
+            hint="登録済み人物"
+          />
+          <StatCard
+            label="一人称出現数"
+            value={result.firstPersonCount.toLocaleString()}
+            unit="回"
+            hint={`${fpRate}回/千字`}
+          />
+          <StatCard
+            label="視点切替数"
+            value={result.povSwitchCount.toLocaleString()}
+            unit="回"
+            hint="群像劇度"
+          />
+          <StatCard
+            label="一人称率"
+            value={`${fpRate}回/千字`}
+            unit="語り手形式"
+          />
+        </div>
+      </Section>
+
+      <Section title="語り手分析">
+        <div
+          className="rounded-lg p-4"
+          style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+          }}
+        >
+          <div className="flex items-center gap-3 mb-3">
+            <span
+              className="text-sm font-medium px-3 py-1 rounded-full"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--bg)',
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
+              {result.narratorType || '不明'}
+            </span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              視点
+            </span>
+          </div>
+          <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
+            {result.narratorAnalysis || '分析に必要なデータが不足しています。'}
+          </p>
+        </div>
+        {characterCount === 0 && (
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+            人物タブで人物を登録すると出現数を集計します。
+          </p>
         )}
       </Section>
     </>
@@ -366,24 +473,185 @@ function StyleTab({ result }: { result: AnalysisResult }) {
 }
 
 // =========================================
-// 読みやすさタブ
+// 感情タブ
 // =========================================
 
-function ReadabilityTab({ result }: { result: AnalysisResult }) {
-  const minutes = Math.floor(result.estimatedReadingMinutes);
-  const seconds = Math.round(
-    (result.estimatedReadingMinutes - minutes) * 60,
+function EmotionTab({ result }: { result: AnalysisResult }) {
+  const total = result.positiveWordCount + result.negativeWordCount;
+  const posPct = total > 0 ? result.positiveWordCount / total : 0;
+  const negPct = total > 0 ? result.negativeWordCount / total : 0;
+  const maxEmo = Math.max(result.positiveWordCount, result.negativeWordCount, result.tensionWordCount, 1);
+
+  return (
+    <>
+      <Section title="感情語の概要">
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard
+            label="ポジティブ語"
+            value={result.positiveWordCount.toLocaleString()}
+            unit="語"
+            hint={`ポジネガ比:${(posPct * 100).toFixed(1)}%`}
+          />
+          <StatCard
+            label="ネガティブ語"
+            value={result.negativeWordCount.toLocaleString()}
+            unit="語"
+            hint={`${(negPct * 100).toFixed(1)}%`}
+          />
+          <StatCard
+            label="緊張度（危機語）"
+            value={result.tensionWordCount.toLocaleString()}
+            unit="語"
+            hint="ドラマ性"
+          />
+        </div>
+      </Section>
+
+      <Section title="感情バランス">
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>ポジ・ネガ語の比率</p>
+        <div className="space-y-2">
+          <RateBar label="ポジティブ" rate={result.positiveWordCount / maxEmo} color="#5a9e6e" valueLabel={`${result.positiveWordCount}語`} />
+          <RateBar label="ネガティブ" rate={result.negativeWordCount / maxEmo} color="#c87070" valueLabel={`${result.negativeWordCount}語`} />
+          <RateBar label="緊張（危機）" rate={result.tensionWordCount / maxEmo} color="#c8a070" valueLabel={`${result.tensionWordCount}語`} />
+        </div>
+        <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+          ※ ポジ語とネガ語の簡易辞書による概算です。
+        </p>
+      </Section>
+
+      {result.emotionCurve.length > 0 && (
+        <Section title="感情曲線（推移）">
+          <EmotionCurveChart curve={result.emotionCurve} />
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+            ※ 上方向がポジティブ寄り。ポジ語とネガ語の簡易辞書による概算です。
+          </p>
+        </Section>
+      )}
+    </>
   );
+}
+
+// =========================================
+// 物語タブ
+// =========================================
+
+function NarrativeTab({ result }: { result: AnalysisResult }) {
+  const maxVal = Math.max(
+    result.questionSentenceCount,
+    result.metaphorCount,
+    result.tensionWordCount,
+    result.psychoWordCount,
+    1,
+  );
+
+  return (
+    <>
+      <Section title="物語要素の概要">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard
+            label="疑問文（謎提示）"
+            value={result.questionSentenceCount.toLocaleString()}
+            unit="文"
+            hint="ミステリー度"
+          />
+          <StatCard
+            label="比喩表現"
+            value={result.metaphorCount.toLocaleString()}
+            unit="表現"
+            hint={`${(result.metaphorRate * 100).toFixed(1)}% 文学性`}
+          />
+          <StatCard
+            label="緊張語（危機）"
+            value={result.tensionWordCount.toLocaleString()}
+            unit="語"
+            hint="ドラマ性"
+          />
+          <StatCard
+            label="心理語"
+            value={result.psychoWordCount.toLocaleString()}
+            unit="語"
+            hint={`${result.psychoDensity.toFixed(2)}個/文`}
+          />
+        </div>
+      </Section>
+
+      <Section title="物語要素スコア">
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>物語要素の強さ</p>
+        <div className="space-y-2">
+          <RateBar label="謎・疑問（ミステリー度）" rate={result.questionSentenceCount / maxVal} color="var(--accent)" valueLabel={`${result.questionSentenceCount}`} />
+          <RateBar label="比喩（文学性）" rate={result.metaphorCount / maxVal} color="var(--warning)" valueLabel={`${result.metaphorCount}`} />
+          <RateBar label="緊張・危機（ドラマ性）" rate={result.tensionWordCount / maxVal} color="#c87070" valueLabel={`${result.tensionWordCount}`} />
+          <RateBar label="心理描写（内面度）" rate={result.psychoWordCount / maxVal} color="#a07cb8" valueLabel={`${result.psychoWordCount}`} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+// =========================================
+// 文章タブ
+// =========================================
+
+function WritingTab({ result }: { result: AnalysisResult }) {
+  const minutes = Math.floor(result.estimatedReadingMinutes);
+  const seconds = Math.round((result.estimatedReadingMinutes - minutes) * 60);
   const readingTime = minutes > 0 ? `約 ${minutes}分${seconds}秒` : `約 ${seconds}秒`;
 
   return (
     <>
+      <Section title="文章の特徴">
+        <div className="grid grid-cols-4 gap-3">
+          <StatCard
+            label="読解指数"
+            value={result.readabilityScore.toFixed(0)}
+            unit="スコア/100"
+            hint="高いほど難解"
+          />
+          <StatCard
+            label="文章リズム"
+            value={result.writingRhythm.toFixed(1)}
+            unit="字/句点間"
+            hint="文章テンポ"
+          />
+          <StatCard
+            label="段落転換率"
+            value={result.sceneBreakDensity.toFixed(2)}
+            unit="段落/千字"
+            hint="テンポ"
+          />
+          <StatCard
+            label="語彙多様度"
+            value={`${(result.vocabularyDiversity * 100).toFixed(1)}%`}
+            unit="TTR"
+            hint="文体の豊かさ"
+          />
+        </div>
+      </Section>
+
+      <Section title="文体プロファイル">
+        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>文の特徴スコア</p>
+        <div className="space-y-2">
+          <RateBar label="読解指数" rate={result.readabilityScore / 100} color="var(--accent)" valueLabel={result.readabilityScore.toFixed(0)} />
+          <RateBar label="語彙多様度" rate={result.vocabularyDiversity} color="var(--warning)" valueLabel={`${(result.vocabularyDiversity * 100).toFixed(0)}%`} />
+          <RateBar label="会話率" rate={result.dialogueRate} color="#7cb8a0" valueLabel={`${(result.dialogueRate * 100).toFixed(0)}%`} />
+          <RateBar label="心理描写密度" rate={Math.min(result.psychoDensity / 2, 1)} color="#a07cb8" valueLabel={result.psychoDensity.toFixed(2)} />
+        </div>
+      </Section>
+
+      {result.paragraphLengths.length > 0 && (
+        <Section title="文章の長さリズム">
+          <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>段落長の推移</p>
+          <SentenceLengthChart lengths={result.paragraphLengths} label="段落" />
+        </Section>
+      )}
+
       <Section title="推定読了時間">
         <div className="grid grid-cols-2 gap-3">
-          <StatCard label="読了時間" value={readingTime} />
+          <StatCard label="読了時間" value={readingTime} unit="" />
           <StatCard
             label="ユニーク漢字数"
             value={result.uniqueKanjiCount.toLocaleString()}
+            unit="字"
           />
         </div>
         <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
@@ -418,10 +686,7 @@ function ReadabilityTab({ result }: { result: AnalysisResult }) {
                   >
                     {kf.kanji}
                   </span>
-                  <span
-                    className="text-xs"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     ×{kf.count}
                   </span>
                 </div>
@@ -455,18 +720,38 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({
+  label,
+  value,
+  unit,
+  hint,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  hint?: string;
+}) {
   return (
     <div
-      className="rounded-lg p-3 text-center"
+      className="rounded-lg p-3"
       style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
       <div className="text-lg font-medium" style={{ color: 'var(--text)' }}>
         {value}
       </div>
-      <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+      {unit && (
+        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          {unit}
+        </div>
+      )}
+      <div className="text-xs mt-1" style={{ color: 'var(--text-mid)', fontFamily: 'var(--font-heading)' }}>
         {label}
       </div>
+      {hint && (
+        <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
@@ -475,15 +760,16 @@ function RateBar({
   label,
   rate,
   color,
+  valueLabel,
 }: {
   label: string;
   rate: number;
   color: string;
+  valueLabel?: string;
 }) {
-  const pct = (rate * 100).toFixed(1);
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs w-16 text-right" style={{ color: 'var(--text-mid)' }}>
+      <span className="text-xs w-28 text-right shrink-0" style={{ color: 'var(--text-mid)' }}>
         {label}
       </span>
       <div
@@ -500,8 +786,8 @@ function RateBar({
           }}
         />
       </div>
-      <span className="text-xs w-12" style={{ color: 'var(--text-muted)' }}>
-        {pct}%
+      <span className="text-xs w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>
+        {valueLabel ?? `${(rate * 100).toFixed(1)}%`}
       </span>
     </div>
   );
@@ -523,16 +809,10 @@ function FreqRow({
   const pct = (count / max) * 100;
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span
-        className="w-6 text-right"
-        style={{ color: 'var(--text-muted)' }}
-      >
+      <span className="w-6 text-right" style={{ color: 'var(--text-muted)' }}>
         {rank}
       </span>
-      <span
-        className="w-20"
-        style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)' }}
-      >
+      <span className="w-20" style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)' }}>
         {label}
       </span>
       <div
@@ -548,11 +828,8 @@ function FreqRow({
           }}
         />
       </div>
-      <span
-        className="w-10 text-right"
-        style={{ color: 'var(--text-muted)' }}
-      >
-        {count}
+      <span className="w-12 text-right" style={{ color: 'var(--text-muted)' }}>
+        {count}回
       </span>
     </div>
   );
@@ -615,7 +892,7 @@ function StructureRow({ section }: { section: StructureSection }) {
 // チャート
 // =========================================
 
-function SentenceLengthChart({ lengths }: { lengths: number[] }) {
+function SentenceLengthChart({ lengths, label }: { lengths: number[]; label: string }) {
   const max = Math.max(...lengths, 1);
   const display =
     lengths.length > 100
@@ -638,38 +915,62 @@ function SentenceLengthChart({ lengths }: { lengths: number[] }) {
             minWidth: '2px',
             opacity: 0.8,
           }}
-          title={`文${i + 1}: ${len}字`}
+          title={`${label}${i + 1}: ${len}字`}
         />
       ))}
     </div>
   );
 }
 
-function DialogueRatioChart({ ratios }: { ratios: number[] }) {
-  const display =
-    ratios.length > 80
-      ? ratios.filter((_, i) => i % Math.ceil(ratios.length / 80) === 0)
-      : ratios;
+function ParagraphLengthHistogram({ lengths }: { lengths: number[] }) {
+  const buckets = [
+    { label: '〜20字',   max: 20 },
+    { label: '21〜50字', max: 50 },
+    { label: '51〜100字', max: 100 },
+    { label: '101〜200字', max: 200 },
+    { label: '200字超',  max: Infinity },
+  ];
+
+  const counts = buckets.map(({ max: bMax }, idx) => {
+    const min = idx === 0 ? 0 : buckets[idx - 1].max + 1;
+    return lengths.filter((l) => l >= min && l <= bMax).length;
+  });
+
+  const maxCount = Math.max(...counts, 1);
 
   return (
     <div
-      className="flex items-end gap-px overflow-hidden rounded"
-      style={{ height: '60px', background: 'var(--bg-deep)', padding: '4px' }}
+      className="rounded-lg p-3"
+      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
     >
-      {display.map((ratio, i) => (
-        <div
-          key={i}
-          style={{
-            flex: 1,
-            height: `${ratio * 100}%`,
-            background: 'var(--warning)',
-            borderRadius: '1px',
-            minWidth: '2px',
-            opacity: 0.8,
-          }}
-          title={`段落${i + 1}: ${(ratio * 100).toFixed(0)}%`}
-        />
-      ))}
+      <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>段落長ヒストグラム（段落数）</p>
+      <div className="space-y-2">
+        {buckets.map((bucket, i) => (
+          <div key={bucket.label} className="flex items-center gap-3">
+            <span className="text-xs w-24 text-right shrink-0" style={{ color: 'var(--text-mid)' }}>
+              {bucket.label}
+            </span>
+            <div
+              className="flex-1 rounded-full overflow-hidden"
+              style={{ height: '10px', background: 'var(--bg-deep)' }}
+            >
+              <div
+                style={{
+                  width: `${(counts[i] / maxCount) * 100}%`,
+                  height: '100%',
+                  background: 'var(--accent)',
+                  borderRadius: '4px',
+                  transition: 'width 300ms ease-out',
+                  opacity: 0.85,
+                }}
+              />
+            </div>
+            <span className="text-xs w-14 text-right shrink-0" style={{ color: 'var(--text-muted)' }}>
+              {counts[i]}段落
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -679,6 +980,9 @@ function DialoguePatternChart({ pattern }: { pattern: boolean[] }) {
     pattern.length > 120
       ? pattern.filter((_, i) => i % Math.ceil(pattern.length / 120) === 0)
       : pattern;
+
+  const NARRATIVE_COLOR = '#6b9fc4';
+  const DIALOGUE_COLOR = '#d4834a';
 
   return (
     <div
@@ -691,10 +995,10 @@ function DialoguePatternChart({ pattern }: { pattern: boolean[] }) {
           style={{
             flex: 1,
             height: '100%',
-            background: isDialogue ? 'var(--warning)' : 'var(--accent)',
+            background: isDialogue ? DIALOGUE_COLOR : NARRATIVE_COLOR,
             borderRadius: '1px',
             minWidth: '2px',
-            opacity: 0.7,
+            opacity: 0.85,
           }}
           title={`段落${i + 1}: ${isDialogue ? '台詞主体' : '地の文主体'}`}
         />
@@ -728,8 +1032,7 @@ function IntensityChart({
             style={{
               width: '100%',
               height: `${(score / max) * 100}%`,
-              background:
-                i === climaxIdx ? 'var(--danger)' : 'var(--accent)',
+              background: i === climaxIdx ? 'var(--danger)' : 'var(--accent)',
               borderRadius: '2px',
               minHeight: '2px',
               opacity: i === climaxIdx ? 1 : 0.7,
@@ -745,6 +1048,78 @@ function IntensityChart({
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EmotionCurveChart({ curve }: { curve: number[] }) {
+  // curve: -1.0〜+1.0 の配列（10要素）
+  // 上半分がポジティブ、下半分がネガティブ
+  return (
+    <div
+      className="rounded overflow-hidden"
+      style={{ height: '80px', background: 'var(--bg-deep)', padding: '4px', position: 'relative' }}
+    >
+      {/* 中心線 */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 4,
+          right: 4,
+          top: '50%',
+          height: '1px',
+          background: 'var(--border)',
+          zIndex: 1,
+        }}
+      />
+      <div className="flex items-center h-full gap-1" style={{ position: 'relative', zIndex: 2 }}>
+        {curve.map((score, i) => {
+          const isPos = score >= 0;
+          const pct = Math.abs(score) * 46; // 最大46px (高さ80の半分-余白)
+          return (
+            <div
+              key={i}
+              className="flex-1 flex flex-col items-center justify-center h-full"
+            >
+              {isPos ? (
+                <>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        height: `${pct}px`,
+                        background: '#5a9e6e',
+                        borderRadius: '2px 2px 0 0',
+                        opacity: 0.85,
+                        minWidth: '4px',
+                      }}
+                      title={`ブロック${i + 1}: +${score.toFixed(2)}`}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }} />
+                </>
+              ) : (
+                <>
+                  <div style={{ flex: 1 }} />
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>
+                    <div
+                      style={{
+                        width: '100%',
+                        height: `${pct}px`,
+                        background: '#c87070',
+                        borderRadius: '0 0 2px 2px',
+                        opacity: 0.85,
+                        minWidth: '4px',
+                      }}
+                      title={`ブロック${i + 1}: ${score.toFixed(2)}`}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

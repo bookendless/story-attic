@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import DOMPurify from 'dompurify';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore, type PreviewSubMode } from '@/shared/stores/uiStore';
 
@@ -135,7 +136,7 @@ function SmartphonePreview({ html }: { html: string }) {
             overflowY: 'auto',
             maxHeight: 'calc(100vh - 200px)',
           }}
-          dangerouslySetInnerHTML={{ __html: html }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
         />
       </div>
     </div>

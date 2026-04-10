@@ -171,6 +171,42 @@ export interface AnalysisResult {
   estimatedReadingMinutes: number;
   difficultKanji: KanjiFrequency[];
   uniqueKanjiCount: number;
+
+  // 構造拡張
+  avgParagraphLength: number;
+  maxSentenceLength: number;
+  paragraphLengths: number[];
+
+  // テンポ拡張
+  verbDensity: number;
+  adjDensity: number;
+  psychoDensity: number;
+
+  // 語彙拡張
+  difficultWordRate: number;
+  metaphorRate: number;
+  katakanaWordCount: number;
+  verbCount: number;
+  adjCount: number;
+  psychoWordCount: number;
+  metaphorCount: number;
+
+  // 人物＆視点
+  firstPersonCount: number;
+  povSwitchCount: number;
+  questionSentenceCount: number;
+  narratorType: string;
+  narratorAnalysis: string;
+
+  // 感情
+  positiveWordCount: number;
+  negativeWordCount: number;
+  tensionWordCount: number;
+  emotionCurve: number[];
+
+  // 文章
+  readabilityScore: number;
+  writingRhythm: number;
 }
 
 // =========================================

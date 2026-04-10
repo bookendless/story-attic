@@ -105,6 +105,66 @@ pub struct AnalysisResult {
     pub difficult_kanji: Vec<KanjiFrequency>,
     /// 使用されているユニーク漢字数
     pub unique_kanji_count: usize,
+
+    // --- 構造拡張 ---
+    /// 平均段落長（文字/段落）
+    pub avg_paragraph_length: f64,
+    /// 最長文の文字数
+    pub max_sentence_length: usize,
+    /// 各段落の文字数（折れ線グラフ用）
+    pub paragraph_lengths: Vec<usize>,
+
+    // --- テンポ拡張 ---
+    /// イベント密度（動詞数/文数）
+    pub verb_density: f64,
+    /// 描写密度・形容詞（個/文）
+    pub adj_density: f64,
+    /// 心理描写密度（個/文）
+    pub psycho_density: f64,
+
+    // --- 語彙拡張 ---
+    /// 難語率（難読漢字を含む文の比率）
+    pub difficult_word_rate: f64,
+    /// 比喩率（比喩表現数/文数）
+    pub metaphor_rate: f64,
+    /// カタカナ語数（2文字以上の連続カタカナ）
+    pub katakana_word_count: usize,
+    /// 動詞総数（概算）
+    pub verb_count: usize,
+    /// 形容詞総数（概算）
+    pub adj_count: usize,
+    /// 心理語総数
+    pub psycho_word_count: usize,
+    /// 比喩表現総数
+    pub metaphor_count: usize,
+
+    // --- 人物＆視点 ---
+    /// 一人称語の出現数
+    pub first_person_count: usize,
+    /// 視点切替数（一人称⇔三人称の切替）
+    pub pov_switch_count: usize,
+    /// 疑問文数（？で終わる文）
+    pub question_sentence_count: usize,
+    /// 語り手タイプ（"一人称" / "三人称" / "混在" / "不明"）
+    pub narrator_type: String,
+    /// 語り手分析テキスト
+    pub narrator_analysis: String,
+
+    // --- 感情 ---
+    /// ポジティブ語数
+    pub positive_word_count: usize,
+    /// ネガティブ語数
+    pub negative_word_count: usize,
+    /// 緊張語（危機語）数
+    pub tension_word_count: usize,
+    /// 感情曲線（10ブロック、-1.0〜+1.0）
+    pub emotion_curve: Vec<f64>,
+
+    // --- 文章 ---
+    /// 読解指数（0〜100、高いほど難解）
+    pub readability_score: f64,
+    /// 文章リズム（句点間の平均文字数）
+    pub writing_rhythm: f64,
 }
 
 // =========================================

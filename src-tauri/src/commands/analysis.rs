@@ -585,6 +585,266 @@ fn detect_difficult_kanji(plain: &str) -> (Vec<KanjiFrequency>, usize) {
 }
 
 // =========================================
+// 拡張分析ヘルパー関数
+// =========================================
+
+/// 動詞語尾パターンで動詞数を概算カウント（形態素解析なし）
+fn count_verb_patterns(text: &str) -> usize {
+    const VERB_ENDINGS: &[&str] = &[
+        "する", "した", "して", "しない", "しれ", "れる", "られる", "せる", "させる",
+        "なる", "なった", "なって", "なり", "ける", "けた", "いる", "いた", "いて",
+        "った", "って", "ある", "あった", "あって", "おく", "みる", "くる", "くれ",
+        "もらう", "やる", "もつ", "ぬ", "んだ", "べき",
+    ];
+    let chunks: Vec<&str> = text.split(['。', '、', '！', '？', '!', '?']).collect();
+    chunks.iter().filter(|c| {
+        let c = c.trim();
+        c.chars().count() >= 2 && VERB_ENDINGS.iter().any(|e| c.ends_with(e))
+    }).count()
+}
+
+/// い形容詞語尾パターンで形容詞数を概算カウント
+fn count_adj_patterns(text: &str) -> usize {
+    const I_ADJ_ENDINGS: &[&str] = &[
+        "しい", "しかった", "しくない", "しくて",
+        "ない", "なかった", "なくて",
+        "かった", "くない", "くて",
+    ];
+    let chunks: Vec<&str> = text.split(['。', '、', '！', '？', '!', '?']).collect();
+    chunks.iter().filter(|c| {
+        let c = c.trim();
+        c.chars().count() >= 2 && I_ADJ_ENDINGS.iter().any(|e| c.ends_with(e))
+    }).count()
+}
+
+/// 心理語辞書でカウント
+fn count_psycho_words(text: &str) -> usize {
+    const PSYCHO_WORDS: &[&str] = &[
+        "思う", "思った", "思い", "感じる", "感じた", "感じ",
+        "気づく", "気づいた", "気づき", "考える", "考えた", "考え",
+        "悩む", "悩んだ", "信じる", "信じた", "望む", "望んだ",
+        "恐れる", "恐れた", "喜ぶ", "喜んだ", "悲しむ", "悲しんだ",
+        "怒る", "怒った", "驚く", "驚いた", "疑う", "疑った",
+        "期待する", "心配する", "不安に", "緊張する", "安心する",
+        "後悔する", "後悔した", "願う", "願った",
+    ];
+    PSYCHO_WORDS.iter().map(|w| text.matches(w).count()).sum()
+}
+
+/// 比喩表現パターンでカウント
+fn count_metaphors(text: &str) -> usize {
+    const METAPHOR_PATTERNS: &[&str] = &[
+        "ような", "ように", "みたいな", "みたいに",
+        "まるで", "ごとく", "ごとき", "さながら",
+        "かのよう", "かの如",
+    ];
+    METAPHOR_PATTERNS.iter().map(|p| text.matches(p).count()).sum()
+}
+
+/// 2文字以上連続するカタカナ語をカウント
+fn count_katakana_words(text: &str) -> usize {
+    let chars: Vec<char> = text.chars().collect();
+    let mut count = 0;
+    let mut i = 0;
+    while i < chars.len() {
+        if is_katakana(chars[i]) {
+            let mut j = i + 1;
+            while j < chars.len() && is_katakana(chars[j]) {
+                j += 1;
+            }
+            if j - i >= 2 {
+                count += 1;
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    count
+}
+
+/// 一人称語の出現数をカウント
+fn count_first_person(text: &str) -> usize {
+    const FIRST_PERSON_WORDS: &[&str] = &[
+        "私", "わたし", "わたくし", "僕", "ぼく", "俺", "おれ",
+        "あたし", "あたい", "うち", "自分",
+    ];
+    FIRST_PERSON_WORDS.iter().map(|w| text.matches(w).count()).sum()
+}
+
+/// 一人称⇔三人称の視点切替数を検出
+fn count_pov_switches(sentences: &[String]) -> usize {
+    const FIRST_PERSON: &[&str] = &[
+        "私", "わたし", "わたくし", "僕", "ぼく", "俺", "おれ", "あたし",
+    ];
+    const THIRD_PERSON: &[&str] = &["彼", "彼女", "彼ら", "彼女ら"];
+
+    let classify = |s: &str| -> i8 {
+        let has_first = FIRST_PERSON.iter().any(|w| s.contains(w));
+        let has_third = THIRD_PERSON.iter().any(|w| s.contains(w));
+        if has_first && !has_third { 1 }
+        else if has_third && !has_first { -1 }
+        else { 0 }
+    };
+
+    let mut switches = 0;
+    let mut last_pov: i8 = 0;
+    for s in sentences {
+        let pov = classify(s);
+        if pov != 0 && last_pov != 0 && pov != last_pov {
+            switches += 1;
+        }
+        if pov != 0 {
+            last_pov = pov;
+        }
+    }
+    switches
+}
+
+/// 疑問文（？で終わる文）の数をカウント
+fn count_question_sentences(sentences: &[String]) -> usize {
+    sentences.iter().filter(|s| s.ends_with('？') || s.ends_with('?')).count()
+}
+
+/// 難語率: 難読漢字を含む文の比率
+fn compute_difficult_word_rate(sentences: &[String]) -> f64 {
+    if sentences.is_empty() {
+        return 0.0;
+    }
+    let difficult_set: std::collections::HashSet<char> =
+        DIFFICULT_KANJI_LIST.chars().collect();
+    let count = sentences.iter().filter(|s| {
+        s.chars().any(|c| {
+            difficult_set.contains(&c) || ('\u{3400}'..='\u{4DBF}').contains(&c)
+        })
+    }).count();
+    count as f64 / sentences.len() as f64
+}
+
+/// 感情分析: ポジ/ネガ/緊張語数と感情曲線（10ブロック）
+fn compute_emotion(plain: &str, char_count: usize) -> (usize, usize, usize, Vec<f64>) {
+    const POSITIVE_WORDS: &[&str] = &[
+        "嬉しい", "嬉しかった", "楽しい", "楽しかった", "幸せ", "幸福",
+        "喜び", "希望", "夢", "笑", "愛", "好き", "大好き",
+        "安心", "穏やか", "明るい", "輝く", "温かい", "優しい",
+        "感謝", "素晴らしい", "美しい", "綺麗", "可愛い",
+    ];
+    const NEGATIVE_WORDS: &[&str] = &[
+        "悲しい", "悲しかった", "辛い", "苦しい", "怖い", "恐ろしい",
+        "絶望", "孤独", "寂しい", "憎い", "怒り", "悔しい",
+        "不安", "焦り", "混乱", "後悔", "失望", "暗い",
+        "冷たい", "痛い", "涙", "泣く", "泣いた",
+    ];
+    const TENSION_WORDS: &[&str] = &[
+        "危険", "危機", "絶体絶命", "追い詰め", "逃げる", "逃げた",
+        "戦う", "戦った", "攻撃", "叫ぶ", "叫んだ", "震える", "震えた",
+        "血", "死", "殺", "倒れ", "崩れ", "爆発", "衝撃",
+        "緊急", "緊張", "迫る", "迫った",
+    ];
+
+    let positive = POSITIVE_WORDS.iter().map(|w| plain.matches(w).count()).sum::<usize>();
+    let negative = NEGATIVE_WORDS.iter().map(|w| plain.matches(w).count()).sum::<usize>();
+    let tension  = TENSION_WORDS.iter().map(|w| plain.matches(w).count()).sum::<usize>();
+
+    // 感情曲線: 10ブロックに分割
+    let chars: Vec<char> = plain.chars().collect();
+    let total = char_count.max(1);
+    let seg = (total / 10).max(1);
+    let mut curve = Vec::with_capacity(10);
+
+    for i in 0..10 {
+        let start = i * seg;
+        let end = if i == 9 { total } else { ((i + 1) * seg).min(total) };
+        if start >= total {
+            curve.push(0.0);
+            continue;
+        }
+        let seg_text: String = chars[start..end.min(chars.len())].iter().collect();
+        let pos = POSITIVE_WORDS.iter().map(|w| seg_text.matches(w).count()).sum::<usize>() as f64;
+        let neg = NEGATIVE_WORDS.iter().map(|w| seg_text.matches(w).count()).sum::<usize>() as f64;
+        let total_e = pos + neg;
+        let score = if total_e > 0.0 { (pos - neg) / total_e } else { 0.0 };
+        curve.push(score);
+    }
+
+    (positive, negative, tension, curve)
+}
+
+/// 語り手タイプと分析テキストを生成
+fn compute_narrator(
+    first_person_count: usize,
+    pov_switch_count: usize,
+    char_count: usize,
+) -> (String, String) {
+    let fp_rate = first_person_count as f64 / (char_count as f64 / 1000.0).max(0.001);
+
+    let narrator_type = if pov_switch_count >= 3 {
+        "混在"
+    } else if fp_rate > 2.0 {
+        "一人称"
+    } else if fp_rate < 0.5 {
+        "三人称"
+    } else {
+        "不明"
+    };
+
+    let analysis = match narrator_type {
+        "一人称" => format!(
+            "一人称視点が中心です（一人称語：{:.1}回/千字）。\
+            読者との距離が近く、主人公の内面描写に適しています。",
+            fp_rate
+        ),
+        "三人称" => format!(
+            "三人称視点が中心です（一人称語：{:.1}回/千字）。\
+            客観的な描写と複数キャラクターの描写に適しています。",
+            fp_rate
+        ),
+        "混在" => format!(
+            "視点の切り替えが{}回検出されました（一人称語：{:.1}回/千字）。\
+            意図的でない混在は読者を混乱させる可能性があります。",
+            pov_switch_count, fp_rate
+        ),
+        _ => format!(
+            "視点の特定が困難です（一人称語：{:.1}回/千字、\
+            視点切替：{}回）。",
+            fp_rate, pov_switch_count
+        ),
+    };
+
+    (narrator_type.to_string(), analysis)
+}
+
+/// 読解指数を計算（0〜100、高いほど難解）
+fn compute_readability_score(
+    avg_sentence_length: f64,
+    kanji_rate: f64,
+    difficult_word_rate: f64,
+) -> f64 {
+    // 平均文長：20字超で難解度が上昇
+    let len_score = ((avg_sentence_length - 10.0) / 50.0).clamp(0.0, 1.0) * 40.0;
+    // 漢字率：30%超で難解度が上昇
+    let kanji_score = ((kanji_rate - 0.2) / 0.4).clamp(0.0, 1.0) * 40.0;
+    // 難語率：直接スコアに寄与
+    let diff_score = difficult_word_rate.clamp(0.0, 1.0) * 20.0;
+
+    (len_score + kanji_score + diff_score).clamp(0.0, 100.0)
+}
+
+/// 文章リズムを計算（句点間の平均文字数）
+fn compute_writing_rhythm(plain: &str) -> f64 {
+    let segments: Vec<&str> = plain.split('。').collect();
+    let non_empty: Vec<usize> = segments
+        .iter()
+        .map(|s| s.chars().count())
+        .filter(|&c| c > 0)
+        .collect();
+    if non_empty.is_empty() {
+        return 0.0;
+    }
+    non_empty.iter().sum::<usize>() as f64 / non_empty.len() as f64
+}
+
+// =========================================
 // 空の結果を返すヘルパー
 // =========================================
 
@@ -620,6 +880,30 @@ fn empty_result() -> AnalysisResult {
         estimated_reading_minutes: 0.0,
         difficult_kanji: vec![],
         unique_kanji_count: 0,
+        avg_paragraph_length: 0.0,
+        max_sentence_length: 0,
+        paragraph_lengths: vec![],
+        verb_density: 0.0,
+        adj_density: 0.0,
+        psycho_density: 0.0,
+        difficult_word_rate: 0.0,
+        metaphor_rate: 0.0,
+        katakana_word_count: 0,
+        verb_count: 0,
+        adj_count: 0,
+        psycho_word_count: 0,
+        metaphor_count: 0,
+        first_person_count: 0,
+        pov_switch_count: 0,
+        question_sentence_count: 0,
+        narrator_type: String::new(),
+        narrator_analysis: String::new(),
+        positive_word_count: 0,
+        negative_word_count: 0,
+        tension_word_count: 0,
+        emotion_curve: vec![0.0; 10],
+        readability_score: 0.0,
+        writing_rhythm: 0.0,
     }
 }
 
@@ -704,6 +988,43 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
     let estimated_reading_minutes = estimate_reading_minutes(char_count);
     let (difficult_kanji, unique_kanji_count) = detect_difficult_kanji(&plain);
 
+    // --- 構造拡張 ---
+    let paragraph_lengths: Vec<usize> = paragraphs.iter().map(|p| p.chars().count()).collect();
+    let avg_paragraph_length = if paragraph_count > 0 {
+        paragraph_lengths.iter().sum::<usize>() as f64 / paragraph_count as f64
+    } else {
+        0.0
+    };
+    let max_sentence_length = sentence_lengths.iter().copied().max().unwrap_or(0);
+
+    // --- テンポ・語彙拡張 ---
+    let verb_count = count_verb_patterns(&plain);
+    let adj_count = count_adj_patterns(&plain);
+    let psycho_word_count = count_psycho_words(&plain);
+    let metaphor_count = count_metaphors(&plain);
+    let katakana_word_count = count_katakana_words(&plain);
+    let verb_density = if sentence_count > 0 { verb_count as f64 / sentence_count as f64 } else { 0.0 };
+    let adj_density = if sentence_count > 0 { adj_count as f64 / sentence_count as f64 } else { 0.0 };
+    let psycho_density = if sentence_count > 0 { psycho_word_count as f64 / sentence_count as f64 } else { 0.0 };
+    let difficult_word_rate = compute_difficult_word_rate(&sentences);
+    let metaphor_rate = if sentence_count > 0 { metaphor_count as f64 / sentence_count as f64 } else { 0.0 };
+
+    // --- 人物＆視点 ---
+    let first_person_count = count_first_person(&plain);
+    let pov_switch_count = count_pov_switches(&sentences);
+    let question_sentence_count = count_question_sentences(&sentences);
+    let (narrator_type, narrator_analysis) =
+        compute_narrator(first_person_count, pov_switch_count, char_count);
+
+    // --- 感情 ---
+    let (positive_word_count, negative_word_count, tension_word_count, emotion_curve) =
+        compute_emotion(&plain, char_count);
+
+    // --- 文章 ---
+    let kanji_rate_val = kanji_count as f64 / total;
+    let readability_score = compute_readability_score(avg_sentence_length, kanji_rate_val, difficult_word_rate);
+    let writing_rhythm = compute_writing_rhythm(&plain);
+
     Ok(AnalysisResult {
         char_count,
         line_count,
@@ -735,6 +1056,30 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
         estimated_reading_minutes,
         difficult_kanji,
         unique_kanji_count,
+        avg_paragraph_length,
+        max_sentence_length,
+        paragraph_lengths,
+        verb_density,
+        adj_density,
+        psycho_density,
+        difficult_word_rate,
+        metaphor_rate,
+        katakana_word_count,
+        verb_count,
+        adj_count,
+        psycho_word_count,
+        metaphor_count,
+        first_person_count,
+        pov_switch_count,
+        question_sentence_count,
+        narrator_type,
+        narrator_analysis,
+        positive_word_count,
+        negative_word_count,
+        tension_word_count,
+        emotion_curve,
+        readability_score,
+        writing_rhythm,
     })
 }
 
