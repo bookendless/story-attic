@@ -160,7 +160,7 @@ export function SettingsModal() {
     <div className="modal-overlay" onClick={toggleSettingsModal}>
       <div
         className="modal-box"
-        style={{ maxWidth: '600px', minHeight: '400px' }}
+        style={{ maxWidth: '600px', height: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         onClick={(e) => e.stopPropagation()}
       >
         <h2
@@ -193,8 +193,8 @@ export function SettingsModal() {
           ))}
         </div>
 
-        {/* 設定内容 */}
-        <div className="space-y-4" style={{ minHeight: '260px' }}>
+        {/* 設定内容（ここだけスクロール） */}
+        <div className="space-y-4" style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {tab === 'editor' && (
             <>
               <SettingRow label="自動字下げ">

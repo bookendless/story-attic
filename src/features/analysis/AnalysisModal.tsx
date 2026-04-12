@@ -52,7 +52,7 @@ export function AnalysisModal() {
     <div className="modal-overlay" onClick={toggleAnalysisModal}>
       <div
         className="modal-box"
-        style={{ maxWidth: '760px', maxHeight: '85vh', overflow: 'auto' }}
+        style={{ maxWidth: '760px', height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -101,32 +101,35 @@ export function AnalysisModal() {
           ))}
         </div>
 
-        {loading && (
-          <div
-            className="text-sm text-center py-8"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            分析中...
-          </div>
-        )}
+        {/* コンテンツエリア（ここだけスクロール） */}
+        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+          {loading && (
+            <div
+              className="text-sm text-center py-8"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              分析中...
+            </div>
+          )}
 
-        {error && (
-          <div className="text-sm py-4" style={{ color: 'var(--danger)' }}>
-            エラー: {error}
-          </div>
-        )}
+          {error && (
+            <div className="text-sm py-4" style={{ color: 'var(--danger)' }}>
+              エラー: {error}
+            </div>
+          )}
 
-        {result && !loading && (
-          <div className="space-y-5">
-            {activeTab === 'structure'  && <StructureTab result={result} />}
-            {activeTab === 'tempo'      && <TempoTab result={result} />}
-            {activeTab === 'vocabulary' && <VocabularyTab result={result} />}
-            {activeTab === 'character'  && <CharacterTab result={result} characterCount={characterCount} />}
-            {activeTab === 'emotion'    && <EmotionTab result={result} />}
-            {activeTab === 'narrative'  && <NarrativeTab result={result} />}
-            {activeTab === 'writing'    && <WritingTab result={result} />}
-          </div>
-        )}
+          {result && !loading && (
+            <div className="space-y-5">
+              {activeTab === 'structure'  && <StructureTab result={result} />}
+              {activeTab === 'tempo'      && <TempoTab result={result} />}
+              {activeTab === 'vocabulary' && <VocabularyTab result={result} />}
+              {activeTab === 'character'  && <CharacterTab result={result} characterCount={characterCount} />}
+              {activeTab === 'emotion'    && <EmotionTab result={result} />}
+              {activeTab === 'narrative'  && <NarrativeTab result={result} />}
+              {activeTab === 'writing'    && <WritingTab result={result} />}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

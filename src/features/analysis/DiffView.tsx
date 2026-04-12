@@ -1,17 +1,35 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import DiffMatchPatch from 'diff-match-patch';
+import { useEditor, EditorContent } from '@tiptap/react';
+import { EditorState } from '@tiptap/pm/state';
+import { StarterKit } from '@tiptap/starter-kit';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
+import { RubyNode } from '@/features/editor/extensions/RubyNode';
+import { DotenMark } from '@/features/editor/extensions/DotenMark';
 import type { SnapshotSummary, Snapshot } from '@/shared/types';
+
+function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
+  let timer: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+}
 
 const dmp = new DiffMatchPatch();
 
-/** HTMLタグを除去してプレーンテキストを返す */
+/** HTMLタグを除去してプレーンテキストを返す（段落は改行に変換） */
 function stripHtml(html: string): string {
-  const doc = new DOMParser().parseFromString(html, 'text/html');
-  return doc.body.textContent ?? '';
+  const withBreaks = html
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n');
+  const doc = new DOMParser().parseFromString(withBreaks, 'text/html');
+  return (doc.body.textContent ?? '').replace(/\n{3,}/g, '\n\n').trimEnd();
 }
 
 /** 日時を読みやすい形式に変換 */
@@ -23,7 +41,7 @@ function formatDate(iso: string): string {
 
 export function DiffView() {
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
-  const { editorViewMode, settings } = useUIStore();
+  const { editorViewMode, settings, setEditorViewMode } = useUIStore();
   const [snapshots, setSnapshots] = useState<SnapshotSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [snapshotBody, setSnapshotBody] = useState<string>('');
@@ -138,6 +156,14 @@ export function DiffView() {
           {saving ? '保存中...' : '現在を保存'}
         </button>
 
+        <button
+          className="btn btn-ghost text-xs"
+          style={{ padding: '3px 10px' }}
+          onClick={() => setEditorViewMode('editor')}
+        >
+          ← 戻る
+        </button>
+
         {/* 差分統計 */}
         <div className="ml-auto flex items-center gap-3 text-xs">
           <span style={{ color: 'var(--success)' }}>+{stats.added}字</span>
@@ -163,22 +189,76 @@ export function DiffView() {
           )}
         </div>
 
-        {/* 右: 現在のテキスト */}
-        <div className="flex-1 overflow-auto">
-          <div className="px-2 py-1 text-xs" style={{ background: 'var(--bg-deep)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
-            現在
+        {/* 右: 現在のテキスト（編集可能） */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          <div className="px-2 py-1 text-xs flex-shrink-0" style={{ background: 'var(--bg-deep)', color: 'var(--text-muted)', borderBottom: '1px solid var(--border)' }}>
+            現在（編集可能）
           </div>
-          {!selectedId ? (
-            <div className="p-6" style={{ fontFamily: `${settings.editor_font}, serif`, fontSize: `${settings.editor_font_size}px`, lineHeight: 2.2, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>
-              {stripHtml(currentEpisode.body)}
-            </div>
-          ) : (
-            <DiffContent diffs={diffs} side="new" font={settings.editor_font} fontSize={settings.editor_font_size} />
-          )}
+          <div className="flex-1 overflow-auto">
+            <DiffEditorPane />
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+// =========================================
+// 差分ビュー用インラインエディタ
+// =========================================
+
+function DiffEditorPane() {
+  const { currentEpisode, updateBody } = useEditorStore();
+  const { settings } = useUIStore();
+  const lastIdRef = useRef<string | null>(null);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const debouncedUpdate = useCallback(
+    debounce((html: string) => updateBody(html), 300),
+    [updateBody],
+  );
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: false,
+        blockquote: false,
+        codeBlock: false,
+        code: false,
+        horizontalRule: false,
+      }),
+      RubyNode,
+      DotenMark,
+    ],
+    content: currentEpisode?.body ?? '',
+    editorProps: {
+      attributes: {
+        class: 'editor-content',
+        spellcheck: 'false',
+        style: [
+          `font-family: ${settings.editor_font}, serif`,
+          `font-size: ${settings.editor_font_size}px`,
+          'padding: 24px',
+        ].join('; ') + ';',
+      },
+    },
+    onUpdate: ({ editor: ed }) => debouncedUpdate(ed.getHTML()),
+  });
+
+  // エピソード切替時のみコンテンツをリセット
+  useEffect(() => {
+    if (!editor) return;
+    if (currentEpisode?.id === lastIdRef.current) return;
+    lastIdRef.current = currentEpisode?.id ?? null;
+    editor.commands.setContent(currentEpisode?.body ?? '', false);
+    const freshState = EditorState.create({
+      doc: editor.state.doc,
+      plugins: editor.state.plugins,
+    });
+    editor.view.updateState(freshState);
+  }, [editor, currentEpisode?.id, currentEpisode?.body]);
+
+  return <EditorContent editor={editor} className="h-full" />;
 }
 
 // =========================================

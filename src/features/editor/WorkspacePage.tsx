@@ -176,11 +176,12 @@ export function WorkspacePage() {
       {/* 雰囲気ポップオーバー (中央モーダル) */}
       {ambiencePopoverVisible && (
         <div
-          className="fixed inset-0 flex items-center justify-center pointer-events-none"
-          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 150 }}
+          className="modal-overlay"
+          style={{ zIndex: 150 }}
+          onClick={toggleAmbiencePopover}
         >
-          <div className="pointer-events-auto">
-            <AmbiencePopover onClose={toggleAmbiencePopover} />
+          <div onClick={(e) => e.stopPropagation()}>
+            <AmbiencePopover />
           </div>
         </div>
       )}

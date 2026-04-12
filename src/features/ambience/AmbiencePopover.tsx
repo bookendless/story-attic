@@ -3,7 +3,6 @@
  * ヘッダーボタンから開き、演出タイプ切替・環境音・タイピング音を即時操作できる。
  */
 
-import { useRef, useEffect } from 'react';
 import { useUIStore, type EffectType, type AmbientType, type TypingSoundType } from '@/shared/stores/uiStore';
 
 const EFFECT_OPTIONS: { key: EffectType; label: string }[] = [
@@ -27,29 +26,12 @@ const TYPING_OPTIONS: { key: TypingSoundType; label: string }[] = [
   { key: 'soft', label: '静音' },
 ];
 
-export function AmbiencePopover({ onClose }: { onClose: () => void }) {
+export function AmbiencePopover() {
   const {
     ambienceEnabled, ambienceSettings, setAmbienceSettings, toggleAmbience,
     soundSettings, setSoundSettings,
     characterSettings, setCharacterSettings,
   } = useUIStore();
-  const ref = useRef<HTMLDivElement>(null);
-
-  // 外側クリックで閉じる
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    // 次のティックでリスナーを追加（ボタンのクリックイベントを拾わないため）
-    const timer = setTimeout(() => document.addEventListener('mousedown', handleClick), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handleClick);
-    };
-  }, [onClose]);
-
   const updateSound = (patch: Partial<typeof soundSettings>) => {
     setSoundSettings({ ...soundSettings, ...patch });
   };
@@ -63,14 +45,13 @@ export function AmbiencePopover({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      ref={ref}
       style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border)',
         borderRadius: '8px',
         boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-        width: '260px',
-        padding: '12px',
+        width: '340px',
+        padding: '16px',
       }}
     >
       {/* 演出セクション */}
