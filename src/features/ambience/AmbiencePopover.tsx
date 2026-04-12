@@ -64,7 +64,6 @@ export function AmbiencePopover({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={ref}
-      className="absolute top-full right-0 mt-1 z-50"
       style={{
         background: 'var(--bg-surface)',
         border: '1px solid var(--border)',

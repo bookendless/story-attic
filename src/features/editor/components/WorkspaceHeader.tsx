@@ -1,37 +1,27 @@
+/**
+ * ワークスペース上部ヘッダー (再構成版)
+ *
+ * 常時必要な最頻出アクションのみを配置:
+ *   ホーム / プロジェクト名 / ビューモード / 保存 / 検索 / AI / コマンドパレット
+ *
+ * 以下の機能は他の場所に移動した:
+ *   - 縦書き / テーマ / 演出 / 環境音 / ゴースト → StatusBar
+ *   - 文章分析 / 校正 / 差分 / 執筆支援 / エクスポート / 設定 → CommandPalette (Ctrl+P)
+ */
+
 import { useState } from 'react';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useProjectStore } from '@/shared/stores/projectStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore } from '@/shared/stores/uiStore';
-import { ExportMenu } from './ExportMenu';
-import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
+import { ViewModeSegmented } from './ViewModeSegmented';
 import {
   IconHome,
   IconSave,
   IconSearch,
-  IconAnalysis,
-  IconProofread,
-  IconDiff,
-  IconTategaki,
-  IconSettings,
-  IconSun,
-  IconMoon,
-  IconRain,
-  IconSnow,
-  IconSakura,
-  IconSound,
-  IconSoundOff,
-  IconGhost,
   IconAi,
-  IconMaterial,
-  IconViewSwitch,
-  IconDialogue,
-  IconPreview,
-  IconDual,
 } from '@/shared/components/Icons';
-import type { EditorViewMode } from '@/shared/stores/uiStore';
 
-/** アイコンボタン（ツールチップ付き） */
 function HeaderButton({
   icon,
   label,
@@ -60,116 +50,37 @@ function HeaderButton({
         minWidth: '44px',
         padding: '6px 4px 4px',
         gap: '2px',
-        justifyContent: 'center'
+        justifyContent: 'center',
       }}
     >
-      <div className="flex items-center justify-center">
-        {icon}
-      </div>
+      <div className="flex items-center justify-center">{icon}</div>
       <span style={{ fontSize: '10px', lineHeight: 1, opacity: active ? 1 : 0.8, transform: 'scale(0.95)' }}>
         {shortLabel || label}
       </span>
       <span className="tooltip">
         {label}
-        {shortcut && (
-          <span style={{ opacity: 0.5, marginLeft: '6px' }}>{shortcut}</span>
-        )}
+        {shortcut && <span style={{ opacity: 0.5, marginLeft: '6px' }}>{shortcut}</span>}
       </span>
     </button>
-  );
-}
-
-/** ビュー切替ドロップダウンメニュー */
-function ViewSwitchMenu({
-  currentMode,
-  onSelect,
-  onClose,
-}: {
-  currentMode: EditorViewMode;
-  onSelect: (mode: EditorViewMode) => void;
-  onClose: () => void;
-}) {
-  const items: { mode: EditorViewMode; icon: React.ReactNode; label: string; shortcut?: string }[] = [
-    { mode: 'editor', icon: null, label: 'エディタ', shortcut: '' },
-    { mode: 'dialogue', icon: <IconDialogue size={14} />, label: '台詞一覧', shortcut: 'Ctrl+Shift+L' },
-    { mode: 'preview', icon: <IconPreview size={14} />, label: 'プレビュー', shortcut: 'Ctrl+Shift+P' },
-    { mode: 'dual', icon: <IconDual size={14} />, label: 'デュアルビュー', shortcut: 'Ctrl+Shift+D' },
-  ];
-
-  return (
-    <>
-      {/* 背景オーバーレイ */}
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div
-        className="absolute top-full right-0 mt-1 z-50 rounded shadow-lg border"
-        style={{
-          background: 'var(--bg-elevated)',
-          borderColor: 'var(--border)',
-          minWidth: '180px',
-        }}
-      >
-        {items.map(({ mode, icon, label, shortcut }) => (
-          <button
-            key={mode}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs transition-colors"
-            style={{
-              color: currentMode === mode ? 'var(--accent)' : 'var(--text)',
-              background: currentMode === mode ? 'var(--accent-soft)' : 'transparent',
-            }}
-            onMouseEnter={(e) => {
-              if (currentMode !== mode) (e.currentTarget as HTMLElement).style.background = 'var(--bg-surface)';
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = currentMode === mode ? 'var(--accent-soft)' : 'transparent';
-            }}
-            onClick={() => onSelect(mode)}
-          >
-            <span className="w-4 flex-shrink-0">{icon}</span>
-            <span className="flex-1 text-left">{label}</span>
-            {shortcut && (
-              <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{shortcut}</span>
-            )}
-          </button>
-        ))}
-      </div>
-    </>
   );
 }
 
 export function WorkspaceHeader() {
   const navigateTo = useAppStore((s) => s.navigateTo);
   const currentProject = useProjectStore((s) => s.currentProject);
+  const updateProject = useProjectStore((s) => s.updateProject);
   const { currentEpisode, isDirty, save, isSaving } = useEditorStore();
   const {
     toggleSearchBar,
-    toggleTategaki,
-    isTategaki,
     searchBarVisible,
-    editorViewMode,
-    setEditorViewMode,
-    toggleAnalysisModal,
-    toggleSettingsModal,
-    theme,
-    toggleTheme,
-    ambienceEnabled,
-    ambienceSettings,
-    toggleAmbience,
-    soundSettings,
-    setSoundSettings,
-    characterSettings,
-    setCharacterSettings,
-    rightPanelVisible,
-    toggleRightPanel,
     aiPanelVisible,
     toggleAiPanel,
-    toggleWritingSupportModal,
+    toggleCommandPalette,
   } = useUIStore();
+
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
-  const [showAmbiencePopover, setShowAmbiencePopover] = useState(false);
-  const [showViewMenu, setShowViewMenu] = useState(false);
-  const updateProject = useProjectStore((s) => s.updateProject);
 
   const handleHomeClick = () => {
     if (isDirty) {
@@ -199,17 +110,6 @@ export function WorkspaceHeader() {
     setIsEditingTitle(false);
   };
 
-  const hasEpisode = !!currentEpisode;
-
-  /** 演出アイコン（現在の演出タイプに応じて切替） */
-  const ambienceIcon =
-    ambienceSettings.effectType === 'snow' ? <IconSnow size={15} /> :
-    ambienceSettings.effectType === 'sakura' ? <IconSakura size={15} /> :
-    <IconRain size={15} />;
-
-  /** 演出 or サウンドのいずれかがアクティブ */
-  const ambienceOrSoundActive = ambienceEnabled || soundSettings.enabled;
-
   return (
     <>
       <header
@@ -220,10 +120,9 @@ export function WorkspaceHeader() {
           height: '56px',
         }}
       >
-        {/* グロウライン */}
         <div className="header-glow-line" />
 
-        {/* ナビゲーション：ホーム + タイトル */}
+        {/* 左: ホーム + プロジェクト名 */}
         <div className="flex items-center gap-2 min-w-0">
           <HeaderButton
             icon={<IconHome size={20} />}
@@ -231,8 +130,6 @@ export function WorkspaceHeader() {
             shortLabel="Home"
             onClick={handleHomeClick}
           />
-
-          {/* プロジェクトタイトル */}
           {isEditingTitle ? (
             <input
               className="input text-sm"
@@ -263,21 +160,14 @@ export function WorkspaceHeader() {
               {currentProject?.title ?? ''}
             </button>
           )}
-
           {currentEpisode && (
             <>
-              <span
-                className="text-xs"
-                style={{ color: 'var(--border-light)', opacity: 0.4 }}
-              >
+              <span className="text-xs" style={{ color: 'var(--border-light)', opacity: 0.4 }}>
                 /
               </span>
               <span
                 className="text-sm truncate max-w-[160px]"
-                style={{
-                  color: 'var(--text-mid)',
-                  fontFamily: 'var(--font-heading)',
-                }}
+                style={{ color: 'var(--text-mid)', fontFamily: 'var(--font-heading)' }}
               >
                 {currentEpisode.title}
               </span>
@@ -285,19 +175,19 @@ export function WorkspaceHeader() {
           )}
         </div>
 
-        {/* 右側のツール群 */}
-        <div className="flex items-center gap-3 ml-auto">
-          {/* 保存状態 */}
+        {/* 中央: ビューモードセグメント */}
+        <div className="flex-1 flex justify-center">
+          <ViewModeSegmented />
+        </div>
+
+        {/* 右: 保存 / 検索 / AI / コマンドパレット */}
+        <div className="flex items-center gap-2 flex-shrink-0">
           {isDirty && (
-            <span
-              className="text-xs flex-shrink-0"
-              style={{ color: 'var(--warning)', opacity: 0.8 }}
-            >
+            <span className="text-xs" style={{ color: 'var(--warning)', opacity: 0.8 }}>
               ● 未保存
             </span>
           )}
 
-          {/* 保存ボタン（ラベル付き） */}
           <button
             className={`header-icon-btn header-icon-btn-labeled flex-col ${isDirty ? 'active' : ''}`}
             onClick={save}
@@ -307,7 +197,7 @@ export function WorkspaceHeader() {
               minHeight: '44px',
               padding: '6px 8px 4px',
               gap: '2px',
-              justifyContent: 'center'
+              justifyContent: 'center',
             }}
           >
             <div className="flex items-center justify-center">
@@ -316,189 +206,68 @@ export function WorkspaceHeader() {
             <span style={{ fontSize: '10px', lineHeight: 1, opacity: 0.8, transform: 'scale(0.95)' }}>
               {isSaving ? '保存中...' : '保存'}
             </span>
-            <span className="tooltip">保存<span style={{ opacity: 0.5, marginLeft: '6px' }}>Ctrl+S</span></span>
+            <span className="tooltip">
+              保存<span style={{ opacity: 0.5, marginLeft: '6px' }}>Ctrl+S</span>
+            </span>
           </button>
 
-          {/* セパレータ */}
-          <div
-            className="w-px h-5 flex-shrink-0"
-            style={{ background: 'var(--border)' }}
-          />
+          <div className="w-px h-5" style={{ background: 'var(--border)' }} />
 
-          {/* 執筆ツールグループ: 検索・分析・校正・差分・縦書き */}
-          <div className="header-btn-group">
-            <HeaderButton
-              icon={<IconSearch size={20} />}
-              label="検索・置換"
-              shortLabel="検索"
-              shortcut="Ctrl+F"
-              active={searchBarVisible}
-              onClick={toggleSearchBar}
-            />
-            <HeaderButton
-              icon={<IconAnalysis size={20} />}
-              label="文章分析"
-              shortLabel="分析"
-              disabled={!hasEpisode}
-              onClick={toggleAnalysisModal}
-            />
-            <HeaderButton
-              icon={<IconProofread size={20} />}
-              label="校正"
-              shortLabel="校正"
-              active={editorViewMode === 'proofread'}
-              disabled={!hasEpisode}
-              onClick={() =>
-                setEditorViewMode(
-                  editorViewMode === 'proofread' ? 'editor' : 'proofread',
-                )
-              }
-            />
-            <HeaderButton
-              icon={<IconDiff size={20} />}
-              label="差分"
-              shortLabel="差分"
-              active={editorViewMode === 'diff'}
-              disabled={!hasEpisode}
-              onClick={() =>
-                setEditorViewMode(
-                  editorViewMode === 'diff' ? 'editor' : 'diff',
-                )
-              }
-            />
-            <HeaderButton
-              icon={<IconTategaki size={20} />}
-              label="縦書き"
-              shortLabel="縦書"
-              active={isTategaki}
-              onClick={toggleTategaki}
-            />
-
-            {/* ビュー切替ドロップダウン */}
-            <div className="relative">
-              <HeaderButton
-                icon={<IconViewSwitch size={20} />}
-                label="ビュー切替"
-                shortLabel="ビュー"
-                active={editorViewMode !== 'editor'}
-                disabled={!hasEpisode}
-                onClick={() => setShowViewMenu((v) => !v)}
-              />
-              {showViewMenu && (
-                <ViewSwitchMenu
-                  currentMode={editorViewMode}
-                  onSelect={(mode) => {
-                    setEditorViewMode(mode);
-                    setShowViewMenu(false);
-                  }}
-                  onClose={() => setShowViewMenu(false)}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* 演出・サウンドグループ（ポップオーバー付き） */}
-          <div className="header-btn-group relative">
-            <HeaderButton
-              icon={ambienceIcon}
-              label="演出ON/OFF"
-              shortLabel="演出"
-              active={ambienceEnabled}
-              onClick={toggleAmbience}
-            />
-            <HeaderButton
-              icon={soundSettings.enabled ? <IconSound size={20} /> : <IconSoundOff size={20} />}
-              label="サウンドON/OFF"
-              shortLabel="音"
-              active={soundSettings.enabled}
-              onClick={() => setSoundSettings({ ...soundSettings, enabled: !soundSettings.enabled })}
-            />
-            <HeaderButton
-              icon={<IconGhost size={20} />}
-              label="ゴーストちゃん ON/OFF"
-              shortLabel="相棒"
-              active={characterSettings.enabled}
-              onClick={() => setCharacterSettings({ ...characterSettings, enabled: !characterSettings.enabled })}
-            />
-            <HeaderButton
-              icon={theme === 'dark' ? <IconSun size={20} /> : <IconMoon size={20} />}
-              label={theme === 'dark' ? 'ライトモード' : 'ダークモード'}
-              shortLabel="テーマ"
-              onClick={toggleTheme}
-            />
-            {/* ポップオーバー展開ボタン */}
-            <button
-              className={`header-icon-btn ${ambienceOrSoundActive ? 'active' : ''}`}
-              onClick={() => setShowAmbiencePopover((v) => !v)}
-              style={{ padding: '0 3px', fontSize: '10px', minWidth: '16px', height: '44px' }}
-            >
-              ▼
-            </button>
-            {showAmbiencePopover && (
-              <AmbiencePopover onClose={() => setShowAmbiencePopover(false)} />
-            )}
-          </div>
-
-          {/* 執筆支援 */}
           <HeaderButton
-            icon={<IconAnalysis size={20} />}
-            label="執筆支援"
-            shortLabel="執筆"
-            onClick={toggleWritingSupportModal}
+            icon={<IconSearch size={20} />}
+            label="検索・置換"
+            shortLabel="検索"
+            shortcut="Ctrl+F"
+            active={searchBarVisible}
+            onClick={toggleSearchBar}
           />
 
-          {/* AIアシスタント（フローティング） */}
           <HeaderButton
             icon={<IconAi size={20} />}
             label="AIアシスタント"
             shortLabel="AI"
+            shortcut="Ctrl+Shift+A"
             active={aiPanelVisible}
             onClick={toggleAiPanel}
           />
 
-          {/* 右パネル（人物・用語等） */}
-          <HeaderButton
-            icon={<IconMaterial size={20} />}
-            label="右パネル"
-            shortLabel="パネル"
-            active={rightPanelVisible}
-            onClick={toggleRightPanel}
-          />
-
-          {/* 設定（独立） */}
-          <HeaderButton
-            icon={<IconSettings size={20} />}
-            label="設定"
-            shortLabel="設定"
-            onClick={toggleSettingsModal}
-          />
-
-          {/* 出力メニュー */}
-          <ExportMenu />
+          <button
+            className="header-icon-btn flex-col"
+            onClick={toggleCommandPalette}
+            title="コマンドパレット (Ctrl+P)"
+            style={{
+              height: 'auto',
+              minHeight: '44px',
+              minWidth: '44px',
+              padding: '6px 4px 4px',
+              gap: '2px',
+              justifyContent: 'center',
+            }}
+          >
+            <div className="flex items-center justify-center" style={{ fontSize: '14px', fontWeight: 600 }}>
+              ⌘
+            </div>
+            <span style={{ fontSize: '10px', lineHeight: 1, opacity: 0.8, transform: 'scale(0.95)' }}>
+              コマンド
+            </span>
+            <span className="tooltip">
+              コマンドパレット<span style={{ opacity: 0.5, marginLeft: '6px' }}>Ctrl+P</span>
+            </span>
+          </button>
         </div>
       </header>
 
-      {/* 未保存警告ダイアログ */}
       {showUnsavedWarning && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowUnsavedWarning(false)}
-        >
+        <div className="modal-overlay" onClick={() => setShowUnsavedWarning(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h2
-              className="text-base font-medium mb-3"
-              style={{ color: 'var(--text)' }}
-            >
+            <h2 className="text-base font-medium mb-3" style={{ color: 'var(--text)' }}>
               未保存の変更があります
             </h2>
             <p className="text-sm mb-6" style={{ color: 'var(--text-mid)' }}>
               保存せずにホームに戻りますか？
             </p>
             <div className="flex justify-end gap-3">
-              <button
-                className="btn btn-ghost"
-                onClick={() => setShowUnsavedWarning(false)}
-              >
+              <button className="btn btn-ghost" onClick={() => setShowUnsavedWarning(false)}>
                 キャンセル
               </button>
               <button

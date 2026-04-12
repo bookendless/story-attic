@@ -5,6 +5,7 @@ import {
   IconUndo, IconRedo, IconRuby, IconDoten,
   IconFontMinus, IconFontPlus, IconEditorWidth,
   IconFocus, IconPanelShow,
+  IconTategaki, IconProofread, IconDiff,
 } from '@/shared/components/Icons';
 
 interface Props {
@@ -85,7 +86,12 @@ function RubyDialog({ selectedText, onConfirm, onClose }: RubyDialogProps) {
 // ツールバー本体
 // =========================================
 export function EditorToolbar({ editor }: Props) {
-  const { settings, setSettings, leftPanelVisible, toggleLeftPanel } = useUIStore();
+  const {
+    settings, setSettings,
+    sidePanelVisible, toggleSidePanel,
+    isTategaki, toggleTategaki,
+    editorViewMode, setEditorViewMode,
+  } = useUIStore();
   const [showRubyDialog, setShowRubyDialog] = useState(false);
   const [selectedTextForRuby, setSelectedTextForRuby] = useState('');
 
@@ -279,13 +285,42 @@ export function EditorToolbar({ editor }: Props) {
 
         {sep}
 
-        {/* 集中モード */}
+        {/* 縦書き切替 */}
         <button
-          style={btn(!leftPanelVisible)}
-          onClick={toggleLeftPanel}
-          title={leftPanelVisible ? '左パネルを隠す（集中モード）' : '左パネルを表示'}
+          style={btn(isTategaki)}
+          onClick={toggleTategaki}
+          title="縦書き ON/OFF"
         >
-          {leftPanelVisible ? <IconFocus size={14} /> : <IconPanelShow size={14} />}
+          <IconTategaki size={14} />
+        </button>
+
+        {/* 校正ビュー */}
+        <button
+          style={btn(editorViewMode === 'proofread')}
+          onClick={() => setEditorViewMode(editorViewMode === 'proofread' ? 'editor' : 'proofread')}
+          title="校正ビュー"
+        >
+          <IconProofread size={14} />
+        </button>
+
+        {/* 差分ビュー */}
+        <button
+          style={btn(editorViewMode === 'diff')}
+          onClick={() => setEditorViewMode(editorViewMode === 'diff' ? 'editor' : 'diff')}
+          title="差分ビュー"
+        >
+          <IconDiff size={14} />
+        </button>
+
+        {sep}
+
+        {/* 集中モード: サイドパネル開閉 */}
+        <button
+          style={btn(!sidePanelVisible)}
+          onClick={toggleSidePanel}
+          title={sidePanelVisible ? 'サイドパネルを隠す（集中モード）' : 'サイドパネルを表示'}
+        >
+          {sidePanelVisible ? <IconFocus size={14} /> : <IconPanelShow size={14} />}
         </button>
       </div>
 

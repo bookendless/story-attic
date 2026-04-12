@@ -4,9 +4,51 @@ import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAppStore } from '@/shared/stores/appStore';
+import { IconSun, IconMoon } from '@/shared/components/Icons';
 
 interface Props {
   editor: Editor;
+}
+
+/** ステータスバー右側の軽量トグルボタン */
+function StatusBarToggle({
+  active,
+  onClick,
+  title,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '26px',
+        height: '22px',
+        background: active ? 'var(--accent-soft)' : 'transparent',
+        color: active ? 'var(--accent)' : 'var(--text-muted)',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        transition: 'background 120ms',
+      }}
+      onMouseEnter={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)';
+      }}
+      onMouseLeave={(e) => {
+        if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent';
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
 /** 秒数を MM:SS にフォーマット */
@@ -19,6 +61,11 @@ function formatTime(sec: number) {
 export function StatusBar({ editor }: Props) {
   const { settings, proofreadSettings, setEditorViewMode, editorViewMode } = useUIStore();
   const { timerRunning, timerRemaining, timerTotal, startTimer, stopTimer, tickTimer, dailyGoal } = useUIStore();
+  const theme = useUIStore((s) => s.theme);
+  const toggleTheme = useUIStore((s) => s.toggleTheme);
+  const ambienceEnabled = useUIStore((s) => s.ambienceEnabled);
+  const soundEnabled = useUIStore((s) => s.soundSettings.enabled);
+  const toggleAmbiencePopover = useUIStore((s) => s.toggleAmbiencePopover);
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
   const projectId = useAppStore((s) => s.currentProjectId);
@@ -223,8 +270,28 @@ export function StatusBar({ editor }: Props) {
         )}
       </div>
 
-      {/* 右側: タイマー */}
-      <div className="flex items-center gap-2 px-4 relative" style={{ flexShrink: 0 }}>
+      {/* 右側: トグル群 + タイマー */}
+      <div className="flex items-center gap-1 px-2 relative" style={{ flexShrink: 0 }}>
+        {/* 雰囲気ポップオーバー起動 (演出/サウンド/ゴースト) */}
+        <StatusBarToggle
+          active={ambienceEnabled || soundEnabled}
+          onClick={toggleAmbiencePopover}
+          title="雰囲気設定 (演出/サウンド/ゴースト)"
+        >
+          <span style={{ fontSize: '13px' }}>♪</span>
+        </StatusBarToggle>
+
+        {/* テーマ切替 */}
+        <StatusBarToggle
+          active={false}
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'ライトモードへ' : 'ダークモードへ'}
+        >
+          {theme === 'dark' ? <IconSun size={14} /> : <IconMoon size={14} />}
+        </StatusBarToggle>
+
+        <div className="w-px h-4 mx-1" style={{ background: 'var(--border)' }} />
+
         <button
           className="flex items-center gap-1 hover:opacity-80 transition-opacity"
           style={{

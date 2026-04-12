@@ -26,7 +26,7 @@ interface SearchResult {
 
 export function SelectionPopup({ editor }: SelectionPopupProps) {
   const projectId = useAppStore((s) => s.currentProjectId);
-  const { openRightPanelTab } = useUIStore();
+  const { openSidePanelTab } = useUIStore();
   const [visible, setVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -174,7 +174,7 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; }}
           onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
           onClick={() => {
-            openRightPanelTab(tabMap[r.type]);
+            openSidePanelTab(tabMap[r.type]);
             setVisible(false);
           }}
         >

@@ -6,26 +6,30 @@ import { useUIStore } from '@/shared/stores/uiStore';
 import { useAutoSave } from '@/shared/hooks/useAutoSave';
 import { useSound } from '@/shared/hooks/useSound';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
-import { LeftPanel } from './components/LeftPanel';
 import { EditorArea } from './components/EditorArea';
-import { RightPanel } from './components/RightPanel';
+import { SidePanel } from './components/SidePanel';
 import { ParticleEffect } from '@/features/ambience/ParticleEffect';
 import { CharacterWidget } from '@/features/ambience/CharacterWidget';
 import { AiPanel } from '@/features/ai/AiPanel';
 import { AnalysisModal } from '@/features/analysis/AnalysisModal';
 import { SettingsModal } from '@/features/settings/SettingsModal';
 import { WritingSupportModal } from '@/features/writing-support/WritingSupportModal';
+import { CommandPalette } from './components/CommandPalette';
+import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
 
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const { openProject, currentProject } = useProjectStore();
   const { loadChapterTree, save, saveSecondary } = useEditorStore();
   const {
-    leftPanelVisible, rightPanelVisible, rightPanelWidth, aiPanelVisible,
-    setSettings, toggleAiPanel, toggleRightPanel, setEditorViewMode, editorViewMode,
+    aiPanelVisible,
+    setSettings, toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
     timerRunning, startTimer, stopTimer, toggleWritingSupportModal,
     analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
     toggleAnalysisModal, toggleSettingsModal,
+    toggleCommandPalette, commandPaletteVisible,
+    setActiveSideTab,
+    ambiencePopoverVisible, toggleAmbiencePopover,
   } = useUIStore();
 
   // 自動保存フック
@@ -80,10 +84,24 @@ export function WorkspacePage() {
         }
         return;
       }
-      // Ctrl+Shift+R: 右パネル開閉
+      // Ctrl+Shift+R: サイドパネル開閉
       if (ctrl && shift && e.key === 'R') {
         e.preventDefault();
-        toggleRightPanel();
+        toggleSidePanel();
+        return;
+      }
+      // Ctrl+P: コマンドパレット
+      if (ctrl && !shift && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        toggleCommandPalette();
+        return;
+      }
+      // Ctrl+1..6: サイドパネルタブ切替
+      if (ctrl && !shift && !e.altKey && ['1','2','3','4','5','6'].includes(e.key)) {
+        e.preventDefault();
+        const tabs = ['toc','plot','character','glossary','material','memo'] as const;
+        const idx = Number(e.key) - 1;
+        setActiveSideTab(tabs[idx]);
         return;
       }
       // Ctrl+S: 保存（プライマリ＋セカンダリ両方）
@@ -95,6 +113,7 @@ export function WorkspacePage() {
       }
       // Escape: モーダル/フローティングパネル閉じ
       if (e.key === 'Escape') {
+        if (commandPaletteVisible) { toggleCommandPalette(); return; }
         if (analysisModalVisible) { toggleAnalysisModal(); return; }
         if (settingsModalVisible) { toggleSettingsModal(); return; }
         if (writingSupportModalVisible) { toggleWritingSupportModal(); return; }
@@ -105,10 +124,11 @@ export function WorkspacePage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
-    toggleAiPanel, toggleRightPanel, setEditorViewMode, editorViewMode,
+    toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
     timerRunning, startTimer, stopTimer, save, saveSecondary,
     aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
     toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal,
+    toggleCommandPalette, commandPaletteVisible, setActiveSideTab,
   ]);
 
   // プロジェクトの設定をUIストアに反映
@@ -134,26 +154,13 @@ export function WorkspacePage() {
     <div className="flex flex-col h-full ambient-noise" style={{ background: 'var(--bg)' }}>
       <WorkspaceHeader />
       <div className="flex flex-1 overflow-hidden">
-        {/* 左パネル（220px）*/}
-        <div
-          className="flex-shrink-0 overflow-hidden transition-all duration-200 ease-out"
-          style={{ width: leftPanelVisible ? '220px' : '0px' }}
-        >
-          <LeftPanel />
-        </div>
+        {/* 統合サイドパネル (アクティビティバー + コンテンツ) */}
+        <SidePanel />
 
         {/* エディタエリア（可変） */}
         <div className="flex-1 overflow-hidden relative">
           <ParticleEffect />
           <EditorArea />
-        </div>
-
-        {/* 右パネル（タブ切替式） */}
-        <div
-          className="flex-shrink-0 overflow-hidden transition-all duration-200 ease-out"
-          style={{ width: rightPanelVisible ? `${rightPanelWidth}px` : '0px' }}
-        >
-          <RightPanel />
         </div>
       </div>
 
@@ -162,6 +169,21 @@ export function WorkspacePage() {
 
       {/* キャラクターウィジェット */}
       <CharacterWidget />
+
+      {/* コマンドパレット */}
+      <CommandPalette />
+
+      {/* 雰囲気ポップオーバー (中央モーダル) */}
+      {ambiencePopoverVisible && (
+        <div
+          className="fixed inset-0 flex items-center justify-center pointer-events-none"
+          style={{ background: 'rgba(0,0,0,0.4)', zIndex: 150 }}
+        >
+          <div className="pointer-events-auto">
+            <AmbiencePopover onClose={toggleAmbiencePopover} />
+          </div>
+        </div>
+      )}
 
       {/* モーダル */}
       <AnalysisModal />
