@@ -12,6 +12,8 @@ interface EditorState {
   error: string | null;
   /** 最後に自動保存が完了した時刻（ISO文字列）。nullは未実行 */
   lastAutoSavedAt: string | null;
+  /** 最後にスナップショットを作成した時刻（ISO文字列）。nullは未実行 */
+  lastSnapshotAt: string | null;
 
   /** デュアルビュー用：セカンダリエピソード */
   secondaryEpisode: Episode | null;
@@ -23,6 +25,9 @@ interface EditorState {
   save: () => Promise<void>;
   /** 自動保存を実行（成功時に lastAutoSavedAt を更新） */
   autoSave: () => Promise<void>;
+  /** 現在のエピソードのスナップショットを作成する */
+  takeSnapshot: () => Promise<void>;
+  setLastSnapshotAt: (at: string) => void;
   createEpisode: (projectId: string, title: string) => Promise<string>;
   renameEpisode: (id: string, title: string) => Promise<void>;
   deleteEpisode: (id: string) => Promise<void>;
@@ -45,6 +50,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   isSaving: false,
   error: null,
   lastAutoSavedAt: null,
+  lastSnapshotAt: null,
   secondaryEpisode: null,
   secondaryIsDirty: false,
 
@@ -54,9 +60,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   },
 
   switchEpisode: async (id: string) => {
-    // 未保存の場合は先に保存
+    // 未保存の場合は先に保存＋スナップショット作成
     if (get().isDirty) {
       await get().save();
+      await get().takeSnapshot();
     }
     const raw = await invoke<unknown>('get_episode', { id });
     set({ currentEpisode: toCamelCase<Episode>(raw), isDirty: false });
@@ -97,6 +104,22 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     } catch (e) {
       set({ error: String(e), isSaving: false });
     }
+  },
+
+  takeSnapshot: async () => {
+    const { currentEpisode } = get();
+    if (!currentEpisode) return;
+    try {
+      await invoke('save_snapshot', { episodeId: currentEpisode.id });
+      const now = new Date().toISOString();
+      set({ lastSnapshotAt: now });
+    } catch {
+      // スナップショット失敗は静かに無視
+    }
+  },
+
+  setLastSnapshotAt: (at: string) => {
+    set({ lastSnapshotAt: at });
   },
 
   createEpisode: async (projectId: string, title: string) => {

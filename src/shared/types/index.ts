@@ -154,7 +154,7 @@ export interface AnalysisResult {
   rhythmStddev: number;
   dialogueNarrativePattern: boolean[];
   sceneBreakCount: number;
-  sceneBreakDensity: number;
+  paragraphDensity: number;
 
   // 構造分析
   estimatedStructure: StructureSection[];
@@ -307,6 +307,7 @@ export interface Snapshot {
   episodeId: string;
   body: string;
   charCount: number;
+  label: string;
   createdAt: string;
 }
 
@@ -314,6 +315,7 @@ export interface SnapshotSummary {
   id: string;
   episodeId: string;
   charCount: number;
+  label: string;
   createdAt: string;
 }
 

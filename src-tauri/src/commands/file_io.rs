@@ -9,6 +9,142 @@ fn err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+/// TipTap 由来の HTML 本文を一般的な TXT 形式へ変換する。
+///
+/// - `<p>` 終端を空行に（段落区切り）
+/// - `<br>` を改行に
+/// - `<ruby>漢字<rt>かんじ</rt></ruby>` を `|漢字《かんじ》` へ復元
+/// - その他タグは除去、主要エンティティをデコード
+/// - 3 行以上の連続改行は 2 行に圧縮
+fn html_to_plain_text(html: &str) -> String {
+    let s = transform_ruby(html);
+
+    // 改行に寄せるブロック系タグを順に置換
+    let s = s
+        .replace("</p>", "\n\n")
+        .replace("<br>", "\n")
+        .replace("<br/>", "\n")
+        .replace("<br />", "\n")
+        .replace("</div>", "\n")
+        .replace("</li>", "\n")
+        .replace("</h1>", "\n\n")
+        .replace("</h2>", "\n\n")
+        .replace("</h3>", "\n\n")
+        .replace("</h4>", "\n\n")
+        .replace("</h5>", "\n\n")
+        .replace("</h6>", "\n\n")
+        .replace("</blockquote>", "\n\n")
+        .replace("<hr>", "\n----\n")
+        .replace("<hr/>", "\n----\n")
+        .replace("<hr />", "\n----\n");
+
+    // 残余タグを除去
+    let mut stripped = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => stripped.push(c),
+            _ => {}
+        }
+    }
+
+    let decoded = decode_entities(&stripped);
+
+    // 3 行以上の連続改行を 2 行にまとめる
+    let mut collapsed = String::with_capacity(decoded.len());
+    let mut run = 0usize;
+    for c in decoded.chars() {
+        if c == '\n' {
+            run += 1;
+            if run <= 2 {
+                collapsed.push(c);
+            }
+        } else {
+            run = 0;
+            collapsed.push(c);
+        }
+    }
+
+    collapsed.trim().to_string()
+}
+
+/// `<ruby>X<rt>Y</rt></ruby>` → `|X《Y》` 記法に戻す
+fn transform_ruby(html: &str) -> String {
+    let mut out = String::with_capacity(html.len());
+    let mut rest = html;
+    loop {
+        let Some(start) = rest.find("<ruby") else {
+            out.push_str(rest);
+            break;
+        };
+        out.push_str(&rest[..start]);
+        let after_start = &rest[start..];
+        let Some(end_rel) = after_start.find("</ruby>") else {
+            out.push_str(after_start);
+            break;
+        };
+        let Some(gt) = after_start.find('>') else {
+            out.push_str(after_start);
+            break;
+        };
+        let inner = &after_start[gt + 1..end_rel];
+        let (base, ruby_text) = split_ruby_inner(inner);
+        if ruby_text.is_empty() {
+            out.push_str(&base);
+        } else {
+            out.push('|');
+            out.push_str(&base);
+            out.push('《');
+            out.push_str(&ruby_text);
+            out.push('》');
+        }
+        rest = &after_start[end_rel + "</ruby>".len()..];
+    }
+    out
+}
+
+fn split_ruby_inner(inner: &str) -> (String, String) {
+    let Some(rt_tag) = inner.find("<rt") else {
+        return (strip_all_tags(inner), String::new());
+    };
+    let base = strip_all_tags(&inner[..rt_tag]);
+    let after_rt = &inner[rt_tag..];
+    let Some(gt) = after_rt.find('>') else {
+        return (base, String::new());
+    };
+    let rt_body = &after_rt[gt + 1..];
+    let rt_end = rt_body.find("</rt>").unwrap_or(rt_body.len());
+    let ruby_text = strip_all_tags(&rt_body[..rt_end]);
+    (base, ruby_text)
+}
+
+fn strip_all_tags(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut in_tag = false;
+    for c in s.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' => in_tag = false,
+            _ if !in_tag => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
+fn decode_entities(s: &str) -> String {
+    // &amp; は他のエンティティを二重デコードしないよう最後に処理
+    s.replace("&nbsp;", "\u{00A0}")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+}
+
 /// .story-attic.json エクスポート形式
 #[derive(Debug, Serialize, Deserialize)]
 pub struct StoryAtticExport {
@@ -244,7 +380,8 @@ pub fn export_episodes_txt(
             |row| Ok((row.get(0)?, row.get(1)?)),
         );
         if let Ok((title, body)) = result {
-            parts.push(format!("【{}】\n\n{}", title, body));
+            let text = html_to_plain_text(&body);
+            parts.push(format!("【{}】\n\n{}", title, text));
         }
     }
 
@@ -289,8 +426,10 @@ pub fn export_episodes_zip(project_id: String, state: State<AppState>) -> CmdRes
                 })
                 .collect();
             let filename = format!("{:03}_{}.txt", i + 1, safe_title);
+            let text = html_to_plain_text(body);
+            let content = format!("【{}】\n\n{}", title, text);
             zip.start_file(filename, options).map_err(err)?;
-            zip.write_all(body.as_bytes()).map_err(err)?;
+            zip.write_all(content.as_bytes()).map_err(err)?;
         }
         zip.finish().map_err(err)?;
     }

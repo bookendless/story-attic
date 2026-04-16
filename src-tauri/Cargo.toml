@@ -25,6 +25,8 @@ rusqlite = { version = "0.31", features = ["bundled", "functions"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 zip = "2"
+flate2 = "1"
+base64 = "0.22"
 thiserror = "1"
 log = "0.4"
 keyring = "3"

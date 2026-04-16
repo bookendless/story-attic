@@ -121,118 +121,65 @@ fn count_exclamations(text: &str) -> usize {
 // 語彙分析: tokenize()抽象化層
 // =========================================
 
-/// トークン化（簡易方式）
+/// 文字種別
 ///
-/// 将来 lindera クレート導入時は本関数の中身のみを差し替え可能な設計。
-///
-/// 現在の実装:
-/// 1. 句読点・助詞・括弧・記号でチャンクに分割
-/// 2. 各チャンクから 2〜3 文字の n-gram を生成
-/// 3. 純粋な助詞列の n-gram を除外
-fn tokenize(text: &str) -> Vec<String> {
-    // セパレータ: 句読点・括弧・空白・記号
-    let is_separator = |c: char| {
-        matches!(
-            c,
-            '。' | '、'
-                | '！'
-                | '？'
-                | '「'
-                | '」'
-                | '『'
-                | '』'
-                | '（'
-                | '）'
-                | '【'
-                | '】'
-                | '〈'
-                | '〉'
-                | '《'
-                | '》'
-                | '　'
-                | ' '
-                | '\n'
-                | '\t'
-                | '\r'
-                | '・'
-                | '…'
-                | '‥'
-                | '，'
-                | '．'
-                | '!'
-                | '?'
-                | '.'
-                | ','
-                | '"'
-                | '\''
-                | ':'
-                | '：'
-                | ';'
-                | '；'
-                | 'ー'
-                | '―'
-                | '〜'
-                | '～'
-                | '／'
-                | '\\'
-        ) || c.is_ascii_digit()
-            || ('０'..='９').contains(&c)
-    };
+/// 将来 lindera クレート導入時は `tokenize()` の中身のみを差し替え可能な設計。
+#[derive(PartialEq, Clone, Copy)]
+enum CharType {
+    Kanji,
+    Hiragana,
+    Katakana,
+    Ascii,
+    Skip,
+}
 
-    // 段階1: チャンクへ分割
-    let mut chunks: Vec<Vec<char>> = Vec::new();
+fn char_type(c: char) -> CharType {
+    if is_kanji(c) {
+        CharType::Kanji
+    } else if is_hiragana(c) {
+        CharType::Hiragana
+    } else if is_katakana(c) {
+        CharType::Katakana
+    } else if c.is_ascii_alphabetic() {
+        CharType::Ascii
+    } else {
+        CharType::Skip
+    }
+}
+
+/// トークン化（文字種別ランによる方式）
+///
+/// テキストを「漢字ラン」「ひらがなラン」「カタカナラン」「ASCII英字ラン」に分割し、
+/// 各ランを1トークンとして扱う。助詞・助動詞（ひらがなラン）も分母に含まれるため、
+/// n-gram 方式より実態に近い TTR を算出できる。
+fn tokenize(text: &str) -> Vec<String> {
+    let mut tokens: Vec<String> = Vec::new();
     let mut current: Vec<char> = Vec::new();
+    let mut current_type: Option<CharType> = None;
+
     for ch in text.chars() {
-        if is_separator(ch) {
+        let ct = char_type(ch);
+        if ct == CharType::Skip {
             if !current.is_empty() {
-                chunks.push(std::mem::take(&mut current));
+                tokens.push(current.iter().collect());
+                current.clear();
+                current_type = None;
             }
-        } else {
+        } else if Some(ct) == current_type {
             current.push(ch);
+        } else {
+            if !current.is_empty() {
+                tokens.push(current.iter().collect());
+                current.clear();
+            }
+            current.push(ch);
+            current_type = Some(ct);
         }
     }
     if !current.is_empty() {
-        chunks.push(current);
-    }
-
-    // 段階2: 各チャンクから 2〜3 文字 n-gram を生成
-    let mut tokens = Vec::new();
-    for chunk in &chunks {
-        for len in [2usize, 3] {
-            if chunk.len() >= len {
-                for i in 0..=chunk.len() - len {
-                    let ngram: String = chunk[i..i + len].iter().collect();
-                    // ひらがなのみで構成され、かつ助詞として頻出するn-gramは除外
-                    if is_particle_only(&ngram) {
-                        continue;
-                    }
-                    tokens.push(ngram);
-                }
-            }
-        }
+        tokens.push(current.iter().collect());
     }
     tokens
-}
-
-/// 助詞のみで構成される短いn-gramかどうかの判定
-fn is_particle_only(s: &str) -> bool {
-    // 頻出助詞・助動詞の短いn-gram（ひらがなのみ）
-    const PARTICLES: &[&str] = &[
-        "は", "が", "を", "に", "の", "で", "と", "へ", "も", "や", "よ", "ね", "な",
-        "です", "ます", "から", "まで", "より", "への", "では", "には", "とは", "とも",
-        "でも", "しか", "だけ", "ので", "のに", "けれど", "けど", "かも", "こそ", "さえ",
-        "って", "なら", "した", "する", "して", "しな", "され", "せる", "られ", "いる",
-        "いた", "ある", "あっ", "ない", "なく", "なり", "たち", "よう", "その", "この",
-        "あの", "どの", "それ", "これ", "あれ", "どれ", "そう", "こう", "ああ", "どう",
-        "ため", "ほど", "こと", "もの", "とき", "さん", "くん", "ちゃん",
-    ];
-
-    let chars: Vec<char> = s.chars().collect();
-    // 全てひらがなかチェック
-    if !chars.iter().all(|c| is_hiragana(*c)) {
-        return false;
-    }
-    PARTICLES.contains(&s)
 }
 
 // =========================================
@@ -869,7 +816,7 @@ fn empty_result() -> AnalysisResult {
         rhythm_stddev: 0.0,
         dialogue_narrative_pattern: vec![],
         scene_break_count: 0,
-        scene_break_density: 0.0,
+        paragraph_density: 0.0,
         estimated_structure: vec![],
         climax_position: 0.0,
         intensity_curve: vec![0.0; 10],
@@ -965,8 +912,8 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
     let (rhythm_variance, rhythm_stddev) = compute_rhythm_variance(&sentence_lengths);
     let dialogue_narrative_pattern = compute_dialogue_pattern(&paragraphs);
     let scene_break_count = count_scene_breaks(&plain);
-    let scene_break_density = if paragraph_count > 0 {
-        scene_break_count as f64 / paragraph_count as f64
+    let paragraph_density = if char_count > 0 {
+        paragraph_count as f64 / (char_count as f64 / 1000.0)
     } else {
         0.0
     };
@@ -1045,7 +992,7 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
         rhythm_stddev,
         dialogue_narrative_pattern,
         scene_break_count,
-        scene_break_density,
+        paragraph_density,
         estimated_structure,
         climax_position,
         intensity_curve,

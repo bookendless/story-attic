@@ -154,3 +154,23 @@ pub fn reorder_episodes(
     }
     Ok(())
 }
+
+/// プロジェクト内の全エピソード本文を結合して返す（作品全体分析用）
+#[tauri::command]
+pub fn get_project_full_text(
+    project_id: String,
+    state: State<AppState>,
+) -> CmdResult<String> {
+    let conn = state.db.lock().map_err(err)?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT body FROM episodes WHERE project_id = ?1 ORDER BY sort_order ASC",
+        )
+        .map_err(err)?;
+    let bodies: Vec<String> = stmt
+        .query_map(rusqlite::params![project_id], |row| row.get(0))
+        .map_err(err)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(err)?;
+    Ok(bodies.join("\n\n"))
+}

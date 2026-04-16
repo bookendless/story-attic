@@ -113,11 +113,24 @@ export function ExportMenu() {
   return (
     <div className="relative">
       <button
-        className="header-icon-btn"
+        className={`header-icon-btn flex-col ${isOpen ? 'active' : ''}`}
         onClick={() => setIsOpen((o) => !o)}
+        style={{
+          height: 'auto',
+          minHeight: '44px',
+          minWidth: '44px',
+          padding: '6px 4px 4px',
+          gap: '2px',
+          justifyContent: 'center',
+        }}
       >
-        <IconExport size={15} />
-        <span className="tooltip">出力</span>
+        <div className="flex items-center justify-center">
+          <IconExport size={20} />
+        </div>
+        <span style={{ fontSize: '10px', lineHeight: 1, opacity: isOpen ? 1 : 0.8, transform: 'scale(0.95)' }}>
+          出力
+        </span>
+        <span className="tooltip">出力・取込</span>
       </button>
 
       {isOpen && (

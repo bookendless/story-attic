@@ -77,8 +77,8 @@ pub struct AnalysisResult {
     pub dialogue_narrative_pattern: Vec<bool>,
     /// 場面転換数（空行・セパレータ行の数）
     pub scene_break_count: usize,
-    /// 場面転換密度（転換数 / 段落数）
-    pub scene_break_density: f64,
+    /// 段落密度（1000文字あたりの段落数）
+    pub paragraph_density: f64,
 
     // --- 構造分析 ---
     /// 起承転結の推定（4セクション）

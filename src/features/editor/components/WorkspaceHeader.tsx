@@ -2,11 +2,11 @@
  * ワークスペース上部ヘッダー (再構成版)
  *
  * 常時必要な最頻出アクションのみを配置:
- *   ホーム / プロジェクト名 / ビューモード / 保存 / 検索 / AI / コマンドパレット
+ *   ホーム / プロジェクト名 / ビューモード / 保存 / 検索 / AI / 出力 / コマンドパレット
  *
  * 以下の機能は他の場所に移動した:
  *   - 縦書き / テーマ / 演出 / 環境音 / ゴースト → StatusBar
- *   - 文章分析 / 校正 / 差分 / 執筆支援 / エクスポート / 設定 → CommandPalette (Ctrl+P)
+ *   - 文章分析 / 校正 / 差分 / 執筆支援 / 設定 → CommandPalette (Ctrl+P)
  */
 
 import { useState } from 'react';
@@ -15,6 +15,7 @@ import { useProjectStore } from '@/shared/stores/projectStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { ViewModeSegmented } from './ViewModeSegmented';
+import { ExportMenu } from './ExportMenu';
 import {
   IconHome,
   IconSave,
@@ -79,6 +80,7 @@ export function WorkspaceHeader() {
   } = useUIStore();
 
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
 
@@ -86,7 +88,7 @@ export function WorkspaceHeader() {
     if (isDirty) {
       setShowUnsavedWarning(true);
     } else {
-      navigateTo('home');
+      setShowHomeConfirm(true);
     }
   };
 
@@ -231,6 +233,8 @@ export function WorkspaceHeader() {
             onClick={toggleAiPanel}
           />
 
+          <ExportMenu />
+
           <button
             className="header-icon-btn flex-col"
             onClick={toggleCommandPalette}
@@ -256,6 +260,30 @@ export function WorkspaceHeader() {
           </button>
         </div>
       </header>
+
+      {showHomeConfirm && (
+        <div className="modal-overlay" onClick={() => setShowHomeConfirm(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-base font-medium mb-3" style={{ color: 'var(--text)' }}>
+              ホームに戻りますか？
+            </h2>
+            <div className="flex justify-end gap-3">
+              <button className="btn btn-ghost" onClick={() => setShowHomeConfirm(false)}>
+                キャンセル
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowHomeConfirm(false);
+                  navigateTo('home');
+                }}
+              >
+                ホームへ戻る
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showUnsavedWarning && (
         <div className="modal-overlay" onClick={() => setShowUnsavedWarning(false)}>

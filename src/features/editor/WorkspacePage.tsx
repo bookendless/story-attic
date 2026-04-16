@@ -4,6 +4,7 @@ import { useProjectStore } from '@/shared/stores/projectStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useAutoSave } from '@/shared/hooks/useAutoSave';
+import { useHistorySnapshot } from '@/shared/hooks/useHistorySnapshot';
 import { useSound } from '@/shared/hooks/useSound';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { EditorArea } from './components/EditorArea';
@@ -34,6 +35,8 @@ export function WorkspacePage() {
 
   // 自動保存フック
   useAutoSave();
+  // 履歴スナップショット（5分間隔）
+  useHistorySnapshot();
   // サウンド管理フック
   useSound();
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import {
   useUIStore,
@@ -15,7 +15,15 @@ import { DEFAULT_SETTINGS, DEFAULT_AI_SETTINGS } from '@/shared/types';
 import { AiSettingsTab, DEFAULT_MODELS } from '@/features/ai/AiSettingsTab';
 
 /** 設定カテゴリのタブ */
-type SettingsTab = 'editor' | 'save' | 'display' | 'manuscript' | 'proofread' | 'ambience' | 'sound' | 'ai';
+type SettingsTab = 'editor' | 'save' | 'display' | 'manuscript' | 'proofread' | 'ambience' | 'sound' | 'ai' | 'storage';
+
+interface StorageStats {
+  dbSizeBytes: number;
+  episodeBodyBytes: number;
+  snapshotBytes: number;
+  snapshotCount: number;
+  episodeCount: number;
+}
 
 const FONT_OPTIONS = [
   // 明朝体
@@ -69,6 +77,10 @@ export function SettingsModal() {
   const [localSound, setLocalSound] = useState<SoundSettings>(soundSettings);
   const [localAi, setLocalAi] = useState<AiSettings>(DEFAULT_AI_SETTINGS);
   const [saving, setSaving] = useState(false);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [trimKeepCount, setTrimKeepCount] = useState(5);
+  const [storageMsg, setStorageMsg] = useState<string | null>(null);
 
   // モーダルを開いた時に最新の設定を反映
   useEffect(() => {
@@ -96,6 +108,25 @@ export function SettingsModal() {
   const updateLocal = (patch: Partial<ProjectSettings>) => {
     setLocal((prev) => ({ ...prev, ...patch }));
   };
+
+  const loadStorageStats = useCallback(async () => {
+    if (!currentProject) return;
+    setStorageLoading(true);
+    setStorageMsg(null);
+    try {
+      const raw = await invoke<Record<string, unknown>>('get_storage_stats', { projectId: currentProject.id });
+      // snake_case → camelCase
+      setStorageStats({
+        dbSizeBytes: raw['db_size_bytes'] as number,
+        episodeBodyBytes: raw['episode_body_bytes'] as number,
+        snapshotBytes: raw['snapshot_bytes'] as number,
+        snapshotCount: raw['snapshot_count'] as number,
+        episodeCount: raw['episode_count'] as number,
+      });
+    } catch { /* 無視 */ } finally {
+      setStorageLoading(false);
+    }
+  }, [currentProject]);
 
   const handleSave = async () => {
     if (!currentProject) return;
@@ -145,6 +176,30 @@ export function SettingsModal() {
 
   if (!settingsModalVisible) return null;
 
+  const handleTabChange = (t: SettingsTab) => {
+    setTab(t);
+    if (t === 'storage') loadStorageStats();
+  };
+
+  const handleDeleteAllSnapshots = async () => {
+    if (!currentProject) return;
+    if (!window.confirm('この作品のスナップショットをすべて削除しますか？この操作は元に戻せません。')) return;
+    try {
+      const deleted = await invoke<number>('delete_all_snapshots', { projectId: currentProject.id });
+      setStorageMsg(`${deleted} 件のスナップショットを削除しました`);
+      await loadStorageStats();
+    } catch { /* 無視 */ }
+  };
+
+  const handleTrimSnapshots = async () => {
+    if (!currentProject) return;
+    try {
+      const deleted = await invoke<number>('trim_snapshots', { projectId: currentProject.id, keepCount: trimKeepCount });
+      setStorageMsg(deleted > 0 ? `${deleted} 件の古いスナップショットを削除しました` : '削除対象はありませんでした');
+      await loadStorageStats();
+    } catch { /* 無視 */ }
+  };
+
   const tabs: { key: SettingsTab; label: string }[] = [
     { key: 'editor', label: 'エディタ' },
     { key: 'save', label: '保存' },
@@ -154,6 +209,7 @@ export function SettingsModal() {
     { key: 'ambience', label: '演出' },
     { key: 'sound', label: 'サウンド' },
     { key: 'ai', label: 'AI' },
+    { key: 'storage', label: 'データ管理' },
   ];
 
   return (
@@ -186,7 +242,7 @@ export function SettingsModal() {
                 cursor: 'pointer',
                 fontWeight: tab === t.key ? 600 : 400,
               }}
-              onClick={() => setTab(t.key)}
+              onClick={() => handleTabChange(t.key)}
             >
               {t.label}
             </button>
@@ -449,6 +505,19 @@ export function SettingsModal() {
             />
           )}
 
+          {tab === 'storage' && (
+            <StorageTab
+              stats={storageStats}
+              loading={storageLoading}
+              msg={storageMsg}
+              trimKeepCount={trimKeepCount}
+              onTrimKeepCountChange={setTrimKeepCount}
+              onRefresh={loadStorageStats}
+              onDeleteAll={handleDeleteAllSnapshots}
+              onTrim={handleTrimSnapshots}
+            />
+          )}
+
           {tab === 'sound' && (
             <>
               <SettingRow label="サウンド全体">
@@ -570,6 +639,167 @@ export function SettingsModal() {
 // =========================================
 // 共通サブコンポーネント
 // =========================================
+
+// =========================================
+// ストレージ管理タブ
+// =========================================
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+interface StorageTabProps {
+  stats: StorageStats | null;
+  loading: boolean;
+  msg: string | null;
+  trimKeepCount: number;
+  onTrimKeepCountChange: (n: number) => void;
+  onRefresh: () => void;
+  onDeleteAll: () => void;
+  onTrim: () => void;
+}
+
+function StorageTab({
+  stats, loading, msg, trimKeepCount, onTrimKeepCountChange, onRefresh, onDeleteAll, onTrim,
+}: StorageTabProps) {
+  const barTotal = stats ? stats.episodeBodyBytes + stats.snapshotBytes : 0;
+  const bodyPct = barTotal > 0 ? (stats!.episodeBodyBytes / barTotal) * 100 : 0;
+  const snapPct = barTotal > 0 ? (stats!.snapshotBytes / barTotal) * 100 : 0;
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* DB全体サイズ */}
+      <div
+        className="flex items-center justify-between p-3 rounded"
+        style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)' }}
+      >
+        <span className="text-sm" style={{ color: 'var(--text-mid)' }}>データベース全体</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+          {stats ? formatBytes(stats.dbSizeBytes) : '—'}
+        </span>
+      </div>
+
+      {/* 使用量の内訳 */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>使用量の内訳</span>
+
+        {loading && (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>読み込み中…</span>
+        )}
+
+        {stats && !loading && (
+          <>
+            {/* 積み上げバー */}
+            {barTotal > 0 && (
+              <div
+                className="flex rounded overflow-hidden"
+                style={{ height: '10px', background: 'var(--bg-deep)', gap: '1px' }}
+              >
+                <div style={{ width: `${bodyPct}%`, background: 'var(--accent)', transition: 'width 0.4s' }} />
+                <div style={{ width: `${snapPct}%`, background: 'var(--warning, #c9a84c)', transition: 'width 0.4s' }} />
+              </div>
+            )}
+
+            {/* 凡例 */}
+            <div className="flex flex-col gap-1.5 mt-1">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'var(--accent)', flexShrink: 0 }} />
+                  <span className="text-xs" style={{ color: 'var(--text-mid)' }}>
+                    本文データ（{stats.episodeCount} 話）
+                  </span>
+                </div>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{formatBytes(stats.episodeBodyBytes)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <div style={{ width: '10px', height: '10px', borderRadius: '2px', background: 'var(--warning, #c9a84c)', flexShrink: 0 }} />
+                  <span className="text-xs" style={{ color: 'var(--text-mid)' }}>
+                    スナップショット（{stats.snapshotCount} 件、圧縮済み）
+                  </span>
+                </div>
+                <span className="text-xs" style={{ color: 'var(--text)' }}>{formatBytes(stats.snapshotBytes)}</span>
+              </div>
+            </div>
+          </>
+        )}
+
+        <button
+          className="text-xs self-end"
+          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
+          onClick={onRefresh}
+          disabled={loading}
+        >
+          ↻ 更新
+        </button>
+      </div>
+
+      {/* スナップショット管理 */}
+      <div className="flex flex-col gap-2">
+        <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>スナップショット管理</span>
+
+        {/* 整理（最新N件保持） */}
+        <div
+          className="flex flex-col gap-2 p-3 rounded"
+          style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--text-mid)' }}>
+            各エピソードの最新N件だけを残して古いものを削除します
+          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs" style={{ color: 'var(--text-mid)' }}>保持件数</span>
+            <select
+              className="input text-xs"
+              style={{ width: '80px', padding: '3px 6px' }}
+              value={trimKeepCount}
+              onChange={(e) => onTrimKeepCountChange(Number(e.target.value))}
+            >
+              {[1, 2, 3, 5, 7].map((n) => (
+                <option key={n} value={n}>{n} 件</option>
+              ))}
+            </select>
+            <button
+              className="btn btn-ghost text-xs px-3 py-1"
+              onClick={onTrim}
+            >
+              整理する
+            </button>
+          </div>
+        </div>
+
+        {/* 全削除 */}
+        <div
+          className="flex items-center justify-between p-3 rounded"
+          style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)' }}
+        >
+          <span className="text-xs" style={{ color: 'var(--text-mid)' }}>
+            すべてのスナップショットを削除する
+          </span>
+          <button
+            className="btn text-xs px-3 py-1"
+            style={{
+              background: 'none',
+              border: '1px solid var(--danger)',
+              color: 'var(--danger)',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            onClick={onDeleteAll}
+          >
+            全削除
+          </button>
+        </div>
+      </div>
+
+      {/* フィードバックメッセージ */}
+      {msg && (
+        <span className="text-xs" style={{ color: 'var(--success)' }}>{msg}</span>
+      )}
+    </div>
+  );
+}
 
 function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (

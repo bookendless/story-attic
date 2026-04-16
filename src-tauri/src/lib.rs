@@ -50,6 +50,7 @@ pub fn run() {
             commands::episode::rename_episode,
             commands::episode::delete_episode,
             commands::episode::reorder_episodes,
+            commands::episode::get_project_full_text,
             // 章管理
             commands::chapter::create_chapter,
             commands::chapter::rename_chapter,
@@ -76,6 +77,12 @@ pub fn run() {
             commands::snapshot::list_snapshots,
             commands::snapshot::get_snapshot,
             commands::snapshot::delete_snapshot,
+            commands::snapshot::restore_snapshot,
+            commands::snapshot::label_snapshot,
+            // ストレージ管理
+            commands::storage::get_storage_stats,
+            commands::storage::delete_all_snapshots,
+            commands::storage::trim_snapshots,
             // APIキー管理
             commands::keyring::save_api_key,
             commands::keyring::get_api_key,

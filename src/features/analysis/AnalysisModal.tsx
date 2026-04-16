@@ -6,6 +6,7 @@ import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { AnalysisResult, StructureSection } from '@/shared/types';
 
 type TabKey = 'structure' | 'tempo' | 'vocabulary' | 'character' | 'emotion' | 'narrative' | 'writing';
+type AnalysisScope = 'episode' | 'project';
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'structure',  label: '構造' },
@@ -24,17 +25,23 @@ export function AnalysisModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('structure');
+  const [scope, setScope] = useState<AnalysisScope>('episode');
   const [characterCount, setCharacterCount] = useState<number>(0);
 
   const handleAnalyze = useCallback(() => {
     if (!currentEpisode) return;
     setLoading(true);
     setError(null);
-    invoke<unknown>('analyze_text', { text: currentEpisode.body })
+    const getTextPromise: Promise<string> =
+      scope === 'project'
+        ? invoke<string>('get_project_full_text', { projectId: currentEpisode.projectId })
+        : Promise.resolve(currentEpisode.body);
+    getTextPromise
+      .then((text) => invoke<unknown>('analyze_text', { text }))
       .then((raw) => setResult(toCamelCase<AnalysisResult>(raw)))
       .catch((e) => setError(String(e)))
       .finally(() => setLoading(false));
-  }, [currentEpisode]);
+  }, [currentEpisode, scope]);
 
   useEffect(() => {
     if (!analysisModalVisible) return;
@@ -74,6 +81,25 @@ export function AnalysisModal() {
               ✕
             </button>
           </div>
+        </div>
+
+        {/* スコープ切替 */}
+        <div className="flex gap-2 mb-3">
+          {(['episode', 'project'] as const).map((s) => (
+            <button
+              key={s}
+              onClick={() => { setScope(s); setResult(null); }}
+              className="px-3 py-1 text-xs rounded-full transition-colors"
+              style={{
+                background: scope === s ? 'var(--accent)' : 'var(--bg-surface)',
+                color: scope === s ? 'var(--bg)' : 'var(--text-mid)',
+                border: `1px solid ${scope === s ? 'var(--accent)' : 'var(--border)'}`,
+                fontFamily: 'var(--font-heading)',
+              }}
+            >
+              {s === 'episode' ? '現在の話' : '作品全体'}
+            </button>
+          ))}
         </div>
 
         {/* タブヘッダー */}
@@ -268,7 +294,7 @@ function TempoTab({ result }: { result: AnalysisResult }) {
           />
           <StatCard
             label="段落転換率"
-            value={result.sceneBreakDensity.toFixed(2)}
+            value={result.paragraphDensity.toFixed(2)}
             unit="段落/千字"
             hint="高いほど展開が小刻み"
           />
@@ -618,7 +644,7 @@ function WritingTab({ result }: { result: AnalysisResult }) {
           />
           <StatCard
             label="段落転換率"
-            value={result.sceneBreakDensity.toFixed(2)}
+            value={result.paragraphDensity.toFixed(2)}
             unit="段落/千字"
             hint="テンポ"
           />
@@ -637,7 +663,7 @@ function WritingTab({ result }: { result: AnalysisResult }) {
           <RateBar label="読解指数" rate={result.readabilityScore / 100} color="var(--accent)" valueLabel={result.readabilityScore.toFixed(0)} />
           <RateBar label="語彙多様度" rate={result.vocabularyDiversity} color="var(--warning)" valueLabel={`${(result.vocabularyDiversity * 100).toFixed(0)}%`} />
           <RateBar label="会話率" rate={result.dialogueRate} color="#7cb8a0" valueLabel={`${(result.dialogueRate * 100).toFixed(0)}%`} />
-          <RateBar label="心理描写密度" rate={Math.min(result.psychoDensity / 2, 1)} color="#a07cb8" valueLabel={result.psychoDensity.toFixed(2)} />
+          <RateBar label="心理描写密度" rate={Math.min(result.psychoDensity, 1)} color="#a07cb8" valueLabel={(result.psychoDensity * 100).toFixed(0)} />
         </div>
       </Section>
 

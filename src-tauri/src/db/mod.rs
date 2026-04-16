@@ -55,18 +55,34 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         );",
     )?;
 
-    // 適用済みバージョンを確認
-    let applied: i64 = conn.query_row(
+    // v1: 初期スキーマ
+    let applied_v1: i64 = conn.query_row(
         "SELECT COUNT(*) FROM schema_migrations WHERE version = 1",
         [],
         |row| row.get(0),
     )?;
 
-    if applied == 0 {
+    if applied_v1 == 0 {
         let sql = include_str!("migrations/001_initial.sql");
         conn.execute_batch(sql)?;
         conn.execute(
             "INSERT INTO schema_migrations (version, applied_at) VALUES (1, datetime('now'))",
+            [],
+        )?;
+    }
+
+    // v2: スナップショット圧縮フラグ・ラベル追加
+    let applied_v2: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 2",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v2 == 0 {
+        let sql = include_str!("migrations/002_snapshot_update.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (2, datetime('now'))",
             [],
         )?;
     }

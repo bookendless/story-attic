@@ -14,3 +14,4 @@ pub mod memo;
 pub mod material;
 pub mod plot;
 pub mod writing_support;
+pub mod storage;

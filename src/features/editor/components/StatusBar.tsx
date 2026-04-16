@@ -67,6 +67,7 @@ export function StatusBar({ editor }: Props) {
   const soundEnabled = useUIStore((s) => s.soundSettings.enabled);
   const toggleAmbiencePopover = useUIStore((s) => s.toggleAmbiencePopover);
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
+  const lastSnapshotAt = useEditorStore((s) => s.lastSnapshotAt);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
   const projectId = useAppStore((s) => s.currentProjectId);
   const [charCount, setCharCount] = useState(0);
@@ -224,6 +225,14 @@ export function StatusBar({ editor }: Props) {
             }}
           >
             自動保存済み
+          </span>
+        )}
+        {lastSnapshotAt && (
+          <span
+            title={`最終スナップショット: ${new Date(lastSnapshotAt).toLocaleString('ja-JP')}`}
+            style={{ color: 'var(--text-muted)' }}
+          >
+            履歴 {new Date(lastSnapshotAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
         {proofCount !== null && proofCount > 0 && (
