@@ -21,7 +21,7 @@ import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const { openProject, currentProject } = useProjectStore();
-  const { loadChapterTree, save, saveSecondary } = useEditorStore();
+  const { loadChapterTree, clearCurrentEpisode, save, saveSecondary } = useEditorStore();
   const {
     aiPanelVisible,
     setSettings, toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
@@ -42,10 +42,11 @@ export function WorkspacePage() {
 
   useEffect(() => {
     if (currentProjectId) {
+      clearCurrentEpisode();
       openProject(currentProjectId);
       loadChapterTree(currentProjectId);
     }
-  }, [currentProjectId, openProject, loadChapterTree]);
+  }, [currentProjectId, openProject, loadChapterTree, clearCurrentEpisode]);
 
   // グローバルキーボードショートカット
   useEffect(() => {
@@ -99,10 +100,10 @@ export function WorkspacePage() {
         toggleCommandPalette();
         return;
       }
-      // Ctrl+1..6: サイドパネルタブ切替
-      if (ctrl && !shift && !e.altKey && ['1','2','3','4','5','6'].includes(e.key)) {
+      // Ctrl+1..8: サイドパネルタブ切替
+      if (ctrl && !shift && !e.altKey && ['1','2','3','4','5','6','7','8'].includes(e.key)) {
         e.preventDefault();
-        const tabs = ['toc','plot','character','glossary','material','memo'] as const;
+        const tabs = ['toc','plot','character','glossary','material','memo','synopsis','foreshadowing'] as const;
         const idx = Number(e.key) - 1;
         setActiveSideTab(tabs[idx]);
         return;

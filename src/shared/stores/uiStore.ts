@@ -69,11 +69,11 @@ export const DEFAULT_CHARACTER_SETTINGS: CharacterSettings = {
 };
 
 /** 右パネルのアクティブタブ（AIは独立パネルに分離済み） */
-export type RightPanelTab = 'plot' | 'character' | 'glossary' | 'material' | 'memo';
+export type RightPanelTab = 'plot' | 'character' | 'glossary' | 'material' | 'memo' | 'synopsis' | 'foreshadowing';
 
 /** 統合サイドパネルのアクティブタブ (目次 + 既存 RightPanelTab) */
 export type SideTab = 'toc' | RightPanelTab;
-const VALID_SIDE_TABS: SideTab[] = ['toc', 'plot', 'character', 'glossary', 'material', 'memo'];
+const VALID_SIDE_TABS: SideTab[] = ['toc', 'plot', 'character', 'glossary', 'material', 'memo', 'synopsis', 'foreshadowing'];
 
 function loadActiveSideTab(): SideTab {
   try {

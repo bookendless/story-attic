@@ -15,3 +15,7 @@ pub mod material;
 pub mod plot;
 pub mod writing_support;
 pub mod storage;
+pub mod synopsis;
+pub mod plot_thread;
+pub mod correlation;
+pub mod import_ai;

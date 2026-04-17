@@ -56,7 +56,10 @@ export function HomePage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ImportExportButtons onImported={loadProjects} />
+          <ImportExportButtons
+            onImported={loadProjects}
+            onAiImported={(id) => navigateTo('workspace', id)}
+          />
           <button
             className="header-icon-btn"
             onClick={toggleTheme}

@@ -5,6 +5,7 @@ use tauri::Manager;
 pub mod commands;
 pub mod db;
 pub mod models;
+pub mod parsers;
 
 /// アプリ全体で共有するSQLite接続
 pub struct AppState {
@@ -135,6 +136,23 @@ pub fn run() {
             commands::writing_support::save_diary_entry,
             commands::writing_support::get_diary_entries,
             commands::writing_support::get_diary_entries_range,
+            // あらすじ
+            commands::synopsis::get_synopsis,
+            commands::synopsis::save_synopsis,
+            // 伏線トラッカー
+            commands::plot_thread::create_plot_thread,
+            commands::plot_thread::get_plot_threads,
+            commands::plot_thread::update_plot_thread,
+            commands::plot_thread::delete_plot_thread,
+            commands::plot_thread::reorder_plot_threads,
+            // キャラクター相関図
+            commands::correlation::create_correlation,
+            commands::correlation::get_correlations,
+            commands::correlation::update_correlation,
+            commands::correlation::delete_correlation,
+            // AI Story Builder インポート
+            commands::import_ai::parse_ai_story_builder_file,
+            commands::import_ai::import_ai_story_builder,
         ])
         .run(tauri::generate_context!())
         .expect("Tauriアプリケーションの起動に失敗しました");

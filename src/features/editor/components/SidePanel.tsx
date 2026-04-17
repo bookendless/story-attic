@@ -29,6 +29,8 @@ import { GlossaryPanel } from '@/features/glossary/GlossaryPanel';
 import { MemoPanel } from '@/features/memo/MemoPanel';
 import { MaterialPanel } from '@/features/material/MaterialPanel';
 import { PlotPanel } from '@/features/plot/PlotPanel';
+import { SynopsisPanel } from '@/features/synopsis/SynopsisPanel';
+import { PlotThreadPanel } from '@/features/plot-threads/PlotThreadPanel';
 
 interface TabDef {
   key: SideTab;
@@ -38,12 +40,14 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { key: 'toc',       label: '目次',     shortcut: 'Ctrl+1', icon: IconPanelShow },
-  { key: 'plot',      label: 'プロット', shortcut: 'Ctrl+2', icon: IconPlot },
-  { key: 'character', label: '人物',     shortcut: 'Ctrl+3', icon: IconCharacter },
-  { key: 'glossary',  label: '用語',     shortcut: 'Ctrl+4', icon: IconGlossary },
-  { key: 'material',  label: '資料',     shortcut: 'Ctrl+5', icon: IconMaterial },
-  { key: 'memo',      label: 'メモ',     shortcut: 'Ctrl+6', icon: IconMemo },
+  { key: 'toc',           label: '目次',       shortcut: 'Ctrl+1', icon: IconPanelShow },
+  { key: 'plot',          label: 'プロット',   shortcut: 'Ctrl+2', icon: IconPlot },
+  { key: 'character',     label: '人物',       shortcut: 'Ctrl+3', icon: IconCharacter },
+  { key: 'glossary',      label: '用語',       shortcut: 'Ctrl+4', icon: IconGlossary },
+  { key: 'material',      label: '資料',       shortcut: 'Ctrl+5', icon: IconMaterial },
+  { key: 'memo',          label: 'メモ',       shortcut: 'Ctrl+6', icon: IconMemo },
+  { key: 'synopsis',      label: 'あらすじ',   shortcut: 'Ctrl+7', icon: IconAnalysis },
+  { key: 'foreshadowing', label: '伏線',       shortcut: 'Ctrl+8', icon: IconMemo },
 ];
 
 export function SidePanel() {
@@ -270,6 +274,10 @@ function TabContent({ tabKey }: { tabKey: SideTab }) {
       return <MaterialPanel />;
     case 'memo':
       return <MemoPanel />;
+    case 'synopsis':
+      return <SynopsisPanel />;
+    case 'foreshadowing':
+      return <PlotThreadPanel />;
   }
 }
 

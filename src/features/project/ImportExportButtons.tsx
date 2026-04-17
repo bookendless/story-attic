@@ -2,13 +2,16 @@ import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
+import { ImportAiStoryBuilderDialog } from '@/features/import/ImportAiStoryBuilderDialog';
 
 interface Props {
   onImported: () => void;
+  onAiImported?: (projectId: string) => void;
 }
 
-export function ImportExportButtons({ onImported }: Props) {
+export function ImportExportButtons({ onImported, onAiImported }: Props) {
   const [isImporting, setIsImporting] = useState(false);
+  const [showAiDialog, setShowAiDialog] = useState(false);
 
   const handleImport = async () => {
     const filePath = await open({
@@ -29,19 +32,38 @@ export function ImportExportButtons({ onImported }: Props) {
     }
   };
 
+  const handleAiImported = (projectId: string) => {
+    setShowAiDialog(false);
+    onImported();
+    onAiImported?.(projectId);
+  };
+
   return (
-    <div className="flex gap-2">
-      <button
-        className="btn btn-ghost text-xs"
-        style={{
-          padding: '4px 12px',
-          letterSpacing: '0.05em',
-        }}
-        onClick={handleImport}
-        disabled={isImporting}
-      >
-        {isImporting ? 'インポート中...' : 'インポート'}
-      </button>
-    </div>
+    <>
+      <div className="flex gap-2">
+        <button
+          className="btn btn-ghost text-xs"
+          style={{ padding: '4px 12px', letterSpacing: '0.05em' }}
+          onClick={() => setShowAiDialog(true)}
+        >
+          AI Story Builder
+        </button>
+        <button
+          className="btn btn-ghost text-xs"
+          style={{ padding: '4px 12px', letterSpacing: '0.05em' }}
+          onClick={handleImport}
+          disabled={isImporting}
+        >
+          {isImporting ? 'インポート中...' : 'インポート'}
+        </button>
+      </div>
+
+      {showAiDialog && (
+        <ImportAiStoryBuilderDialog
+          onClose={() => setShowAiDialog(false)}
+          onImported={handleAiImported}
+        />
+      )}
+    </>
   );
 }

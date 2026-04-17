@@ -20,6 +20,7 @@ interface EditorState {
   secondaryIsDirty: boolean;
 
   loadChapterTree: (projectId: string) => Promise<void>;
+  clearCurrentEpisode: () => void;
   switchEpisode: (id: string) => Promise<void>;
   updateBody: (body: string) => void;
   save: () => Promise<void>;
@@ -57,6 +58,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   loadChapterTree: async (projectId: string) => {
     const raw = await invoke<unknown>('get_chapter_tree', { projectId });
     set({ chapterTree: toCamelCase<ChapterTree>(raw) });
+  },
+
+  clearCurrentEpisode: () => {
+    set({ currentEpisode: null, isDirty: false, secondaryEpisode: null, secondaryIsDirty: false });
   },
 
   switchEpisode: async (id: string) => {

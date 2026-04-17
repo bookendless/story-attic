@@ -87,5 +87,21 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // v3: AI Story Builder インポート対応（synopses, plot_threads）
+    let applied_v3: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 3",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v3 == 0 {
+        let sql = include_str!("migrations/003_ai_story_builder.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (3, datetime('now'))",
+            [],
+        )?;
+    }
+
     Ok(())
 }

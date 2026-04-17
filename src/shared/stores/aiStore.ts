@@ -33,6 +33,8 @@ export const CONTEXT_LABELS: Record<AiContextSource, string> = {
   glossary: '用語',
   plot: 'プロット',
   worldbuilding: '世界観',
+  synopsis: 'あらすじ',
+  foreshadowing: '伏線',
 };
 
 /** コンテキストソース別の文字数上限 */
@@ -42,6 +44,8 @@ export const CONTEXT_MAX_CHARS: Record<AiContextSource, number> = {
   glossary: 2000,
   plot: 2000,
   worldbuilding: 1000,
+  synopsis: 3000,
+  foreshadowing: 5000,
 };
 
 interface AiState {

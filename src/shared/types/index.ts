@@ -296,7 +296,7 @@ export type AiPersona = 'reader' | 'editor' | 'assistant';
 export type AiTone = 'formal' | 'casual' | 'harsh';
 
 /** AIコンテキストソース */
-export type AiContextSource = 'body' | 'characters' | 'glossary' | 'plot' | 'worldbuilding';
+export type AiContextSource = 'body' | 'characters' | 'glossary' | 'plot' | 'worldbuilding' | 'synopsis' | 'foreshadowing';
 
 // =========================================
 // スナップショット
@@ -552,4 +552,231 @@ export interface DiaryEntry {
   date: string;
   charCount: number;
   sessionSec: number;
+}
+
+// =========================================
+// あらすじ
+// =========================================
+
+export interface Synopsis {
+  id: string;
+  projectId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =========================================
+// 伏線トラッカー
+// =========================================
+
+export interface PlotThread {
+  id: string;
+  projectId: string;
+  title: string;
+  category: string;
+  /** JSON文字列: PlotThreadData */
+  data: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PlotThreadPoint {
+  type: string;
+  chapter: string;
+  content: string;
+}
+
+export interface PlotThreadData {
+  status: string;
+  importance: string;
+  description: string;
+  points: PlotThreadPoint[];
+  relatedCharacters: string[];
+  resolution: string;
+  notes: string;
+  recommendedPlacement: string;
+  expectedEffect: string;
+}
+
+export const DEFAULT_PLOT_THREAD_DATA: PlotThreadData = {
+  status: '',
+  importance: '',
+  description: '',
+  points: [],
+  relatedCharacters: [],
+  resolution: '',
+  notes: '',
+  recommendedPlacement: '',
+  expectedEffect: '',
+};
+
+// =========================================
+// キャラクター相関図
+// =========================================
+
+export interface Correlation {
+  id: string;
+  projectId: string;
+  title: string;
+  /** JSON文字列: CorrelationData */
+  data: string;
+}
+
+export interface CorrelationNode {
+  id: string;
+  name: string;
+  characterId: string;
+}
+
+export interface CorrelationEdge {
+  from: string;
+  to: string;
+  type: string;
+  intensity: number;
+  description: string;
+  notes: string;
+}
+
+export interface CorrelationData {
+  nodes: CorrelationNode[];
+  edges: CorrelationEdge[];
+}
+
+// =========================================
+// AI Story Builder インポート
+// =========================================
+
+export interface ParsedBasicInfo {
+  genre: string;
+  subGenre: string;
+  targetReaders: string;
+  theme: string;
+}
+
+export interface ParsedCharacter {
+  name: string;
+  meta: string;
+  appearance: string;
+  personality: string;
+  background: string;
+}
+
+export interface ParsedPlotPhase {
+  label: string;
+  content: string;
+}
+
+export interface ParsedPlot {
+  theme: string;
+  setting: string;
+  hook: string;
+  protagonistGoal: string;
+  mainObstacles: string;
+  ending: string;
+  structureType: string;
+  phases: ParsedPlotPhase[];
+}
+
+export interface ParsedChapter {
+  number: number;
+  title: string;
+  summary: string;
+}
+
+export interface ParsedDraft {
+  chapterRef: string | null;
+  body: string;
+}
+
+export interface ParsedGlossaryItem {
+  term: string;
+  reading: string;
+  termType: string;
+  definition: string;
+}
+
+export interface ParsedRelationship {
+  fromName: string;
+  toName: string;
+  relationType: string;
+  intensity: number;
+  description: string;
+  notes: string;
+}
+
+export interface ParsedWorldSetting {
+  title: string;
+  category: string;
+  content: string;
+}
+
+export interface ParsedPlotThreadPoint {
+  pointType: string;
+  chapter: string;
+  content: string;
+}
+
+export interface ParsedPlotThread {
+  title: string;
+  category: string;
+  status: string;
+  importance: string;
+  description: string;
+  points: ParsedPlotThreadPoint[];
+  relatedCharacters: string[];
+  resolution: string;
+  notes: string;
+  recommendedPlacement: string;
+  expectedEffect: string;
+}
+
+export interface ParsedStoryProject {
+  title: string;
+  overview: string;
+  basicInfo: ParsedBasicInfo;
+  characters: ParsedCharacter[];
+  plot: ParsedPlot;
+  synopsis: string;
+  chapters: ParsedChapter[];
+  drafts: ParsedDraft[];
+  glossary: ParsedGlossaryItem[];
+  relationships: ParsedRelationship[];
+  worldSettings: ParsedWorldSetting[];
+  plotThreads: ParsedPlotThread[];
+}
+
+export interface ImportSections {
+  characters: boolean;
+  plot: boolean;
+  synopsis: boolean;
+  chapters: boolean;
+  draft: boolean;
+  glossary: boolean;
+  relationships: boolean;
+  worldSettings: boolean;
+  plotThreads: boolean;
+}
+
+export interface ImportOptions {
+  targetProjectId: string | null;
+  sections: ImportSections;
+}
+
+export interface ImportCounts {
+  characters: number;
+  chapters: number;
+  episodes: number;
+  glossaryItems: number;
+  relationships: number;
+  worldSettings: number;
+  plotThreads: number;
+  synopsis: number;
+  plotPhases: number;
+}
+
+export interface ImportResult {
+  projectId: string;
+  counts: ImportCounts;
 }

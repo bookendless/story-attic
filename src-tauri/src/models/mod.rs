@@ -12,6 +12,9 @@ pub mod memo;
 pub mod material;
 pub mod plot;
 pub mod writing_support;
+pub mod synopsis;
+pub mod plot_thread;
+pub mod correlation;
 
 pub use project::*;
 pub use episode::*;
@@ -26,3 +29,6 @@ pub use memo::*;
 pub use material::*;
 pub use plot::*;
 pub use writing_support::*;
+pub use synopsis::*;
+pub use plot_thread::*;
+pub use correlation::*;

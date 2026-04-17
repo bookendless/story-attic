@@ -22,6 +22,8 @@ import type {
   GlossaryItem, GlossaryData,
   Plot, PlotData,
   Material, MaterialData,
+  Synopsis,
+  PlotThread, PlotThreadData,
 } from '@/shared/types';
 
 /** 外部からメッセージ送信・テンプレート挿入をトリガーするためのハンドル */
@@ -91,12 +93,32 @@ async function fetchContextData(
           const raw = await invoke<unknown[]>('get_materials', { projectId });
           const materials = toCamelCase<Material[]>(raw);
           const text = materials
-            .filter((m) => m.category === '世界観' || m.book === '世界観')
+            .filter((m) => m.category === '世界観' || m.book === '世界観設定' || m.book === '世界観')
             .map((m) => {
               const d: MaterialData = JSON.parse(m.data || '{}');
               return `${m.title}: ${d.content || ''}`.trim();
             }).join('\n');
           if (text) parts.push(`【世界観】\n${truncate(text, CONTEXT_MAX_CHARS.worldbuilding)}`);
+          break;
+        }
+        case 'synopsis': {
+          const raw = await invoke<unknown>('get_synopsis', { projectId });
+          const synopsis = raw ? toCamelCase<Synopsis>(raw) : null;
+          if (synopsis?.content) {
+            parts.push(`【あらすじ】\n${truncate(synopsis.content, CONTEXT_MAX_CHARS.synopsis)}`);
+          }
+          break;
+        }
+        case 'foreshadowing': {
+          const raw = await invoke<unknown[]>('get_plot_threads', { projectId });
+          const threads = toCamelCase<PlotThread[]>(raw);
+          if (threads.length > 0) {
+            const text = threads.map((t) => {
+              const d: PlotThreadData = JSON.parse(t.data || '{}');
+              return `${t.title}（${t.category}）[${d.status}]: ${d.description}`.trim();
+            }).join('\n');
+            parts.push(`【伏線トラッカー】\n${truncate(text, CONTEXT_MAX_CHARS.foreshadowing)}`);
+          }
           break;
         }
       }

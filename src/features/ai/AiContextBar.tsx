@@ -6,7 +6,7 @@
 import { useAiStore, CONTEXT_LABELS } from '@/shared/stores/aiStore';
 import type { AiContextSource } from '@/shared/types';
 
-const SOURCES: AiContextSource[] = ['body', 'characters', 'glossary', 'plot', 'worldbuilding'];
+const SOURCES: AiContextSource[] = ['body', 'characters', 'glossary', 'plot', 'worldbuilding', 'synopsis', 'foreshadowing'];
 
 export function AiContextBar() {
   const { contextSources, toggleContextSource } = useAiStore();
