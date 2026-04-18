@@ -3,7 +3,7 @@
  * 章一覧（タイトル + 概要プレビュー + 所属エピソード数）と詳細編集ビューを切り替える。
  */
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
@@ -15,8 +15,39 @@ export function ChapterPanel() {
   const chapterTree = useEditorStore((s) => s.chapterTree);
   const loadChapterTree = useEditorStore((s) => s.loadChapterTree);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chapters = useMemo(() => chapterTree?.chapters ?? [], [chapterTree]);
+
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleCardClick = useCallback((id: string) => {
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      toggleExpand(id);
+      clickTimerRef.current = null;
+    }, 220);
+  }, [toggleExpand]);
+
+  const handleCardDoubleClick = useCallback((id: string) => {
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    setSelectedId(id);
+  }, []);
+
+  useEffect(() => () => {
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+  }, []);
 
   const reload = useCallback(async () => {
     if (!projectId) return;
@@ -95,7 +126,9 @@ export function ChapterPanel() {
               chapter={cwe.chapter}
               episodeCount={cwe.episodes.length}
               index={idx + 1}
-              onSelect={() => setSelectedId(cwe.chapter.id)}
+              expanded={expandedIds.has(cwe.chapter.id)}
+              onClick={() => handleCardClick(cwe.chapter.id)}
+              onDoubleClick={() => handleCardDoubleClick(cwe.chapter.id)}
               onDelete={() => handleDelete(cwe.chapter.id)}
             />
           ))
@@ -109,48 +142,48 @@ interface ChapterCardProps {
   chapter: Chapter;
   episodeCount: number;
   index: number;
-  onSelect: () => void;
+  expanded: boolean;
+  onClick: () => void;
+  onDoubleClick: () => void;
   onDelete: () => void;
 }
 
-function ChapterCard({ chapter, episodeCount, index, onSelect, onDelete }: ChapterCardProps) {
+function ChapterCard({
+  chapter,
+  episodeCount,
+  index,
+  expanded,
+  onClick,
+  onDoubleClick,
+  onDelete,
+}: ChapterCardProps) {
   return (
-    <div
-      className="px-3 py-2 cursor-pointer"
-      style={{ borderBottom: '1px solid var(--border)' }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex-1 min-w-0" onClick={onSelect}>
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
-            >
-              第{index}章
-            </span>
-            <div
-              className="text-sm truncate font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {chapter.title || '（タイトルなし）'}
-            </div>
-          </div>
-          {chapter.summary && (
-            <div
-              className="text-xs mt-1 line-clamp-2"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {chapter.summary}
-            </div>
-          )}
-          <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-            エピソード {episodeCount} 件
-          </div>
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <div
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer"
+        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
+        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+        onClick={onClick}
+        onDoubleClick={onDoubleClick}
+      >
+        <span style={{ fontSize: '10px', opacity: 0.6, width: '10px', flexShrink: 0 }}>
+          {expanded ? '▽' : '▷'}
+        </span>
+        <span
+          className="text-xs px-1.5 py-0.5 rounded flex-shrink-0"
+          style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+        >
+          第{index}章
+        </span>
+        <div
+          className="text-sm truncate font-medium flex-1 min-w-0"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {chapter.title || '（タイトルなし）'}
         </div>
         <button
-          onClick={onDelete}
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          onDoubleClick={(e) => e.stopPropagation()}
           className="text-xs flex-shrink-0 px-1.5 py-0.5 rounded"
           style={{
             color: 'var(--text-muted)',
@@ -163,6 +196,25 @@ function ChapterCard({ chapter, episodeCount, index, onSelect, onDelete }: Chapt
           ✕
         </button>
       </div>
+      {expanded && (
+        <div className="px-3 pb-2 pl-8">
+          {chapter.summary ? (
+            <div
+              className="text-xs"
+              style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}
+            >
+              {chapter.summary}
+            </div>
+          ) : (
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              （概要なし）
+            </div>
+          )}
+          <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            エピソード {episodeCount} 件
+          </div>
+        </div>
+      )}
     </div>
   );
 }

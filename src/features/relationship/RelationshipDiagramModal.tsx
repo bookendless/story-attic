@@ -1,9 +1,10 @@
 /**
  * 相関図 SVG モーダル — ノードを円周配置してエッジを色分けで描画する。
+ * 同一ノード対の複数エッジはレーン分散してベジェ曲線で重ならないように表示する。
  */
 
 import { useMemo } from 'react';
-import type { Correlation, CorrelationData } from '@/shared/types';
+import type { Correlation, CorrelationData, CorrelationEdge } from '@/shared/types';
 import {
   RELATIONSHIP_TYPE_COLORS,
   RELATIONSHIP_TYPE_LABELS,
@@ -22,6 +23,14 @@ const CX = WIDTH / 2;
 const CY = HEIGHT / 2;
 const RADIUS_MIN = 140;
 const NODE_R = 28;
+const LANE_STEP = 36;
+
+interface EdgeLayout {
+  edge: CorrelationEdge;
+  index: number;
+  lane: number;
+  groupSize: number;
+}
 
 export function RelationshipDiagramModal({ item, onClose }: Props) {
   const data = useMemo<CorrelationData>(() => safeParse(item.data), [item.data]);
@@ -41,6 +50,29 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
     return map;
   }, [data.nodes]);
 
+  const edgeLayouts = useMemo<EdgeLayout[]>(() => {
+    const groups = new Map<string, number[]>();
+    data.edges.forEach((e, i) => {
+      const key = [e.from, e.to].sort().join('|');
+      const arr = groups.get(key) ?? [];
+      arr.push(i);
+      groups.set(key, arr);
+    });
+    const result: EdgeLayout[] = new Array(data.edges.length);
+    groups.forEach((indices) => {
+      const groupSize = indices.length;
+      indices.forEach((edgeIdx, laneIdx) => {
+        result[edgeIdx] = {
+          edge: data.edges[edgeIdx],
+          index: edgeIdx,
+          lane: laneIdx - (groupSize - 1) / 2,
+          groupSize,
+        };
+      });
+    });
+    return result;
+  }, [data.edges]);
+
   const typesUsed = useMemo(() => {
     const set = new Set<string>();
     for (const e of data.edges) set.add(e.type);
@@ -55,14 +87,14 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
     >
       <div
         className="rounded shadow-lg flex flex-col"
-        style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', maxWidth: '95vw', maxHeight: '95vh' }}
+        style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', maxWidth: '95vw', maxHeight: '95vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
           className="flex items-center justify-between px-3 py-2"
           style={{ borderBottom: '1px solid var(--border)' }}
         >
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
             {item.title || '相関図'}
           </span>
           <button
@@ -80,7 +112,7 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
               ノードがありません
             </div>
           ) : (
-            <svg width={WIDTH} height={HEIGHT} style={{ background: 'var(--bg-secondary)', borderRadius: 4 }}>
+            <svg width={WIDTH} height={HEIGHT} style={{ background: 'var(--bg-deep)', borderRadius: 4 }}>
               <defs>
                 {RELATIONSHIP_TYPES.map((t) => (
                   <marker
@@ -109,7 +141,9 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                 </marker>
               </defs>
 
-              {data.edges.map((edge, i) => {
+              {edgeLayouts.map((el) => {
+                if (!el) return null;
+                const edge = el.edge;
                 const from = layout.get(edge.from);
                 const to = layout.get(edge.to);
                 if (!from || !to) return null;
@@ -118,6 +152,18 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                 const markerId = RELATIONSHIP_TYPES.includes(edge.type as RelationshipType)
                   ? `arrow-${edge.type}`
                   : 'arrow-other';
+
+                // 正規化された対方向（id 昇順）で法線を決定し、往復エッジでも分離される
+                const [aId, bId] = [edge.from, edge.to].sort();
+                const a = layout.get(aId)!;
+                const b = layout.get(bId)!;
+                const cdx = b.x - a.x;
+                const cdy = b.y - a.y;
+                const cdist = Math.max(1, Math.sqrt(cdx * cdx + cdy * cdy));
+                const nx = -cdy / cdist;
+                const ny = cdx / cdist;
+
+                // エッジ本来の始点/終点（ノード境界へクリップ）
                 const dx = to.x - from.x;
                 const dy = to.y - from.y;
                 const dist = Math.max(1, Math.sqrt(dx * dx + dy * dy));
@@ -127,29 +173,44 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                 const y1 = from.y + uy * NODE_R;
                 const x2 = to.x - ux * NODE_R;
                 const y2 = to.y - uy * NODE_R;
+
+                const mx = (x1 + x2) / 2;
+                const my = (y1 + y2) / 2;
+                const offset = el.lane * LANE_STEP;
+                const ccx = mx + nx * offset;
+                const ccy = my + ny * offset;
+
                 const strokeWidth = Math.max(1, Math.min(6, edge.intensity / 2));
+                // 2次ベジェ B(t) = (1-t)^2*P0 + 2(1-t)t*P1 + t^2*P2。t=2/3 で矢印先端側 1/3 地点
+                const t = 2 / 3;
+                const mt = 1 - t;
+                const labelX = mt * mt * x1 + 2 * mt * t * ccx + t * t * x2;
+                const labelY = mt * mt * y1 + 2 * mt * t * ccy + t * t * y2;
+                const categoryLabel = RELATIONSHIP_TYPE_LABELS[edge.type as RelationshipType] ?? edge.type;
+
                 return (
-                  <g key={i}>
-                    <line
-                      x1={x1}
-                      y1={y1}
-                      x2={x2}
-                      y2={y2}
+                  <g key={el.index}>
+                    <path
+                      d={`M ${x1} ${y1} Q ${ccx} ${ccy} ${x2} ${y2}`}
                       stroke={color}
                       strokeWidth={strokeWidth}
+                      fill="none"
                       markerEnd={`url(#${markerId})`}
                       opacity={0.85}
                     />
-                    {edge.description && (
+                    {categoryLabel && (
                       <text
-                        x={(x1 + x2) / 2}
-                        y={(y1 + y2) / 2 - 4}
-                        fontSize="10"
+                        x={labelX}
+                        y={labelY}
+                        fontSize="11"
                         textAnchor="middle"
-                        fill="var(--text-muted)"
-                        style={{ pointerEvents: 'none' }}
+                        fill={color}
+                        stroke="var(--bg-deep)"
+                        strokeWidth={3}
+                        paintOrder="stroke"
+                        style={{ pointerEvents: 'none', fontWeight: 600 }}
                       >
-                        {truncate(edge.description, 16)}
+                        {categoryLabel}
                       </text>
                     )}
                   </g>
@@ -165,7 +226,7 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                       cx={pos.x}
                       cy={pos.y}
                       r={NODE_R}
-                      fill="var(--bg-primary)"
+                      fill="var(--bg-surface)"
                       stroke="var(--accent)"
                       strokeWidth={2}
                     />
@@ -174,7 +235,7 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                       y={pos.y + 4}
                       fontSize="11"
                       textAnchor="middle"
-                      fill="var(--text-primary)"
+                      fill="var(--text)"
                       style={{ pointerEvents: 'none' }}
                     >
                       {truncate(node.name, 8)}
@@ -192,7 +253,7 @@ export function RelationshipDiagramModal({ item, onClose }: Props) {
                   ?? RELATIONSHIP_TYPE_COLORS.other;
                 const label = RELATIONSHIP_TYPE_LABELS[t as RelationshipType] ?? t;
                 return (
-                  <div key={t} className="flex items-center gap-1" style={{ color: 'var(--text-secondary)' }}>
+                  <div key={t} className="flex items-center gap-1" style={{ color: 'var(--text-mid)' }}>
                     <span style={{ display: 'inline-block', width: 16, height: 2, background: color }} />
                     {label}
                   </div>

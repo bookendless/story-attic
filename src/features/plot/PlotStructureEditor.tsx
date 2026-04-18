@@ -6,11 +6,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { PlotStructureData } from '@/shared/types';
 import { DEFAULT_PLOT_STRUCTURE_DATA } from '@/shared/types';
-import {
-  PLOT_STRUCTURE_TYPES,
-  PLOT_STRUCTURE_LABELS,
-} from '@/shared/constants/asbEnums';
-import { PlotPhaseList } from './PlotPhaseList';
 
 interface PlotStructureEditorProps {
   projectId: string;
@@ -65,48 +60,14 @@ export function PlotStructureEditor({ projectId }: PlotStructureEditorProps) {
   return (
     <div className="flex-1 overflow-y-auto px-3 py-2">
       <div className="flex flex-col gap-2">
-        {/* 構造タイプセレクタ */}
-        <div>
-          <span className="text-xs block mb-0.5" style={{ color: 'var(--text-muted)' }}>
-            プロット構造タイプ
-          </span>
-          <select
-            className="w-full text-xs outline-none"
-            style={{
-              color: 'var(--text)',
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border)',
-              borderRadius: '4px',
-              padding: '3px 6px',
-            }}
-            value={data.structureType}
-            onChange={(e) => update('structureType', e.target.value)}
-          >
-            <option value="">(未選択)</option>
-            {PLOT_STRUCTURE_TYPES.map((t) => (
-              <option key={t} value={t}>{PLOT_STRUCTURE_LABELS[t]}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* フェーズ一覧プレビュー */}
-        {data.structureType && (
-          <div>
-            <span className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>
-              フェーズ構成
-            </span>
-            <PlotPhaseList structureType={data.structureType} compact />
-          </div>
-        )}
-
         {/* 6 項目 */}
         {FIELDS.map((f) => (
           <div key={f.key}>
             <span className="text-xs block mb-0.5" style={{ color: 'var(--text-muted)' }}>{f.label}</span>
             {f.multiline ? (
               <textarea
-                className="w-full text-xs bg-transparent outline-none resize-none"
-                style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 6px', minHeight: '60px' }}
+                className="w-full text-xs bg-transparent outline-none resize-y"
+                style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 6px', minHeight: '60px', maxHeight: '400px' }}
                 value={data[f.key]}
                 onChange={(e) => update(f.key, e.target.value)}
               />

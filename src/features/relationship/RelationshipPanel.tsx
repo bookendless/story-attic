@@ -121,7 +121,7 @@ export function RelationshipPanel() {
                   <div className="flex-1 min-w-0" onClick={() => setSelectedId(item.id)}>
                     <div
                       className="text-sm truncate font-medium"
-                      style={{ color: 'var(--text-primary)' }}
+                      style={{ color: 'var(--text)' }}
                     >
                       {item.title || '（タイトルなし）'}
                     </div>

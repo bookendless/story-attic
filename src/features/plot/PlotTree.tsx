@@ -15,6 +15,7 @@ import {
   PLOT_STRUCTURE_PHASES,
 } from '@/shared/constants/asbEnums';
 import type { PlotStructureType } from '@/shared/constants/asbEnums';
+import { PlotPhaseList } from './PlotPhaseList';
 
 interface PlotTreeProps {
   projectId: string;
@@ -38,6 +39,7 @@ function newNodeId(): string {
 export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
   const [editingNodes, setEditingNodes] = useState<PlotNode[]>([]);
+  const [pendingType, setPendingType] = useState<string>(PLOT_STRUCTURE_TYPES[0]);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedPlot = plots.find((p) => p.id === selectedPlotId) ?? null;
@@ -125,26 +127,43 @@ export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
         <div className="flex items-center justify-between px-3 py-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>プロット ({plots.length})</span>
         </div>
-        {/* 新規作成ボタン群 (ASB 6 構造 + カスタム) */}
-        <div className="px-3 py-2 flex flex-wrap gap-1" style={{ borderBottom: '1px solid var(--border)' }}>
-          {PLOT_STRUCTURE_TYPES.map((t) => (
-            <button
-              key={t}
-              className="text-xs px-2 py-0.5 rounded"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}
-              onClick={() => handleCreate(t)}
-              title={PLOT_STRUCTURE_LABELS[t]}
+        {/* 新規作成: 構造タイプドロップダウン + プレビュー + 作成ボタン */}
+        <div className="px-3 py-2 flex flex-col gap-2" style={{ borderBottom: '1px solid var(--border)' }}>
+          <div className="flex items-center gap-1.5">
+            <select
+              className="flex-1 text-xs outline-none"
+              style={{
+                color: 'var(--text)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                padding: '3px 6px',
+              }}
+              value={pendingType}
+              onChange={(e) => setPendingType(e.target.value)}
             >
-              + {PLOT_STRUCTURE_LABELS[t]}
+              {PLOT_STRUCTURE_TYPES.map((t) => (
+                <option key={t} value={t}>{PLOT_STRUCTURE_LABELS[t]}</option>
+              ))}
+              <option value="カスタム">カスタム</option>
+            </select>
+            <button
+              className="text-xs px-2 py-0.5 rounded flex-shrink-0"
+              style={{ background: 'var(--accent)', color: 'var(--bg-deep)', border: 'none', cursor: 'pointer' }}
+              onClick={() => handleCreate(pendingType)}
+              title="この構造で新規プロットを作成"
+            >
+              + 作成
             </button>
-          ))}
-          <button
-            className="text-xs px-2 py-0.5 rounded"
-            style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px dashed var(--border)', cursor: 'pointer' }}
-            onClick={() => handleCreate('カスタム')}
-          >
-            + カスタム
-          </button>
+          </div>
+          {pendingType !== 'カスタム' && PLOT_STRUCTURE_PHASES[pendingType as PlotStructureType] && (
+            <PlotPhaseList structureType={pendingType} compact />
+          )}
+          {pendingType === 'カスタム' && (
+            <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              自由ノードで作成されます
+            </div>
+          )}
         </div>
         {plots.length === 0 && (
           <div className="px-3 py-8 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -319,13 +338,14 @@ function NodeItem({
         </button>
       </div>
       <textarea
-        className="w-full text-xs bg-transparent outline-none resize-none mt-0.5"
+        className="w-full text-xs bg-transparent outline-none resize-y mt-0.5"
         style={{
           color: 'var(--text-mid)',
           border: '1px solid var(--border)',
           borderRadius: '3px',
           padding: '3px 5px',
-          minHeight: '28px',
+          minHeight: '70px',
+          maxHeight: '400px',
           marginLeft: '14px',
           width: 'calc(100% - 14px)',
         }}

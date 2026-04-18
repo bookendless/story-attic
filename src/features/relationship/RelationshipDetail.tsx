@@ -150,7 +150,7 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
         <Field label="タイトル">
           <input
             className="w-full text-sm px-2 py-1 rounded"
-            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
             value={title}
             onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
           />
@@ -164,7 +164,7 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
             <button
               onClick={addNode}
               className="text-xs px-1.5 py-0.5 rounded"
-              style={{ background: 'var(--bg-elevated)', color: 'var(--text-secondary)', border: '1px solid var(--border)', cursor: 'pointer' }}
+              style={{ background: 'var(--bg-elevated)', color: 'var(--text-mid)', border: '1px solid var(--border)', cursor: 'pointer' }}
             >
               ＋ノード
             </button>
@@ -173,8 +173,8 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
             {data.nodes.map((n, i) => (
               <div key={n.id} className="flex items-center gap-1">
                 <input
-                  className="flex-1 text-xs px-2 py-1 rounded"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                  className="flex-1 text-sm px-2 py-1 rounded"
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
                   value={n.name}
                   onChange={(e) => updateNode(i, { name: e.target.value })}
                 />
@@ -202,7 +202,7 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
               className="text-xs px-1.5 py-0.5 rounded"
               style={{
                 background: 'var(--bg-elevated)',
-                color: data.nodes.length < 2 ? 'var(--text-muted)' : 'var(--text-secondary)',
+                color: data.nodes.length < 2 ? 'var(--text-muted)' : 'var(--text-mid)',
                 border: '1px solid var(--border)',
                 cursor: data.nodes.length < 2 ? 'default' : 'pointer',
               }}
@@ -217,28 +217,28 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
                 <div
                   key={i}
                   className="flex flex-col gap-1 p-2 rounded"
-                  style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderLeft: `3px solid ${color}` }}
+                  style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderLeft: `3px solid ${color}` }}
                 >
                   <div className="flex items-center gap-1">
                     <select
-                      className="flex-1 text-xs px-1 py-0.5 rounded outline-none"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      className="flex-1 text-sm px-1 py-0.5 rounded outline-none"
+                      style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)', color: 'var(--text)' }}
                       value={e.from}
                       onChange={(ev) => updateEdge(i, { from: ev.target.value })}
                     >
                       {data.nodes.map((n) => (
-                        <option key={n.id} value={n.id}>{n.name}</option>
+                        <option key={n.id} value={n.id} style={{ background: 'var(--bg-deep)', color: 'var(--text)' }}>{n.name}</option>
                       ))}
                     </select>
                     <span className="text-xs" style={{ color: 'var(--text-muted)' }}>→</span>
                     <select
-                      className="flex-1 text-xs px-1 py-0.5 rounded outline-none"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      className="flex-1 text-sm px-1 py-0.5 rounded outline-none"
+                      style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)', color: 'var(--text)' }}
                       value={e.to}
                       onChange={(ev) => updateEdge(i, { to: ev.target.value })}
                     >
                       {data.nodes.map((n) => (
-                        <option key={n.id} value={n.id}>{n.name}</option>
+                        <option key={n.id} value={n.id} style={{ background: 'var(--bg-deep)', color: 'var(--text)' }}>{n.name}</option>
                       ))}
                     </select>
                     <button
@@ -251,36 +251,45 @@ export function RelationshipDetail({ item, onBack, onUpdate, onOpenDiagram }: Pr
                   </div>
                   <div className="flex items-center gap-1">
                     <select
-                      className="text-xs px-1 py-0.5 rounded outline-none"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      className="text-sm px-1 py-0.5 rounded outline-none"
+                      style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)', color: 'var(--text)' }}
                       value={e.type}
                       onChange={(ev) => updateEdge(i, { type: ev.target.value })}
                     >
                       {RELATIONSHIP_TYPES.map((t) => (
-                        <option key={t} value={t}>{RELATIONSHIP_TYPE_LABELS[t]}</option>
+                        <option key={t} value={t} style={{ background: 'var(--bg-deep)', color: 'var(--text)' }}>{RELATIONSHIP_TYPE_LABELS[t]}</option>
                       ))}
                       {e.type && !RELATIONSHIP_TYPES.includes(e.type as RelationshipType) && (
-                        <option value={e.type}>{e.type} (既存)</option>
+                        <option value={e.type} style={{ background: 'var(--bg-deep)', color: 'var(--text)' }}>{e.type} (既存)</option>
                       )}
                     </select>
                     <input
                       type="number"
                       min={1}
                       max={10}
-                      className="w-14 text-xs px-1 py-0.5 rounded"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+                      className="w-14 text-sm px-1 py-0.5 rounded"
+                      style={{ background: 'var(--bg-deep)', border: '1px solid var(--border)', color: 'var(--text)' }}
                       value={e.intensity}
                       onChange={(ev) => updateEdge(i, { intensity: Number(ev.target.value) || 0 })}
                       title="強度(1-10)"
                     />
-                    <input
-                      className="flex-1 text-xs px-1 py-0.5 rounded"
-                      style={{ background: 'var(--bg-primary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
-                      placeholder="説明"
-                      value={e.description}
-                      onChange={(ev) => updateEdge(i, { description: ev.target.value })}
-                    />
                   </div>
+                  <textarea
+                    className="w-full text-sm px-2 py-1 rounded"
+                    style={{
+                      background: 'var(--bg-deep)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                      resize: 'vertical',
+                      minHeight: '3em',
+                      fontFamily: 'var(--font-ui)',
+                      lineHeight: 1.5,
+                    }}
+                    rows={2}
+                    placeholder="説明（長文可・ドラッグで高さ調整）"
+                    value={e.description}
+                    onChange={(ev) => updateEdge(i, { description: ev.target.value })}
+                  />
                   {!data.nodes.some((n) => n.id === e.from) || !data.nodes.some((n) => n.id === e.to) ? (
                     <div className="text-xs" style={{ color: '#ef4444' }}>
                       参照切れ: {nodeName(e.from)} / {nodeName(e.to)}
