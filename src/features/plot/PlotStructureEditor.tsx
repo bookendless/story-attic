@@ -1,23 +1,29 @@
 /**
- * プロット構造設定 — テーマ・対立構造・結末のフォーム
+ * プロット構造設定 — ASB Plot 準拠の 6 項目 + 構造タイプ選択 + フェーズ一覧
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { PlotStructureData } from '@/shared/types';
 import { DEFAULT_PLOT_STRUCTURE_DATA } from '@/shared/types';
+import {
+  PLOT_STRUCTURE_TYPES,
+  PLOT_STRUCTURE_LABELS,
+} from '@/shared/constants/asbEnums';
+import { PlotPhaseList } from './PlotPhaseList';
 
 interface PlotStructureEditorProps {
   projectId: string;
 }
 
+// ASB Plot 準拠の 6 項目
 const FIELDS: { key: keyof PlotStructureData; label: string; multiline: boolean }[] = [
-  { key: 'theme', label: 'テーマ', multiline: false },
-  { key: 'protagonist', label: '主人公', multiline: false },
-  { key: 'antagonist', label: '敵対者', multiline: false },
-  { key: 'conflict', label: '対立構造', multiline: true },
-  { key: 'ending', label: '結末', multiline: true },
-  { key: 'notes', label: 'メモ', multiline: true },
+  { key: 'theme',           label: 'テーマ',         multiline: false },
+  { key: 'setting',         label: '舞台設定',       multiline: true  },
+  { key: 'hook',            label: 'つかみ（導入）', multiline: true  },
+  { key: 'protagonistGoal', label: '主人公の目的',   multiline: true  },
+  { key: 'mainObstacles',   label: '主要な障害',     multiline: true  },
+  { key: 'ending',          label: '結末',           multiline: true  },
 ];
 
 function parseData(raw: string): PlotStructureData {
@@ -59,6 +65,41 @@ export function PlotStructureEditor({ projectId }: PlotStructureEditorProps) {
   return (
     <div className="flex-1 overflow-y-auto px-3 py-2">
       <div className="flex flex-col gap-2">
+        {/* 構造タイプセレクタ */}
+        <div>
+          <span className="text-xs block mb-0.5" style={{ color: 'var(--text-muted)' }}>
+            プロット構造タイプ
+          </span>
+          <select
+            className="w-full text-xs outline-none"
+            style={{
+              color: 'var(--text)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              padding: '3px 6px',
+            }}
+            value={data.structureType}
+            onChange={(e) => update('structureType', e.target.value)}
+          >
+            <option value="">(未選択)</option>
+            {PLOT_STRUCTURE_TYPES.map((t) => (
+              <option key={t} value={t}>{PLOT_STRUCTURE_LABELS[t]}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* フェーズ一覧プレビュー */}
+        {data.structureType && (
+          <div>
+            <span className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>
+              フェーズ構成
+            </span>
+            <PlotPhaseList structureType={data.structureType} compact />
+          </div>
+        )}
+
+        {/* 6 項目 */}
         {FIELDS.map((f) => (
           <div key={f.key}>
             <span className="text-xs block mb-0.5" style={{ color: 'var(--text-muted)' }}>{f.label}</span>

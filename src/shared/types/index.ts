@@ -53,6 +53,7 @@ export interface Chapter {
   id: string;
   projectId: string;
   title: string;
+  summary: string;
   sortOrder: number;
   createdAt: string;
 }
@@ -489,15 +490,28 @@ export interface PlotData {
 
 export const DEFAULT_PLOT_DATA: PlotData = { nodes: [] };
 
+// PLOT_TYPE_PRESETS: ASB 6 構造に対応したフェーズラベル。
+// キーは PlotStructureType と一致。カスタムは空配列。
 export const PLOT_TYPE_PRESETS: Record<string, string[]> = {
-  '起承転結': ['起', '承', '転', '結'],
-  '序破急': ['序', '破', '急'],
-  '三幕構成': ['第一幕', '第二幕', '第三幕'],
+  kishotenketsu: ['起', '承', '転', '結'],
+  'three-act': ['第1幕', '第2幕', '第3幕'],
+  'four-act': ['第1幕', '第2幕', '第3幕', '第4幕'],
+  'heroes-journey': [
+    '日常の世界', '冒険への誘い', '境界越え', '試練と仲間',
+    '最大の試練', '報酬', '帰路', '復活と帰還',
+  ],
+  'beat-sheet': [
+    '導入', '決断', '試練', '転換点', '危機', 'クライマックス', '結末',
+  ],
+  'mystery-suspense': [
+    '発端', '捜査（初期）', '仮説とミスリード', '第二の事件',
+    '手がかりの統合', '解決', 'エピローグ',
+  ],
   'カスタム': [],
 };
 
 // =========================================
-// プロット構造
+// プロット構造 (ASB 基準)
 // =========================================
 
 export interface PlotStructure {
@@ -505,17 +519,26 @@ export interface PlotStructure {
   data: string;
 }
 
+/** ASB Plot 準拠の 6 項目 + 構造タイプ */
 export interface PlotStructureData {
   theme: string;
-  protagonist: string;
-  antagonist: string;
-  conflict: string;
+  setting: string;
+  hook: string;
+  protagonistGoal: string;
+  mainObstacles: string;
   ending: string;
-  notes: string;
+  /** PlotStructureType のキー。未選択時は空文字 */
+  structureType: string;
 }
 
 export const DEFAULT_PLOT_STRUCTURE_DATA: PlotStructureData = {
-  theme: '', protagonist: '', antagonist: '', conflict: '', ending: '', notes: '',
+  theme: '',
+  setting: '',
+  hook: '',
+  protagonistGoal: '',
+  mainObstacles: '',
+  ending: '',
+  structureType: '',
 };
 
 // =========================================

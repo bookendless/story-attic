@@ -18,19 +18,25 @@ import {
   IconPlot,
   IconCharacter,
   IconGlossary,
-  IconMaterial,
   IconPanelShow,
   IconAnalysis,
   IconSettings,
+  IconChapter,
+  IconRelationship,
+  IconWorld,
+  IconForeshadowing,
+  IconSynopsis,
 } from '@/shared/components/Icons';
 import { LeftPanel } from './LeftPanel';
 import { CharacterPanel } from '@/features/characters/CharacterPanel';
 import { GlossaryPanel } from '@/features/glossary/GlossaryPanel';
 import { MemoPanel } from '@/features/memo/MemoPanel';
-import { MaterialPanel } from '@/features/material/MaterialPanel';
 import { PlotPanel } from '@/features/plot/PlotPanel';
 import { SynopsisPanel } from '@/features/synopsis/SynopsisPanel';
 import { PlotThreadPanel } from '@/features/plot-threads/PlotThreadPanel';
+import { ChapterPanel } from '@/features/chapters/ChapterPanel';
+import { RelationshipPanel } from '@/features/relationship/RelationshipPanel';
+import { WorldSettingPanel } from '@/features/world/WorldSettingPanel';
 
 interface TabDef {
   key: SideTab;
@@ -41,13 +47,15 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { key: 'toc',           label: '目次',       shortcut: 'Ctrl+1', icon: IconPanelShow },
-  { key: 'plot',          label: 'プロット',   shortcut: 'Ctrl+2', icon: IconPlot },
+  { key: 'chapter',       label: '章立て',     shortcut: 'Ctrl+2', icon: IconChapter },
   { key: 'character',     label: '人物',       shortcut: 'Ctrl+3', icon: IconCharacter },
-  { key: 'glossary',      label: '用語',       shortcut: 'Ctrl+4', icon: IconGlossary },
-  { key: 'material',      label: '資料',       shortcut: 'Ctrl+5', icon: IconMaterial },
-  { key: 'memo',          label: 'メモ',       shortcut: 'Ctrl+6', icon: IconMemo },
-  { key: 'synopsis',      label: 'あらすじ',   shortcut: 'Ctrl+7', icon: IconAnalysis },
-  { key: 'foreshadowing', label: '伏線',       shortcut: 'Ctrl+8', icon: IconMemo },
+  { key: 'plot',          label: 'プロット',   shortcut: 'Ctrl+4', icon: IconPlot },
+  { key: 'synopsis',      label: 'あらすじ',   shortcut: 'Ctrl+5', icon: IconSynopsis },
+  { key: 'relationship',  label: '相関図',     shortcut: 'Ctrl+6', icon: IconRelationship },
+  { key: 'glossary',      label: '用語',       shortcut: 'Ctrl+7', icon: IconGlossary },
+  { key: 'world',         label: '世界観',     shortcut: 'Ctrl+8', icon: IconWorld },
+  { key: 'foreshadowing', label: '伏線',       shortcut: 'Ctrl+9', icon: IconForeshadowing },
+  { key: 'memo',          label: 'メモ',       shortcut: 'Ctrl+0', icon: IconMemo },
 ];
 
 export function SidePanel() {
@@ -264,20 +272,24 @@ function TabContent({ tabKey }: { tabKey: SideTab }) {
   switch (tabKey) {
     case 'toc':
       return <LeftPanel />;
-    case 'plot':
-      return <PlotPanel />;
+    case 'chapter':
+      return <ChapterPanel />;
     case 'character':
       return <CharacterPanel />;
-    case 'glossary':
-      return <GlossaryPanel />;
-    case 'material':
-      return <MaterialPanel />;
-    case 'memo':
-      return <MemoPanel />;
+    case 'plot':
+      return <PlotPanel />;
     case 'synopsis':
       return <SynopsisPanel />;
+    case 'relationship':
+      return <RelationshipPanel />;
+    case 'glossary':
+      return <GlossaryPanel />;
+    case 'world':
+      return <WorldSettingPanel />;
     case 'foreshadowing':
       return <PlotThreadPanel />;
+    case 'memo':
+      return <MemoPanel />;
   }
 }
 

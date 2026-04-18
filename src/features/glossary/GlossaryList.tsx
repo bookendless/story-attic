@@ -4,6 +4,10 @@
 
 import { useState, useMemo } from 'react';
 import type { GlossaryItem } from '@/shared/types';
+import {
+  GLOSSARY_CATEGORY_LABELS,
+} from '@/shared/constants/asbEnums';
+import type { GlossaryCategory } from '@/shared/constants/asbEnums';
 
 interface GlossaryListProps {
   items: GlossaryItem[];
@@ -70,7 +74,7 @@ export function GlossaryList({ items, onSelect, onCreate, onDelete }: GlossaryLi
         {Array.from(grouped.entries()).map(([category, list]) => (
           <div key={category}>
             <div className="px-3 py-1 text-xs font-medium" style={{ color: 'var(--text-muted)', background: 'var(--bg)' }}>
-              {category}
+              {GLOSSARY_CATEGORY_LABELS[category as GlossaryCategory] ?? category}
             </div>
             {list.map((item) => (
               <div

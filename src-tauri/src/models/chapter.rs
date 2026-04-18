@@ -6,6 +6,8 @@ pub struct Chapter {
     pub id: String,
     pub project_id: String,
     pub title: String,
+    /// 章の概要（ASB ParsedChapter.summary 由来）
+    pub summary: String,
     pub sort_order: i64,
     pub created_at: String,
 }

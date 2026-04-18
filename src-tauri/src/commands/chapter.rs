@@ -29,8 +29,8 @@ pub fn create_chapter(
         .unwrap_or(-1);
 
     conn.execute(
-        "INSERT INTO chapters (id, project_id, title, sort_order, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO chapters (id, project_id, title, summary, sort_order, created_at)
+         VALUES (?1, ?2, ?3, '', ?4, ?5)",
         rusqlite::params![id, project_id, title, max_order + 1, now],
     )
     .map_err(err)?;
@@ -45,6 +45,23 @@ pub fn rename_chapter(id: String, title: String, state: State<AppState>) -> CmdR
     conn.execute(
         "UPDATE chapters SET title = ?1 WHERE id = ?2",
         rusqlite::params![title, id],
+    )
+    .map_err(err)?;
+    Ok(())
+}
+
+/// 章のタイトルと概要を更新する
+#[tauri::command]
+pub fn update_chapter(
+    id: String,
+    title: String,
+    summary: String,
+    state: State<AppState>,
+) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "UPDATE chapters SET title = ?1, summary = ?2 WHERE id = ?3",
+        rusqlite::params![title, summary, id],
     )
     .map_err(err)?;
     Ok(())
@@ -130,7 +147,7 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
     // 章一覧を取得
     let chapters: Vec<Chapter> = conn
         .prepare(
-            "SELECT id, project_id, title, sort_order, created_at
+            "SELECT id, project_id, title, summary, sort_order, created_at
              FROM chapters WHERE project_id = ?1 ORDER BY sort_order ASC",
         )
         .map_err(err)?
@@ -139,8 +156,9 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
                 id: row.get(0)?,
                 project_id: row.get(1)?,
                 title: row.get(2)?,
-                sort_order: row.get(3)?,
-                created_at: row.get(4)?,
+                summary: row.get(3)?,
+                sort_order: row.get(4)?,
+                created_at: row.get(5)?,
             })
         })
         .map_err(err)?

@@ -1,10 +1,20 @@
 /**
- * キャラクター詳細 — プロフィール・カスタムタブ・タグ
+ * キャラクター詳細 — ASB 準拠プロフィール + 詳細折り畳み
+ *
+ * 主表示: 外見 / 性格 / 背景 (ASB Character 準拠)
+ * 折り畳み「詳細」: 性別 / 年齢 / 職業 / 追加フィールド / カスタムタブ
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Character, CharacterData, CharacterProfile, CharacterTab, CharacterExtraField, Tag } from '@/shared/types';
+import type {
+  Character,
+  CharacterData,
+  CharacterProfile,
+  CharacterTab,
+  CharacterExtraField,
+  Tag,
+} from '@/shared/types';
 import { DEFAULT_CHARACTER_DATA } from '@/shared/types';
 import { TagPicker } from '@/shared/components/TagPicker';
 
@@ -17,14 +27,18 @@ interface CharacterDetailProps {
   onTagsChange: () => void;
 }
 
-// プロフィールフィールド定義
-const PROFILE_FIELDS: { key: keyof CharacterProfile; label: string }[] = [
-  { key: 'gender', label: '性別' },
-  { key: 'age', label: '年齢' },
-  { key: 'occupation', label: '職業' },
+// ASB Character 準拠のメイン 3 項目
+const MAIN_FIELDS: { key: keyof CharacterProfile; label: string }[] = [
   { key: 'appearance', label: '外見' },
   { key: 'personality', label: '性格' },
   { key: 'background', label: '背景' },
+];
+
+// 詳細折り畳みに退避する Story-attic 独自項目
+const DETAIL_FIELDS: { key: keyof CharacterProfile; label: string }[] = [
+  { key: 'gender', label: '性別' },
+  { key: 'age', label: '年齢' },
+  { key: 'occupation', label: '職業' },
 ];
 
 function parseData(raw: string): CharacterData {
@@ -51,15 +65,15 @@ export function CharacterDetail({
   const [name, setName] = useState(character.name);
   const [category, setCategory] = useState(character.category);
   const [data, setData] = useState<CharacterData>(() => parseData(character.data));
-  const [activeTab, setActiveTab] = useState<'profile' | number>('profile');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [activeCustomTab, setActiveCustomTab] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // キャラクター切替時にリセット
   useEffect(() => {
     setName(character.name);
     setCategory(character.category);
     setData(parseData(character.data));
-    setActiveTab('profile');
+    setActiveCustomTab(null);
   }, [character.id, character.name, character.category, character.data]);
 
   const save = useCallback(
@@ -82,15 +96,8 @@ export function CharacterDetail({
     [character.id, onUpdate],
   );
 
-  const updateName = (v: string) => {
-    setName(v);
-    save(v, category, data);
-  };
-
-  const updateCategory = (v: string) => {
-    setCategory(v);
-    save(name, v, data);
-  };
+  const updateName = (v: string) => { setName(v); save(v, category, data); };
+  const updateCategory = (v: string) => { setCategory(v); save(name, v, data); };
 
   const updateProfile = (key: keyof CharacterProfile, value: string) => {
     const newData = { ...data, profile: { ...data.profile, [key]: value } };
@@ -110,7 +117,7 @@ export function CharacterDetail({
     const newTab: CharacterTab = { name: '新しいタブ', content: '' };
     const newData = { ...data, tabs: [...data.tabs, newTab] };
     setData(newData);
-    setActiveTab(newData.tabs.length - 1);
+    setActiveCustomTab(newData.tabs.length - 1);
     save(name, category, newData);
   };
 
@@ -126,7 +133,7 @@ export function CharacterDetail({
     const newTabs = data.tabs.filter((_, i) => i !== index);
     const newData = { ...data, tabs: newTabs };
     setData(newData);
-    setActiveTab('profile');
+    setActiveCustomTab(null);
     save(name, category, newData);
   };
 
@@ -154,7 +161,7 @@ export function CharacterDetail({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ヘッダー: 戻るボタン + 名前 */}
+      {/* ヘッダー */}
       <div
         className="flex items-center gap-2 px-3 py-2 flex-shrink-0"
         style={{ borderBottom: '1px solid var(--border)' }}
@@ -176,9 +183,9 @@ export function CharacterDetail({
         />
       </div>
 
-      {/* カテゴリ */}
+      {/* カテゴリ (= ASB role) */}
       <div className="px-3 py-1.5" style={{ borderBottom: '1px solid var(--border)' }}>
-        <FieldRow label="カテゴリ">
+        <FieldRow label="役割">
           <input
             className="w-full text-xs bg-transparent outline-none"
             style={{ color: 'var(--text)', border: 'none' }}
@@ -189,142 +196,185 @@ export function CharacterDetail({
         </FieldRow>
       </div>
 
-      {/* サブタブ: プロフィール + カスタムタブ */}
-      <div className="flex items-center gap-0.5 px-2 pt-1 flex-shrink-0 overflow-x-auto"
-        style={{ borderBottom: '1px solid var(--border)' }}
-      >
-        <SubTab
-          active={activeTab === 'profile'}
-          onClick={() => setActiveTab('profile')}
-          label="プロフィール"
-        />
-        {data.tabs.map((tab, i) => (
-          <SubTab
-            key={i}
-            active={activeTab === i}
-            onClick={() => setActiveTab(i)}
-            label={tab.name}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              const newName = prompt('タブ名を入力', tab.name);
-              if (newName !== null) renameTab(i, newName);
-            }}
-          />
-        ))}
-        <button
-          className="text-xs px-1.5 py-0.5"
-          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-          onClick={addTab}
-          title="カスタムタブを追加"
-        >
-          +
-        </button>
-      </div>
-
-      {/* タブコンテンツ */}
+      {/* メイン本体 */}
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {activeTab === 'profile' ? (
-          <div className="flex flex-col gap-2">
-            {PROFILE_FIELDS.map((f) => (
-              <FieldRow key={f.key} label={f.label}>
-                {f.key === 'appearance' || f.key === 'personality' || f.key === 'background' ? (
-                  <textarea
-                    className="w-full text-xs bg-transparent outline-none resize-none"
-                    style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 6px', minHeight: '48px' }}
-                    value={data.profile[f.key]}
-                    onChange={(e) => updateProfile(f.key, e.target.value)}
-                  />
-                ) : (
-                  <input
-                    className="w-full text-xs bg-transparent outline-none"
-                    style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 6px' }}
-                    value={data.profile[f.key]}
-                    onChange={(e) => updateProfile(f.key, e.target.value)}
-                  />
-                )}
-              </FieldRow>
-            ))}
-
-            {/* エクストラフィールド */}
-            <div className="mt-2">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>追加フィールド</span>
-                <button
-                  className="text-xs"
-                  style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
-                  onClick={addExtraField}
-                >
-                  + 追加
-                </button>
-              </div>
-              {data.extra_fields.map((field, i) => (
-                <div key={i} className="flex items-start gap-1 mb-1">
-                  <input
-                    className="text-xs bg-transparent outline-none"
-                    style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px', width: '60px' }}
-                    value={field.label}
-                    onChange={(e) => updateExtraField(i, 'label', e.target.value)}
-                    placeholder="ラベル"
-                  />
-                  <input
-                    className="flex-1 text-xs bg-transparent outline-none"
-                    style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px' }}
-                    value={field.value}
-                    onChange={(e) => updateExtraField(i, 'value', e.target.value)}
-                    placeholder="値"
-                  />
-                  <button
-                    className="text-xs flex-shrink-0"
-                    style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    onClick={() => deleteExtraField(i)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            {/* タグ */}
-            <div className="mt-2">
-              <span className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>タグ</span>
-              <TagPicker
-                projectId={projectId}
-                entityType="character"
-                entityId={character.id}
-                tags={tags}
-                onTagsChange={onTagsChange}
+        <div className="flex flex-col gap-2">
+          {MAIN_FIELDS.map((f) => (
+            <FieldRow key={f.key} label={f.label}>
+              <textarea
+                className="w-full text-xs bg-transparent outline-none resize-none"
+                style={{
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '4px',
+                  padding: '4px 6px',
+                  minHeight: '60px',
+                }}
+                value={data.profile[f.key]}
+                onChange={(e) => updateProfile(f.key, e.target.value)}
               />
-            </div>
-          </div>
-        ) : typeof activeTab === 'number' && data.tabs[activeTab] ? (
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
-                {data.tabs[activeTab].name}
-              </span>
-              <button
-                className="text-xs"
-                style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                onClick={() => deleteTab(activeTab as number)}
-              >
-                削除
-              </button>
-            </div>
-            <textarea
-              className="flex-1 w-full text-xs bg-transparent outline-none resize-none"
-              style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', minHeight: '120px' }}
-              value={data.tabs[activeTab].content}
-              onChange={(e) => updateTabContent(activeTab as number, e.target.value)}
-              placeholder="自由にメモを記入..."
+            </FieldRow>
+          ))}
+
+          {/* タグ */}
+          <div className="mt-2">
+            <span className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>タグ</span>
+            <TagPicker
+              projectId={projectId}
+              entityType="character"
+              entityId={character.id}
+              tags={tags}
+              onTagsChange={onTagsChange}
             />
           </div>
-        ) : null}
+
+          {/* 詳細折り畳み */}
+          <div
+            className="mt-3"
+            style={{ borderTop: '1px solid var(--border)', paddingTop: '8px' }}
+          >
+            <button
+              className="flex items-center gap-1 text-xs w-full text-left"
+              style={{
+                color: 'var(--text-muted)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '2px 0',
+              }}
+              onClick={() => setDetailsOpen((v) => !v)}
+            >
+              <span>{detailsOpen ? '▼' : '▶'}</span>
+              <span>詳細</span>
+            </button>
+
+            {detailsOpen && (
+              <div className="flex flex-col gap-2 mt-2">
+                {DETAIL_FIELDS.map((f) => (
+                  <FieldRow key={f.key} label={f.label}>
+                    <input
+                      className="w-full text-xs bg-transparent outline-none"
+                      style={{
+                        color: 'var(--text)',
+                        border: '1px solid var(--border)',
+                        borderRadius: '4px',
+                        padding: '2px 6px',
+                      }}
+                      value={data.profile[f.key]}
+                      onChange={(e) => updateProfile(f.key, e.target.value)}
+                    />
+                  </FieldRow>
+                ))}
+
+                {/* エクストラフィールド */}
+                <div className="mt-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>追加フィールド</span>
+                    <button
+                      className="text-xs"
+                      style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
+                      onClick={addExtraField}
+                    >
+                      + 追加
+                    </button>
+                  </div>
+                  {data.extra_fields.map((field, i) => (
+                    <div key={i} className="flex items-start gap-1 mb-1">
+                      <input
+                        className="text-xs bg-transparent outline-none"
+                        style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px', width: '72px' }}
+                        value={field.label}
+                        onChange={(e) => updateExtraField(i, 'label', e.target.value)}
+                        placeholder="ラベル"
+                      />
+                      <input
+                        className="flex-1 text-xs bg-transparent outline-none"
+                        style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px' }}
+                        value={field.value}
+                        onChange={(e) => updateExtraField(i, 'value', e.target.value)}
+                        placeholder="値"
+                      />
+                      <button
+                        className="text-xs flex-shrink-0"
+                        style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                        onClick={() => deleteExtraField(i)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* カスタムタブ */}
+                <div className="mt-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>カスタムタブ</span>
+                    <button
+                      className="text-xs"
+                      style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
+                      onClick={addTab}
+                    >
+                      + 追加
+                    </button>
+                  </div>
+
+                  {data.tabs.length > 0 && (
+                    <div className="flex items-center gap-0.5 overflow-x-auto" style={{ borderBottom: '1px solid var(--border)' }}>
+                      {data.tabs.map((tab, i) => (
+                        <SubTab
+                          key={i}
+                          active={activeCustomTab === i}
+                          onClick={() => setActiveCustomTab(activeCustomTab === i ? null : i)}
+                          label={tab.name}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            const newName = prompt('タブ名を入力', tab.name);
+                            if (newName !== null) renameTab(i, newName);
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {activeCustomTab !== null && data.tabs[activeCustomTab] && (
+                    <div className="flex flex-col mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {data.tabs[activeCustomTab].name}
+                        </span>
+                        <button
+                          className="text-xs"
+                          style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                          onClick={() => deleteTab(activeCustomTab)}
+                        >
+                          削除
+                        </button>
+                      </div>
+                      <textarea
+                        className="w-full text-xs bg-transparent outline-none resize-none"
+                        style={{
+                          color: 'var(--text)',
+                          border: '1px solid var(--border)',
+                          borderRadius: '4px',
+                          padding: '6px',
+                          minHeight: '100px',
+                        }}
+                        value={data.tabs[activeCustomTab].content}
+                        onChange={(e) => updateTabContent(activeCustomTab, e.target.value)}
+                        placeholder="自由にメモを記入..."
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-/** フィールド行（ラベル + 入力） */
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -334,7 +384,6 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   );
 }
 
-/** サブタブボタン */
 function SubTab({
   active,
   onClick,

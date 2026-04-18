@@ -1,6 +1,6 @@
 /**
  * 選択語句ポップアップ — エディタ上でテキスト選択時に
- * 用語集・キャラクター・資料をフロント側フィルタで検索し結果表示。
+ * 用語集・キャラクターをフロント側フィルタで検索し結果表示。
  *
  * 結果クリックで右パネルの該当タブ + アイテムを開く。
  */
@@ -11,14 +11,14 @@ import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useUIStore } from '@/shared/stores/uiStore';
 import type { Editor } from '@tiptap/react';
-import type { Character, GlossaryItem, Material } from '@/shared/types';
+import type { Character, GlossaryItem } from '@/shared/types';
 
 interface SelectionPopupProps {
   editor: Editor;
 }
 
 interface SearchResult {
-  type: 'character' | 'glossary' | 'material';
+  type: 'character' | 'glossary';
   id: string;
   label: string;
   sub?: string;
@@ -37,22 +37,19 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
   const cacheRef = useRef<{
     characters: Character[];
     glossary: GlossaryItem[];
-    materials: Material[];
     loaded: boolean;
-  }>({ characters: [], glossary: [], materials: [], loaded: false });
+  }>({ characters: [], glossary: [], loaded: false });
 
   const loadCache = useCallback(async () => {
     if (!projectId || cacheRef.current.loaded) return;
     try {
-      const [chars, gloss, mats] = await Promise.all([
+      const [chars, gloss] = await Promise.all([
         invoke<unknown[]>('get_characters', { projectId }),
         invoke<unknown[]>('get_glossary', { projectId }),
-        invoke<unknown[]>('get_materials', { projectId }),
       ]);
       cacheRef.current = {
         characters: toCamelCase<Character[]>(chars),
         glossary: toCamelCase<GlossaryItem[]>(gloss),
-        materials: toCamelCase<Material[]>(mats),
         loaded: true,
       };
     } catch { /* 無視 */ }
@@ -60,7 +57,7 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
 
   // プロジェクト変更時にキャッシュをリセット
   useEffect(() => {
-    cacheRef.current = { characters: [], glossary: [], materials: [], loaded: false };
+    cacheRef.current = { characters: [], glossary: [], loaded: false };
   }, [projectId]);
 
   // テキスト選択を監視
@@ -110,11 +107,6 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
         hits.push({ type: 'glossary', id: g.id, label: g.term, sub: '用語' });
       }
     }
-    for (const m of cacheRef.current.materials) {
-      if (m.title.toLowerCase().includes(q)) {
-        hits.push({ type: 'material', id: m.id, label: m.title, sub: '資料' });
-      }
-    }
 
     setResults(hits.slice(0, 8));
   }, [visible, query]);
@@ -134,10 +126,9 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
 
   if (!visible || results.length === 0) return null;
 
-  const tabMap: Record<string, 'character' | 'glossary' | 'material'> = {
+  const tabMap: Record<string, 'character' | 'glossary'> = {
     character: 'character',
     glossary: 'glossary',
-    material: 'material',
   };
 
   return (

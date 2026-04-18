@@ -42,9 +42,14 @@ export function SynopsisPanel() {
   return (
     <div className="flex flex-col h-full p-3 gap-2">
       <div className="flex items-center justify-between flex-shrink-0">
-        <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-          あらすじ
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+            あらすじ
+          </span>
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {countChars(content).toLocaleString()} 字
+          </span>
+        </div>
         <button
           onClick={handleSave}
           disabled={!dirty || saving}
@@ -76,4 +81,12 @@ export function SynopsisPanel() {
       />
     </div>
   );
+}
+
+function countChars(s: string): number {
+  let count = 0;
+  for (const ch of s) {
+    if (ch !== '\n' && ch !== '\r') count += 1;
+  }
+  return count;
 }

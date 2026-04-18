@@ -9,6 +9,12 @@ import { useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Plot, PlotData, PlotNode } from '@/shared/types';
 import { DEFAULT_PLOT_DATA, PLOT_TYPE_PRESETS } from '@/shared/types';
+import {
+  PLOT_STRUCTURE_TYPES,
+  PLOT_STRUCTURE_LABELS,
+  PLOT_STRUCTURE_PHASES,
+} from '@/shared/constants/asbEnums';
+import type { PlotStructureType } from '@/shared/constants/asbEnums';
 
 interface PlotTreeProps {
   projectId: string;
@@ -119,18 +125,26 @@ export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
         <div className="flex items-center justify-between px-3 py-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>プロット ({plots.length})</span>
         </div>
-        {/* 新規作成ボタン群 */}
+        {/* 新規作成ボタン群 (ASB 6 構造 + カスタム) */}
         <div className="px-3 py-2 flex flex-wrap gap-1" style={{ borderBottom: '1px solid var(--border)' }}>
-          {Object.keys(PLOT_TYPE_PRESETS).map((t) => (
+          {PLOT_STRUCTURE_TYPES.map((t) => (
             <button
               key={t}
               className="text-xs px-2 py-0.5 rounded"
               style={{ background: 'var(--bg-elevated)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}
               onClick={() => handleCreate(t)}
+              title={PLOT_STRUCTURE_LABELS[t]}
             >
-              + {t}
+              + {PLOT_STRUCTURE_LABELS[t]}
             </button>
           ))}
+          <button
+            className="text-xs px-2 py-0.5 rounded"
+            style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)', border: '1px dashed var(--border)', cursor: 'pointer' }}
+            onClick={() => handleCreate('カスタム')}
+          >
+            + カスタム
+          </button>
         </div>
         {plots.length === 0 && (
           <div className="px-3 py-8 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -148,7 +162,9 @@ export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
           >
             <div className="flex flex-col min-w-0">
               <span className="text-xs truncate" style={{ color: 'var(--text)' }}>{p.title}</span>
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.plotType}</span>
+              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {PLOT_STRUCTURE_LABELS[p.plotType as PlotStructureType] ?? p.plotType}
+              </span>
             </div>
             <button
               className="text-xs flex-shrink-0"
@@ -177,7 +193,9 @@ export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
         <span className="text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
           {selectedPlot.title}
         </span>
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({selectedPlot.plotType})</span>
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          ({PLOT_STRUCTURE_LABELS[selectedPlot.plotType as PlotStructureType] ?? selectedPlot.plotType})
+        </span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-2 py-2">
@@ -187,7 +205,18 @@ export function PlotTree({ projectId, plots, onReload }: PlotTreeProps) {
               className="text-xs px-3 py-1 rounded"
               style={{ background: 'var(--accent)', color: 'var(--bg-deep)', border: 'none', cursor: 'pointer' }}
               onClick={() => {
-                // プリセットからノード生成
+                // ASB 構造定義からノード生成（色/説明含む）
+                const phases = PLOT_STRUCTURE_PHASES[selectedPlot.plotType as PlotStructureType];
+                if (phases) {
+                  const nodes = phases.map((p) => ({
+                    id: newNodeId(),
+                    label: p.label,
+                    content: p.description,
+                    children: [],
+                  }));
+                  saveNodes(nodes);
+                  return;
+                }
                 const preset = PLOT_TYPE_PRESETS[selectedPlot.plotType] ?? [];
                 if (preset.length > 0) {
                   const nodes = preset.map((label) => ({ id: newNodeId(), label, content: '', children: [] }));

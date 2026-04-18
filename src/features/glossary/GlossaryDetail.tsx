@@ -7,6 +7,10 @@ import { invoke } from '@tauri-apps/api/core';
 import type { GlossaryItem, GlossaryData, Tag } from '@/shared/types';
 import { DEFAULT_GLOSSARY_DATA } from '@/shared/types';
 import { TagPicker } from '@/shared/components/TagPicker';
+import {
+  GLOSSARY_CATEGORIES,
+  GLOSSARY_CATEGORY_LABELS,
+} from '@/shared/constants/asbEnums';
 
 interface GlossaryDetailProps {
   item: GlossaryItem;
@@ -71,13 +75,26 @@ export function GlossaryDetail({ item, tags, projectId, onBack, onUpdate, onTags
 
       <div className="flex-1 overflow-y-auto px-3 py-2 flex flex-col gap-2">
         <Field label="カテゴリ">
-          <input
-            className="w-full text-xs bg-transparent outline-none"
-            style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 6px' }}
+          <select
+            className="w-full text-xs outline-none"
+            style={{
+              color: 'var(--text)',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: '4px',
+              padding: '3px 6px',
+            }}
             value={category}
             onChange={(e) => { setCategory(e.target.value); save(term, e.target.value, data); }}
-            placeholder="分類"
-          />
+          >
+            <option value="">(未分類)</option>
+            {GLOSSARY_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{GLOSSARY_CATEGORY_LABELS[c]}</option>
+            ))}
+            {category && !GLOSSARY_CATEGORIES.includes(category as never) && (
+              <option value={category}>{category} (既存)</option>
+            )}
+          </select>
         </Field>
         <Field label="読み">
           <input

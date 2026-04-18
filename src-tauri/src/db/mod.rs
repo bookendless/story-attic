@@ -103,5 +103,21 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // v4: 章に summary カラムを追加
+    let applied_v4: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 4",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v4 == 0 {
+        let sql = include_str!("migrations/004_chapter_summary.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (4, datetime('now'))",
+            [],
+        )?;
+    }
+
     Ok(())
 }

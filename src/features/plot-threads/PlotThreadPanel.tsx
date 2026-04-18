@@ -9,6 +9,29 @@ import { useAppStore } from '@/shared/stores/appStore';
 import type { PlotThread, PlotThreadData } from '@/shared/types';
 import { DEFAULT_PLOT_THREAD_DATA } from '@/shared/types';
 import { PlotThreadDetail } from './PlotThreadDetail';
+import {
+  FORESHADOWING_STATUS_LABELS,
+  FORESHADOWING_IMPORTANCE_LABELS,
+  FORESHADOWING_CATEGORY_LABELS,
+} from '@/shared/constants/asbEnums';
+import type {
+  ForeshadowingStatus,
+  ForeshadowingImportance,
+  ForeshadowingCategory,
+} from '@/shared/constants/asbEnums';
+
+const STATUS_BADGE: Record<ForeshadowingStatus, { bg: string; color: string }> = {
+  planted:   { bg: '#fef3c7', color: '#92400e' },
+  hinted:    { bg: '#dbeafe', color: '#1e40af' },
+  resolved:  { bg: '#d1fae5', color: '#065f46' },
+  abandoned: { bg: '#f3f4f6', color: '#4b5563' },
+};
+
+const IMPORTANCE_BADGE: Record<ForeshadowingImportance, { bg: string; color: string }> = {
+  high:   { bg: '#fee2e2', color: '#991b1b' },
+  medium: { bg: '#fef3c7', color: '#92400e' },
+  low:    { bg: '#f3f4f6', color: '#4b5563' },
+};
 
 export function PlotThreadPanel() {
   const projectId = useAppStore((s) => s.currentProjectId);
@@ -115,13 +138,24 @@ export function PlotThreadPanel() {
                     >
                       {item.title || '（タイトルなし）'}
                     </div>
-                    <div
-                      className="text-xs mt-0.5 flex gap-2"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      {item.category && <span>{item.category}</span>}
-                      {data.status && <span>{data.status}</span>}
-                      {data.importance && <span>{data.importance}</span>}
+                    <div className="text-xs mt-1 flex gap-1 flex-wrap items-center">
+                      {item.category && (
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {FORESHADOWING_CATEGORY_LABELS[item.category as ForeshadowingCategory] ?? item.category}
+                        </span>
+                      )}
+                      {data.status && (
+                        <Badge
+                          label={FORESHADOWING_STATUS_LABELS[data.status as ForeshadowingStatus] ?? data.status}
+                          palette={STATUS_BADGE[data.status as ForeshadowingStatus]}
+                        />
+                      )}
+                      {data.importance && (
+                        <Badge
+                          label={FORESHADOWING_IMPORTANCE_LABELS[data.importance as ForeshadowingImportance] ?? data.importance}
+                          palette={IMPORTANCE_BADGE[data.importance as ForeshadowingImportance]}
+                        />
+                      )}
                     </div>
                     {data.description && (
                       <div
@@ -152,5 +186,21 @@ export function PlotThreadPanel() {
         )}
       </div>
     </div>
+  );
+}
+
+function Badge({ label, palette }: { label: string; palette?: { bg: string; color: string } }) {
+  return (
+    <span
+      className="rounded px-1.5 py-0.5"
+      style={{
+        background: palette?.bg ?? 'var(--bg-elevated)',
+        color: palette?.color ?? 'var(--text-muted)',
+        fontSize: '10px',
+        fontWeight: 500,
+      }}
+    >
+      {label}
+    </span>
   );
 }

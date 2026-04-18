@@ -234,6 +234,64 @@ export function IconMaterial({ size = defaults.size, className }: IconProps) {
   );
 }
 
+/** 章立て（本・段組） */
+export function IconChapter({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 3a1 1 0 011-1h4v12H3a1 1 0 01-1-1V3z" />
+      <path d="M9 2h4a1 1 0 011 1v10a1 1 0 01-1 1H9V2z" />
+      <path d="M3.5 5h2M3.5 7.5h2M3.5 10h2" />
+      <path d="M10.5 5h2M10.5 7.5h2M10.5 10h2" />
+    </svg>
+  );
+}
+
+/** 相関図（ネットワーク・結節点） */
+export function IconRelationship({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="3" cy="4" r="1.5" />
+      <circle cx="13" cy="4" r="1.5" />
+      <circle cx="3" cy="12" r="1.5" />
+      <circle cx="13" cy="12" r="1.5" />
+      <circle cx="8" cy="8" r="1.5" />
+      <path d="M4.2 4.8L6.8 7.2M11.8 4.8L9.2 7.2M4.2 11.2L6.8 8.8M11.8 11.2L9.2 8.8" />
+    </svg>
+  );
+}
+
+/** 世界観（地球儀） */
+export function IconWorld({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="8" cy="8" r="6" />
+      <path d="M2 8h12" />
+      <path d="M8 2c2 2 3 4 3 6s-1 4-3 6c-2-2-3-4-3-6s1-4 3-6z" />
+    </svg>
+  );
+}
+
+/** 伏線（連結リンク） */
+export function IconForeshadowing({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M6 8a3 3 0 013-3h2a3 3 0 010 6h-1" />
+      <path d="M10 8a3 3 0 01-3 3H5a3 3 0 010-6h1" />
+    </svg>
+  );
+}
+
+/** あらすじ（書類・テキスト） */
+export function IconSynopsis({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M4 2h6l2 2v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" />
+      <path d="M10 2v2h2" />
+      <path d="M5 7h6M5 9.5h6M5 12h4" />
+    </svg>
+  );
+}
+
 /** メモ（付箋） */
 export function IconMemo({ size = defaults.size, className }: IconProps) {
   return (

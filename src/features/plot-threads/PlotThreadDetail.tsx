@@ -5,6 +5,21 @@
 import { useState, useCallback, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { PlotThread, PlotThreadData } from '@/shared/types';
+import {
+  FORESHADOWING_STATUSES,
+  FORESHADOWING_STATUS_LABELS,
+  FORESHADOWING_IMPORTANCES,
+  FORESHADOWING_IMPORTANCE_LABELS,
+  FORESHADOWING_CATEGORIES,
+  FORESHADOWING_CATEGORY_LABELS,
+  FORESHADOWING_POINT_TYPE_LABELS,
+} from '@/shared/constants/asbEnums';
+import type {
+  ForeshadowingStatus,
+  ForeshadowingImportance,
+  ForeshadowingCategory,
+  ForeshadowingPointType,
+} from '@/shared/constants/asbEnums';
 
 interface Props {
   item: PlotThread;
@@ -88,28 +103,52 @@ export function PlotThreadDetail({ item, onBack, onUpdate }: Props) {
 
         <div className="flex gap-2">
           <Field label="カテゴリ" className="flex-1">
-            <input
-              className="w-full text-sm px-2 py-1 rounded"
+            <select
+              className="w-full text-sm px-2 py-1 rounded outline-none"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={category}
               onChange={(e) => { setCategory(e.target.value); setDirty(true); }}
-            />
+            >
+              <option value="">(未設定)</option>
+              {FORESHADOWING_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{FORESHADOWING_CATEGORY_LABELS[c]}</option>
+              ))}
+              {category && !FORESHADOWING_CATEGORIES.includes(category as ForeshadowingCategory) && (
+                <option value={category}>{category} (既存)</option>
+              )}
+            </select>
           </Field>
           <Field label="ステータス" className="flex-1">
-            <input
-              className="w-full text-sm px-2 py-1 rounded"
+            <select
+              className="w-full text-sm px-2 py-1 rounded outline-none"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={data.status ?? ''}
               onChange={(e) => updateData('status', e.target.value)}
-            />
+            >
+              <option value="">(未設定)</option>
+              {FORESHADOWING_STATUSES.map((s) => (
+                <option key={s} value={s}>{FORESHADOWING_STATUS_LABELS[s]}</option>
+              ))}
+              {data.status && !FORESHADOWING_STATUSES.includes(data.status as ForeshadowingStatus) && (
+                <option value={data.status}>{data.status} (既存)</option>
+              )}
+            </select>
           </Field>
           <Field label="重要度" className="flex-1">
-            <input
-              className="w-full text-sm px-2 py-1 rounded"
+            <select
+              className="w-full text-sm px-2 py-1 rounded outline-none"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={data.importance ?? ''}
               onChange={(e) => updateData('importance', e.target.value)}
-            />
+            >
+              <option value="">(未設定)</option>
+              {FORESHADOWING_IMPORTANCES.map((i) => (
+                <option key={i} value={i}>{FORESHADOWING_IMPORTANCE_LABELS[i]}</option>
+              ))}
+              {data.importance && !FORESHADOWING_IMPORTANCES.includes(data.importance as ForeshadowingImportance) && (
+                <option value={data.importance}>{data.importance} (既存)</option>
+              )}
+            </select>
           </Field>
         </div>
 
@@ -179,7 +218,9 @@ export function PlotThreadDetail({ item, onBack, onUpdate }: Props) {
                 className="text-xs px-2 py-1 rounded mb-1"
                 style={{ background: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
               >
-                <span style={{ color: 'var(--accent)' }}>{p.type}</span>
+                <span style={{ color: 'var(--accent)' }}>
+                  {FORESHADOWING_POINT_TYPE_LABELS[p.type as ForeshadowingPointType] ?? p.type}
+                </span>
                 {p.chapter && <span style={{ color: 'var(--text-muted)' }}> {p.chapter}</span>}
                 {p.content && <span> — {p.content}</span>}
               </div>

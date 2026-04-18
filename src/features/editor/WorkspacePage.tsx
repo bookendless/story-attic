@@ -100,11 +100,11 @@ export function WorkspacePage() {
         toggleCommandPalette();
         return;
       }
-      // Ctrl+1..8: サイドパネルタブ切替
-      if (ctrl && !shift && !e.altKey && ['1','2','3','4','5','6','7','8'].includes(e.key)) {
+      // Ctrl+1..9, Ctrl+0: サイドパネルタブ切替
+      if (ctrl && !shift && !e.altKey && ['1','2','3','4','5','6','7','8','9','0'].includes(e.key)) {
         e.preventDefault();
-        const tabs = ['toc','plot','character','glossary','material','memo','synopsis','foreshadowing'] as const;
-        const idx = Number(e.key) - 1;
+        const tabs = ['toc','chapter','character','plot','synopsis','relationship','glossary','world','foreshadowing','memo'] as const;
+        const idx = e.key === '0' ? 9 : Number(e.key) - 1;
         setActiveSideTab(tabs[idx]);
         return;
       }

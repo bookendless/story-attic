@@ -181,9 +181,9 @@ pub fn import_ai_story_builder(
             let id = Uuid::new_v4().to_string();
             let full_title = format!("第{}章: {}", ch.number, ch.title);
             conn.execute(
-                "INSERT INTO chapters (id, project_id, title, sort_order, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5)",
-                rusqlite::params![id, project_id, full_title, i as i64, now_ch],
+                "INSERT INTO chapters (id, project_id, title, summary, sort_order, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![id, project_id, full_title, ch.summary, i as i64, now_ch],
             )
             .map_err(err)?;
 
@@ -324,17 +324,33 @@ pub fn import_ai_story_builder(
     Ok(ImportResult { project_id, counts })
 }
 
+/** ASB の日本語構造名を PlotStructureType キーへ正規化 */
+fn normalize_structure_type(label: &str) -> String {
+    match label.trim() {
+        "起承転結" => "kishotenketsu".to_string(),
+        "三幕構成" => "three-act".to_string(),
+        "四幕構成" => "four-act".to_string(),
+        "ヒーローズ・ジャーニー" | "ヒーローズジャーニー" => "heroes-journey".to_string(),
+        "ビートシート" => "beat-sheet".to_string(),
+        "ミステリー・サスペンス" | "ミステリーサスペンス" => "mystery-suspense".to_string(),
+        "" => String::new(),
+        other => other.to_string(),
+    }
+}
+
 fn import_plot(conn: &Connection, project_id: &str, parsed: &ParsedStoryProject, counts: &mut ImportCounts) -> CmdResult<()> {
     let plot = &parsed.plot;
+    let structure_key = normalize_structure_type(&plot.structure_type);
 
-    // plot_structure テーブルに基本プロット情報を保存
+    // plot_structure テーブルに ASB 基準 6 項目を保存
     let structure_data = serde_json::json!({
         "theme": plot.theme,
-        "protagonist": plot.protagonist_goal,
-        "antagonist": "",
-        "conflict": plot.main_obstacles,
+        "setting": plot.setting,
+        "hook": plot.hook,
+        "protagonistGoal": plot.protagonist_goal,
+        "mainObstacles": plot.main_obstacles,
         "ending": plot.ending,
-        "notes": format!("舞台: {}\nフック: {}", plot.setting, plot.hook)
+        "structureType": structure_key,
     })
     .to_string();
 
@@ -346,10 +362,10 @@ fn import_plot(conn: &Connection, project_id: &str, parsed: &ParsedStoryProject,
 
     // 各フェーズを plots テーブルに保存
     if !plot.phases.is_empty() {
-        let structure_type = if plot.structure_type.is_empty() {
+        let structure_type: &str = if structure_key.is_empty() {
             "カスタム"
         } else {
-            &plot.structure_type
+            &structure_key
         };
 
         let id = Uuid::new_v4().to_string();

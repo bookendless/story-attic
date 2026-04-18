@@ -55,6 +55,7 @@ pub fn run() {
             // 章管理
             commands::chapter::create_chapter,
             commands::chapter::rename_chapter,
+            commands::chapter::update_chapter,
             commands::chapter::delete_chapter,
             commands::chapter::reorder_chapters,
             commands::chapter::assign_episode_to_chapter,
