@@ -40,7 +40,24 @@ pub fn parse(content: &str) -> ParsedStoryProject {
     project
 }
 
-/// `## ヘッダ` でセクション分割する
+/// AI Story Builder MD の既知トップレベルセクション名。
+/// `## XXX` のうちこのリストに含まれるもののみセクション境界として扱い、
+/// それ以外（例: `## 閃光の出会い`）は現セクションの本文として保持する。
+const TOP_LEVEL_SECTIONS: &[&str] = &[
+    "概要",
+    "基本情報",
+    "キャラクター一覧",
+    "プロット",
+    "あらすじ",
+    "章立て",
+    "草案",
+    "用語集",
+    "キャラクター相関図",
+    "世界観設定",
+    "伏線トラッカー",
+];
+
+/// `## ヘッダ` でセクション分割する（既知ヘッダ名のみを境界とする）
 fn split_md_sections(lines: &[&str]) -> Vec<(String, Vec<String>)> {
     let mut result = Vec::new();
     let mut current_header = String::new();
@@ -50,12 +67,15 @@ fn split_md_sections(lines: &[&str]) -> Vec<(String, Vec<String>)> {
         let t = line.trim();
         if let Some(v) = t.strip_prefix("## ") {
             if !v.starts_with('#') {
-                if !current_header.is_empty() {
-                    result.push((current_header.clone(), current_body.clone()));
+                let name = v.trim().trim_end_matches('*').trim().to_string();
+                if TOP_LEVEL_SECTIONS.contains(&name.as_str()) {
+                    if !current_header.is_empty() {
+                        result.push((current_header.clone(), current_body.clone()));
+                    }
+                    current_header = name;
+                    current_body.clear();
+                    continue;
                 }
-                current_header = v.trim().to_string();
-                current_body.clear();
-                continue;
             }
         }
         current_body.push(line.to_string());
@@ -235,40 +255,126 @@ fn parse_chapters_md(lines: &[String]) -> Vec<ParsedChapter> {
     chapters
 }
 
-/// MD草案セクション: `## 章タイトル` で各ドラフトを分割
+/// MD草案セクション: `## 章タイトル` または `### 第N章…` で各ドラフトを分割。
+/// 同一章ヘッダが二重に現れる場合（`### 第1章: …**` の直下に `### 第一章 …`）は、
+/// 直前の draft が空ならヘッダだけ更新する（重複ヘッダ吸収）。
 fn parse_drafts_md(lines: &[String]) -> Vec<ParsedDraft> {
-    let mut drafts = Vec::new();
+    let mut drafts: Vec<ParsedDraft> = Vec::new();
     let mut current_ref: Option<String> = None;
     let mut current_body: Vec<String> = Vec::new();
 
+    let push_draft = |chapter_ref: &Option<String>,
+                      body: &[String],
+                      drafts: &mut Vec<ParsedDraft>| {
+        let joined = body.join("\n");
+        if joined.trim().is_empty() {
+            return;
+        }
+        drafts.push(ParsedDraft {
+            chapter_ref: chapter_ref.clone(),
+            body: plain_to_html(&joined),
+        });
+    };
+
     for line in lines {
         let t = line.trim();
+
+        // `### …` を優先で章ヘッダ判定
+        if let Some(v) = t.strip_prefix("### ") {
+            push_draft(&current_ref, &current_body, &mut drafts);
+            current_body.clear();
+            current_ref = Some(normalize_chapter_ref(v.trim()));
+            continue;
+        }
+        // `## …`（既に split_md_sections で TOP_LEVEL は除かれているので章タイトル想定）
         if let Some(v) = t.strip_prefix("## ") {
             if !v.starts_with('#') {
-                if !current_body.is_empty() {
-                    let body_text = current_body.join("\n");
-                    drafts.push(ParsedDraft {
-                        chapter_ref: current_ref.clone(),
-                        body: plain_to_html(&body_text),
-                    });
-                    current_body.clear();
-                }
-                current_ref = Some(v.trim().to_string());
+                push_draft(&current_ref, &current_body, &mut drafts);
+                current_body.clear();
+                current_ref = Some(normalize_chapter_ref(v.trim()));
                 continue;
             }
         }
         current_body.push(line.to_string());
     }
 
-    if !current_body.is_empty() {
-        let body_text = current_body.join("\n");
-        drafts.push(ParsedDraft {
-            chapter_ref: current_ref,
-            body: plain_to_html(&body_text),
-        });
-    }
+    push_draft(&current_ref, &current_body, &mut drafts);
 
-    drafts
+    // 連続する同一 chapter_ref を統合（重複ヘッダ吸収）
+    let mut merged: Vec<ParsedDraft> = Vec::new();
+    for d in drafts {
+        if let Some(last) = merged.last_mut() {
+            if last.chapter_ref == d.chapter_ref && d.chapter_ref.is_some() {
+                last.body.push('\n');
+                last.body.push_str(&d.body);
+                continue;
+            }
+        }
+        merged.push(d);
+    }
+    merged
+}
+
+/// 章タイトルを正規化する。
+/// - 末尾の `**` 等の Markdown 装飾を除去
+/// - 全角コロン `：` を半角 `:` に
+/// - 漢数字を含む `第一章 タイトル` 形式は `第N章: タイトル` に正規化（簡易）
+fn normalize_chapter_ref(s: &str) -> String {
+    let mut t = s.trim().trim_end_matches('*').trim().to_string();
+    t = t.replace('：', ":");
+    // `第一章 ...` → `第1章: ...` （漢数字対応）
+    if let Some(rest) = t.strip_prefix('第') {
+        if let Some(kanji_end) = rest.find('章') {
+            let num_part = &rest[..kanji_end];
+            if let Some(n) = kanji_to_num(num_part) {
+                let after = rest[kanji_end + '章'.len_utf8()..].trim();
+                let after = after.trim_start_matches(':').trim();
+                if after.is_empty() {
+                    return format!("第{}章", n);
+                }
+                return format!("第{}章: {}", n, after);
+            }
+        }
+    }
+    t
+}
+
+/// 漢数字 / 算用数字を i32 に変換する簡易関数（1〜99 程度を想定）
+fn kanji_to_num(s: &str) -> Option<i32> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+    if let Ok(n) = s.parse::<i32>() {
+        return Some(n);
+    }
+    let digit = |c: char| -> Option<i32> {
+        match c {
+            '〇' | '零' => Some(0),
+            '一' => Some(1),
+            '二' => Some(2),
+            '三' => Some(3),
+            '四' => Some(4),
+            '五' => Some(5),
+            '六' => Some(6),
+            '七' => Some(7),
+            '八' => Some(8),
+            '九' => Some(9),
+            _ => None,
+        }
+    };
+    let chars: Vec<char> = s.chars().collect();
+    match chars.as_slice() {
+        ['十'] => Some(10),
+        ['十', b] => digit(*b).map(|n| 10 + n),
+        [a, '十'] => digit(*a).map(|n| n * 10),
+        [a, '十', b] => match (digit(*a), digit(*b)) {
+            (Some(x), Some(y)) => Some(x * 10 + y),
+            _ => None,
+        },
+        [c] => digit(*c),
+        _ => None,
+    }
 }
 
 /// 用語集パース
@@ -536,21 +642,26 @@ fn parse_relation_header(s: &str) -> (String, String) {
 }
 
 /// `"mentor (強度: 4/10)"` → (`"mentor"`, 4)
+/// `/` 以降は無視し、最初に現れる連続した数字列のみを取得して 0-10 にクランプ。
 fn parse_relation_type_intensity(s: &str) -> (String, i32) {
     let s = s.trim();
-    if let Some(paren_pos) = s.find('(') {
-        let rel_type = s[..paren_pos].trim().to_string();
-        let intensity = s[paren_pos..]
-            .chars()
-            .filter(|c| c.is_ascii_digit())
-            .take(2)
-            .collect::<String>()
-            .parse::<i32>()
-            .unwrap_or(5);
-        (rel_type, intensity)
-    } else {
-        (s.to_string(), 5)
+    let Some(paren_pos) = s.find('(') else {
+        return (s.to_string(), 5);
+    };
+    let rel_type = s[..paren_pos].trim().to_string();
+    let tail = &s[paren_pos..];
+    let after = tail.find(':').map(|p| &tail[p + 1..]).unwrap_or(tail);
+
+    let mut digits = String::new();
+    for c in after.chars() {
+        if c.is_ascii_digit() {
+            digits.push(c);
+        } else if !digits.is_empty() {
+            break;
+        }
     }
+    let intensity = digits.parse::<i32>().unwrap_or(5).clamp(0, 10);
+    (rel_type, intensity)
 }
 
 /// `タイトル [カテゴリ]` → (title, category)
@@ -584,5 +695,70 @@ fn to_arabic_number(s: &str) -> String {
         '六' => '6', '七' => '7', '八' => '8', '九' => '9',
         _ => c,
     }).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn intensity_simple() {
+        assert_eq!(parse_relation_type_intensity("friend (強度: 5/10)").1, 5);
+    }
+
+    #[test]
+    fn intensity_clamped_when_oversize() {
+        assert_eq!(parse_relation_type_intensity("ally (強度: 99/10)").1, 10);
+    }
+
+    #[test]
+    fn intensity_no_paren_default() {
+        assert_eq!(parse_relation_type_intensity("mentor").1, 5);
+    }
+
+    #[test]
+    fn drafts_md_splits_by_h2() {
+        let input: Vec<String> = ["## 章A", "本文A", "## 章B", "本文B"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+        let drafts = parse_drafts_md(&input);
+        assert_eq!(drafts.len(), 2);
+        assert_eq!(drafts[0].chapter_ref.as_deref(), Some("章A"));
+        assert_eq!(drafts[1].chapter_ref.as_deref(), Some("章B"));
+    }
+
+    #[test]
+    fn drafts_md_splits_by_h3_chapter() {
+        let input: Vec<String> = [
+            "### 第1章: 導入**",
+            "本文1。",
+            "### 第一章 導入",
+            "追記1。",
+            "### 第2章: 展開**",
+            "本文2。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let drafts = parse_drafts_md(&input);
+        // 重複ヘッダ吸収で 2 件
+        assert_eq!(drafts.len(), 2);
+        assert_eq!(drafts[0].chapter_ref.as_deref(), Some("第1章: 導入"));
+        assert!(drafts[0].body.contains("本文1"));
+        assert!(drafts[0].body.contains("追記1"));
+        assert_eq!(drafts[1].chapter_ref.as_deref(), Some("第2章: 展開"));
+    }
+
+    #[test]
+    fn split_md_sections_keeps_unknown_h2_in_body() {
+        let lines = vec!["## 草案", "## 閃光の出会い", "本文", "## 用語集", "用語1"];
+        let secs = split_md_sections(&lines);
+        // 草案セクションに `## 閃光の出会い` が含まれる
+        let drafts_sec = secs.iter().find(|(h, _)| h == "草案").unwrap();
+        assert!(drafts_sec.1.iter().any(|l| l.contains("閃光の出会い")));
+        // 用語集は別セクション
+        assert!(secs.iter().any(|(h, _)| h == "用語集"));
+    }
 }
 

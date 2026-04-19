@@ -100,7 +100,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
       <div
         className="flex flex-col rounded-xl shadow-2xl"
         style={{
-          background: 'var(--bg-primary)',
+          background: 'var(--bg-elevated)',
           border: '1px solid var(--border)',
           width: '480px',
           maxHeight: '80vh',
@@ -112,7 +112,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
           className="flex items-center justify-between px-4 py-3 flex-shrink-0"
           style={{ borderBottom: '1px solid var(--border)' }}
         >
-          <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+          <span className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
             AI Story Builder からインポート
           </span>
           <button
@@ -127,7 +127,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
         <div className="flex-1 overflow-y-auto p-4">
           {step === 'select' && (
             <div className="flex flex-col items-center gap-4 py-6">
-              <div className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
+              <div className="text-sm text-center" style={{ color: 'var(--text-mid)' }}>
                 AI Story Builder で生成した TXT または MD ファイルを選択してください。
               </div>
               <button
@@ -143,8 +143,8 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
           {step === 'preview' && parsed && (
             <div className="flex flex-col gap-3">
               {/* プロジェクト情報 */}
-              <div className="rounded-lg p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
-                <div className="font-semibold text-sm mb-1" style={{ color: 'var(--text-primary)' }}>
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
+                <div className="font-semibold text-sm mb-1" style={{ color: 'var(--text)' }}>
                   {parsed.title}
                 </div>
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -164,7 +164,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
                     <label
                       key={key}
                       className="flex items-center justify-between px-3 py-1.5 rounded cursor-pointer"
-                      style={{ background: sections[key] ? 'rgba(var(--accent-rgb,100,149,237),0.1)' : 'transparent', border: '1px solid var(--border)' }}
+                      style={{ background: sections[key] ? 'var(--accent-soft)' : 'transparent', border: '1px solid var(--border)' }}
                     >
                       <div className="flex items-center gap-2">
                         <input
@@ -173,7 +173,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
                           onChange={() => toggleSection(key)}
                           className="w-3 h-3"
                         />
-                        <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{label}</span>
+                        <span className="text-xs" style={{ color: 'var(--text)' }}>{label}</span>
                       </div>
                       {count > 0 && (
                         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -189,16 +189,16 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
 
           {step === 'importing' && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>インポート中...</div>
+              <div className="text-sm" style={{ color: 'var(--text-mid)' }}>インポート中...</div>
             </div>
           )}
 
           {step === 'done' && result && (
             <div className="flex flex-col gap-3">
-              <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                 インポート完了
               </div>
-              <div className="rounded-lg p-3" style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+              <div className="rounded-lg p-3" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}>
                 {Object.entries(result.counts).map(([key, count]) => {
                   const labels: Record<string, string> = {
                     characters: 'キャラクター',
@@ -215,7 +215,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
                   return (
                     <div key={key} className="flex justify-between text-xs py-0.5">
                       <span style={{ color: 'var(--text-muted)' }}>{labels[key] ?? key}</span>
-                      <span style={{ color: 'var(--text-primary)' }}>{count}件</span>
+                      <span style={{ color: 'var(--text)' }}>{count}件</span>
                     </div>
                   );
                 })}

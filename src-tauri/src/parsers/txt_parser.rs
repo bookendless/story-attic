@@ -29,10 +29,7 @@ pub fn parse(content: &str) -> ParsedStoryProject {
             "プロット" => project.plot = parse_plot_txt(body),
             "あらすじ" => project.synopsis = body.join("\n").trim().to_string(),
             "章立て" => project.chapters = parse_chapters_txt(body),
-            "草案" => project.drafts = vec![ParsedDraft {
-                chapter_ref: None,
-                body: plain_to_html(&body.join("\n")),
-            }],
+            "草案" => project.drafts = parse_drafts_txt(body),
             "用語集" => project.glossary = parse_glossary_txt(body),
             "キャラクター相関図" => project.relationships = parse_relationships_txt(body),
             "世界観設定" => project.world_settings = parse_world_settings_txt(body),
@@ -532,11 +529,11 @@ fn parse_relation_header(s: &str) -> (String, String, String, i32) {
 
     let to_part = rest[..bracket_start].trim().to_string();
 
-    // 強度: N/10 を抽出
+    // 強度: N/10 を抽出（先頭の空白をスキップし、最初に現れる数字列のみを取得して 0-10 にクランプ）
     let intensity = if let Some(p) = rest.find("強度:") {
-        let after = &rest[p + "強度:".len()..];
+        let after = rest[p + "強度:".len()..].trim_start();
         let num_str: String = after.chars().take_while(|c| c.is_ascii_digit()).collect();
-        num_str.parse().unwrap_or(5)
+        num_str.parse::<i32>().unwrap_or(5).clamp(0, 10)
     } else {
         5
     };
@@ -566,13 +563,9 @@ fn parse_world_settings_txt(lines: &[String]) -> Vec<ParsedWorldSetting> {
             continue;
         }
 
-        // `タイトル [カテゴリ]` パターン
-        if t.contains('[') && t.contains(']') && !current_content.is_empty() {
-            flush(&current_title, &current_category, &current_content, &mut settings);
-            current_content.clear();
-        }
-
-        if t.contains('[') && t.contains(']') && current_content.is_empty() {
+        // `タイトル [カテゴリ]` ヘッダ行の検出。
+        // 末尾が `]` で短い行のみをヘッダ扱いとし、本文に `[]` が混じる誤検知を避ける。
+        if is_world_setting_header(t) {
             flush(&current_title, &current_category, &current_content, &mut settings);
             current_content.clear();
 
@@ -594,6 +587,65 @@ fn parse_world_settings_txt(lines: &[String]) -> Vec<ParsedWorldSetting> {
 
     flush(&current_title, &current_category, &current_content, &mut settings);
     settings
+}
+
+/// 世界観設定のヘッダ行 (`タイトル [カテゴリ]`) 判定。
+/// `]` が末尾近くにあり、行全体が短い（≤80 文字）場合のみヘッダとみなす。
+fn is_world_setting_header(t: &str) -> bool {
+    if t.chars().count() > 80 {
+        return false;
+    }
+    let Some(b_end) = t.rfind(']') else { return false; };
+    let Some(b_start) = t.rfind('[') else { return false; };
+    if b_start >= b_end {
+        return false;
+    }
+    // `]` 後に文字があってもよいが、本文行を弾くため末尾から数文字以内に限定
+    let trailing = &t[b_end + ']'.len_utf8()..];
+    trailing.trim().is_empty()
+}
+
+/// TXT草案セクション: `【第N章: …】` で各ドラフトを分割
+fn parse_drafts_txt(lines: &[String]) -> Vec<ParsedDraft> {
+    let mut drafts = Vec::new();
+    let mut current_ref: Option<String> = None;
+    let mut current_body: Vec<String> = Vec::new();
+
+    let flush = |chapter_ref: &Option<String>, body: &[String], drafts: &mut Vec<ParsedDraft>| {
+        let joined = body.join("\n");
+        if joined.trim().is_empty() {
+            return;
+        }
+        drafts.push(ParsedDraft {
+            chapter_ref: chapter_ref.clone(),
+            body: plain_to_html(&joined),
+        });
+    };
+
+    for line in lines {
+        let t = line.trim();
+        if let Some(header) = strip_chapter_bracket(t) {
+            flush(&current_ref, &current_body, &mut drafts);
+            current_body.clear();
+            current_ref = Some(header);
+        } else {
+            current_body.push(line.to_string());
+        }
+    }
+    flush(&current_ref, &current_body, &mut drafts);
+
+    drafts
+}
+
+/// `【第1章: タイトル】` → `Some("第1章: タイトル")`
+fn strip_chapter_bracket(t: &str) -> Option<String> {
+    let inner = t.strip_prefix('【')?.strip_suffix('】')?;
+    let inner = inner.trim();
+    if inner.is_empty() {
+        None
+    } else {
+        Some(inner.to_string())
+    }
 }
 
 fn parse_plot_threads_txt(lines: &[String]) -> Vec<ParsedPlotThread> {
@@ -777,4 +829,57 @@ fn escape_html(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn world_settings_no_duplicates() {
+        let input: Vec<String> = [
+            "古都A [geography]",
+            "本文1。",
+            "",
+            "古都B [politics]",
+            "本文2。",
+            "",
+            "古都C [culture]",
+            "本文3。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let settings = parse_world_settings_txt(&input);
+        assert_eq!(settings.len(), 3);
+        assert_eq!(settings[0].title, "古都A");
+        assert_eq!(settings[1].title, "古都B");
+        assert_eq!(settings[2].title, "古都C");
+        assert!(settings[0].content.contains("本文1"));
+    }
+
+    #[test]
+    fn drafts_txt_splits_by_bracket_headers() {
+        let input: Vec<String> = [
+            "【第1章: 導入】",
+            "本文1。",
+            "【第2章: 展開】",
+            "本文2。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let drafts = parse_drafts_txt(&input);
+        assert_eq!(drafts.len(), 2);
+        assert_eq!(drafts[0].chapter_ref.as_deref(), Some("第1章: 導入"));
+        assert_eq!(drafts[1].chapter_ref.as_deref(), Some("第2章: 展開"));
+    }
+
+    #[test]
+    fn txt_relation_intensity_clamped() {
+        let (_, _, _, i) = parse_relation_header("A → B [friend] (強度: 5/10)");
+        assert_eq!(i, 5);
+        let (_, _, _, i) = parse_relation_header("A → B [friend] (強度: 99/10)");
+        assert_eq!(i, 10);
+    }
 }

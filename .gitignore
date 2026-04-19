@@ -30,6 +30,10 @@ src-tauri/target/
 
 # Test / coverage
 coverage/
+TestData/
+plans/
+specs/
+
 
 # Vitest
 .vitest/
