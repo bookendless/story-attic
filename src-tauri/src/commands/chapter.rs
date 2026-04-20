@@ -76,6 +76,18 @@ pub fn delete_chapter(id: String, state: State<AppState>) -> CmdResult<()> {
     Ok(())
 }
 
+/// 章のノードツリー（中プロット）を保存する
+#[tauri::command]
+pub fn update_chapter_nodes(id: String, nodes: String, state: State<AppState>) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "UPDATE chapters SET nodes = ?1 WHERE id = ?2",
+        rusqlite::params![nodes, id],
+    )
+    .map_err(err)?;
+    Ok(())
+}
+
 /// 章のsort_orderを更新する
 #[tauri::command]
 pub fn reorder_chapters(
@@ -147,7 +159,7 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
     // 章一覧を取得
     let chapters: Vec<Chapter> = conn
         .prepare(
-            "SELECT id, project_id, title, summary, sort_order, created_at
+            "SELECT id, project_id, title, summary, nodes, sort_order, created_at
              FROM chapters WHERE project_id = ?1 ORDER BY sort_order ASC",
         )
         .map_err(err)?
@@ -157,8 +169,9 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
                 project_id: row.get(1)?,
                 title: row.get(2)?,
                 summary: row.get(3)?,
-                sort_order: row.get(4)?,
-                created_at: row.get(5)?,
+                nodes: row.get(4)?,
+                sort_order: row.get(5)?,
+                created_at: row.get(6)?,
             })
         })
         .map_err(err)?

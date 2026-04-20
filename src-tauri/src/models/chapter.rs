@@ -8,6 +8,8 @@ pub struct Chapter {
     pub title: String,
     /// 章の概要（ASB ParsedChapter.summary 由来）
     pub summary: String,
+    /// 中プロット用ノードツリー（JSON: {nodes: ChapterNode[]}）
+    pub nodes: String,
     pub sort_order: i64,
     pub created_at: String,
 }

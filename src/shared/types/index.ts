@@ -49,11 +49,19 @@ export interface EpisodeSummary {
   updatedAt: string;
 }
 
+export interface ChapterNode {
+  id: string;
+  label: string;
+  content: string;
+  children: ChapterNode[];
+}
+
 export interface Chapter {
   id: string;
   projectId: string;
   title: string;
   summary: string;
+  nodes: string;
   sortOrder: number;
   createdAt: string;
 }
@@ -475,6 +483,7 @@ export interface Plot {
   theme: string;
   data: string;
   sortOrder: number;
+  isPinned: boolean;
 }
 
 export interface PlotNode {
@@ -549,6 +558,7 @@ export interface Timeline {
   id: string;
   projectId: string;
   chapterId: string | null;
+  title: string;
   data: string;
 }
 

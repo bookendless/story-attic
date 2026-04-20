@@ -61,6 +61,7 @@ pub fn run() {
             commands::chapter::assign_episode_to_chapter,
             commands::chapter::unassign_episode,
             commands::chapter::get_chapter_tree,
+            commands::chapter::update_chapter_nodes,
             // インポート / エクスポート
             commands::file_io::export_project_json,
             commands::file_io::import_project_json,
@@ -127,12 +128,15 @@ pub fn run() {
             commands::plot::get_plots,
             commands::plot::update_plot,
             commands::plot::delete_plot,
+            commands::plot::pin_plot,
+            commands::plot::unpin_plot,
             commands::plot::get_plot_structure,
             commands::plot::save_plot_structure,
             commands::plot::get_timelines,
             commands::plot::create_timeline,
             commands::plot::save_timeline,
             commands::plot::delete_timeline,
+            commands::plot::rename_timeline,
             // 執筆支援
             commands::writing_support::save_diary_entry,
             commands::writing_support::get_diary_entries,

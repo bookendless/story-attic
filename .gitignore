@@ -34,6 +34,7 @@ coverage/
 TestData/
 plans/
 specs/
+.omc/
 
 
 # Vitest

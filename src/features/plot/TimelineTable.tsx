@@ -1,7 +1,7 @@
 /**
  * タイムラインテーブル — スプレッドシート型UI
  *
- * タイムライン選択 → セル編集・行列追加/削除。
+ * タイムライン選択 → セル編集・行列追加/削除・名称変更。
  * data JSON にセル配列を格納。
  */
 
@@ -31,6 +31,7 @@ function parseData(raw: string): TimelineData {
 export function TimelineTable({ projectId, timelines, onReload }: TimelineTableProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [data, setData] = useState<TimelineData>({ ...DEFAULT_TIMELINE_DATA, rows: [] });
+  const [editingTitle, setEditingTitle] = useState('');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectedTimeline = timelines.find((t) => t.id === selectedId) ?? null;
@@ -38,11 +39,13 @@ export function TimelineTable({ projectId, timelines, onReload }: TimelineTableP
   const selectTimeline = (tl: Timeline) => {
     setSelectedId(tl.id);
     setData(parseData(tl.data));
+    setEditingTitle(tl.title);
   };
 
   useEffect(() => {
     if (selectedTimeline) {
       setData(parseData(selectedTimeline.data));
+      setEditingTitle(selectedTimeline.title);
     }
   }, [selectedTimeline]);
 
@@ -60,6 +63,14 @@ export function TimelineTable({ projectId, timelines, onReload }: TimelineTableP
       onReload();
     } catch { /* 無視 */ }
   }, [selectedId, onReload]);
+
+  const handleRenameBlur = useCallback(async () => {
+    if (!selectedTimeline) return;
+    try {
+      await invoke('rename_timeline', { id: selectedTimeline.id, title: editingTitle });
+      onReload();
+    } catch { /* 無視 */ }
+  }, [selectedTimeline, editingTitle, onReload]);
 
   const save = useCallback((newData: TimelineData) => {
     if (!selectedId) return;
@@ -132,7 +143,9 @@ export function TimelineTable({ projectId, timelines, onReload }: TimelineTableP
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
             onClick={() => selectTimeline(tl)}
           >
-            <span className="text-xs" style={{ color: 'var(--text)' }}>タイムライン {i + 1}</span>
+            <span className="text-xs" style={{ color: 'var(--text)' }}>
+              {tl.title || `タイムライン ${i + 1}`}
+            </span>
             <button
               className="text-xs flex-shrink-0"
               style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
@@ -151,16 +164,28 @@ export function TimelineTable({ projectId, timelines, onReload }: TimelineTableP
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-2 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
         <button
-          className="text-xs"
+          className="text-xs flex-shrink-0"
           style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           onClick={() => setSelectedId(null)}
         >
           ←
         </button>
-        <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>タイムライン編集</span>
-        <div className="flex-1" />
+        <input
+          className="flex-1 text-xs font-medium bg-transparent outline-none"
+          style={{
+            color: 'var(--text)',
+            border: 'none',
+            borderBottom: '1px solid transparent',
+            padding: '1px 2px',
+          }}
+          value={editingTitle}
+          onChange={(e) => setEditingTitle(e.target.value)}
+          onBlur={handleRenameBlur}
+          onFocus={(e) => (e.currentTarget.style.borderBottomColor = 'var(--accent)')}
+          placeholder="タイムライン名..."
+        />
         <button
-          className="text-xs"
+          className="text-xs flex-shrink-0"
           style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
           onClick={addColumn}
           title="列追加"
@@ -168,7 +193,7 @@ export function TimelineTable({ projectId, timelines, onReload }: TimelineTableP
           +列
         </button>
         <button
-          className="text-xs"
+          className="text-xs flex-shrink-0"
           style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}
           onClick={addRow}
           title="行追加"

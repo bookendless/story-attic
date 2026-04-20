@@ -119,5 +119,53 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // v7: プロットにピン留めフラグを追加
+    let applied_v7: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 7",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v7 == 0 {
+        let sql = include_str!("migrations/007_plot_pinned.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (7, datetime('now'))",
+            [],
+        )?;
+    }
+
+    // v6: タイムラインに title カラムを追加
+    let applied_v6: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 6",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v6 == 0 {
+        let sql = include_str!("migrations/006_timeline_title.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (6, datetime('now'))",
+            [],
+        )?;
+    }
+
+    // v5: 章に nodes カラムを追加（中プロット用ノードツリー）
+    let applied_v5: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 5",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v5 == 0 {
+        let sql = include_str!("migrations/005_chapter_nodes.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (5, datetime('now'))",
+            [],
+        )?;
+    }
+
     Ok(())
 }

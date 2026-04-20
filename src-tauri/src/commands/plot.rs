@@ -44,7 +44,7 @@ pub fn get_plots(project_id: String, state: State<AppState>) -> CmdResult<Vec<Pl
     let conn = state.db.lock().map_err(err)?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, project_id, title, plot_type, theme, data, sort_order
+            "SELECT id, project_id, title, plot_type, theme, data, sort_order, is_pinned
              FROM plots WHERE project_id = ?1 ORDER BY sort_order",
         )
         .map_err(err)?;
@@ -59,6 +59,7 @@ pub fn get_plots(project_id: String, state: State<AppState>) -> CmdResult<Vec<Pl
                 theme: row.get(4)?,
                 data: row.get(5)?,
                 sort_order: row.get(6)?,
+                is_pinned: row.get::<_, i64>(7)? != 0,
             })
         })
         .map_err(err)?;
@@ -68,6 +69,35 @@ pub fn get_plots(project_id: String, state: State<AppState>) -> CmdResult<Vec<Pl
         items.push(r.map_err(err)?);
     }
     Ok(items)
+}
+
+/// 指定プロットをピン留め（決定稿）にする。同プロジェクト内の他プロットのピンは解除
+#[tauri::command]
+pub fn pin_plot(project_id: String, plot_id: String, state: State<AppState>) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "UPDATE plots SET is_pinned = 0 WHERE project_id = ?1",
+        rusqlite::params![project_id],
+    )
+    .map_err(err)?;
+    conn.execute(
+        "UPDATE plots SET is_pinned = 1 WHERE id = ?1",
+        rusqlite::params![plot_id],
+    )
+    .map_err(err)?;
+    Ok(())
+}
+
+/// ピン留めを解除する
+#[tauri::command]
+pub fn unpin_plot(project_id: String, state: State<AppState>) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "UPDATE plots SET is_pinned = 0 WHERE project_id = ?1",
+        rusqlite::params![project_id],
+    )
+    .map_err(err)?;
+    Ok(())
 }
 
 /// プロットを更新する
@@ -144,7 +174,7 @@ pub fn get_timelines(project_id: String, state: State<AppState>) -> CmdResult<Ve
     let conn = state.db.lock().map_err(err)?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, project_id, chapter_id, data
+            "SELECT id, project_id, chapter_id, title, data
              FROM timelines WHERE project_id = ?1",
         )
         .map_err(err)?;
@@ -155,7 +185,8 @@ pub fn get_timelines(project_id: String, state: State<AppState>) -> CmdResult<Ve
                 id: row.get(0)?,
                 project_id: row.get(1)?,
                 chapter_id: row.get(2)?,
-                data: row.get(3)?,
+                title: row.get(3)?,
+                data: row.get(4)?,
             })
         })
         .map_err(err)?;
@@ -178,12 +209,24 @@ pub fn create_timeline(
     let id = Uuid::new_v4().to_string();
 
     conn.execute(
-        "INSERT INTO timelines (id, project_id, chapter_id, data) VALUES (?1, ?2, ?3, '{}')",
+        "INSERT INTO timelines (id, project_id, chapter_id, title, data) VALUES (?1, ?2, ?3, '', '{}')",
         rusqlite::params![id, project_id, chapter_id],
     )
     .map_err(err)?;
 
     Ok(id)
+}
+
+/// タイムラインの名称を変更する
+#[tauri::command]
+pub fn rename_timeline(id: String, title: String, state: State<AppState>) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "UPDATE timelines SET title = ?1 WHERE id = ?2",
+        rusqlite::params![title, id],
+    )
+    .map_err(err)?;
+    Ok(())
 }
 
 /// タイムラインを保存（更新）する
