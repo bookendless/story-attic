@@ -130,6 +130,17 @@ function saveRightPanelWidth(width: number) {
   }
 }
 
+function loadAiPanelMode(): 'float' | 'sidebar' {
+  try {
+    const stored = localStorage.getItem('story-attic-ai-panel-mode');
+    if (stored === 'sidebar') return 'sidebar';
+  } catch { /* 無視 */ }
+  return 'float';
+}
+function saveAiPanelMode(mode: 'float' | 'sidebar') {
+  try { localStorage.setItem('story-attic-ai-panel-mode', mode); } catch { /* 無視 */ }
+}
+
 /** localStorageからテーマを復元。無効値やエラー時はdarkを返す */
 function loadTheme(): ThemeMode {
   try {
@@ -247,6 +258,8 @@ interface UIState {
 
   /** AIパネル表示（フローティングウィンドウ） */
   aiPanelVisible: boolean;
+  /** AIパネルモード */
+  aiPanelMode: 'float' | 'sidebar';
 
   /** サイドパネルの幅 (px) — 旧 rightPanelWidth から継承 */
   rightPanelWidth: number;
@@ -294,6 +307,7 @@ interface UIState {
   setSoundSettings: (settings: SoundSettings) => void;
   setCharacterSettings: (settings: CharacterSettings) => void;
   toggleAiPanel: () => void;
+  toggleAiPanelMode: () => void;
   setRightPanelWidth: (width: number) => void;
   toggleWritingSupportModal: () => void;
 
@@ -325,6 +339,7 @@ export const useUIStore = create<UIState>((set) => ({
   soundSettings: loadSoundSettings(),
   characterSettings: loadCharacterSettings(),
   aiPanelVisible: false,
+  aiPanelMode: loadAiPanelMode(),
   rightPanelWidth: loadRightPanelWidth(),
   writingSupportModalVisible: false,
   timerRunning: false,
@@ -384,6 +399,12 @@ export const useUIStore = create<UIState>((set) => ({
   },
   toggleAiPanel: () =>
     set((s) => ({ aiPanelVisible: !s.aiPanelVisible })),
+  toggleAiPanelMode: () =>
+    set((s) => {
+      const next = s.aiPanelMode === 'float' ? 'sidebar' : 'float';
+      saveAiPanelMode(next);
+      return { aiPanelMode: next };
+    }),
   setRightPanelWidth: (width) => {
     const clamped = Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(RIGHT_PANEL_MAX_WIDTH, width));
     saveRightPanelWidth(clamped);

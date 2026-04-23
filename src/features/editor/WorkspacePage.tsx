@@ -23,7 +23,7 @@ export function WorkspacePage() {
   const { openProject, currentProject } = useProjectStore();
   const { loadChapterTree, clearCurrentEpisode, save, saveSecondary } = useEditorStore();
   const {
-    aiPanelVisible,
+    aiPanelVisible, aiPanelMode,
     setSettings, toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
     timerRunning, startTimer, stopTimer, toggleWritingSupportModal,
     analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
@@ -166,10 +166,13 @@ export function WorkspacePage() {
           <ParticleEffect />
           <EditorArea />
         </div>
+
+        {/* AIパネル — サイドバーモード */}
+        {aiPanelVisible && aiPanelMode === 'sidebar' && <AiPanel />}
       </div>
 
-      {/* AI チャットパネル（フローティング） */}
-      {aiPanelVisible && <AiPanel />}
+      {/* AIパネル — フローティングモード */}
+      {aiPanelVisible && aiPanelMode === 'float' && <AiPanel />}
 
       {/* キャラクターウィジェット */}
       <CharacterWidget />

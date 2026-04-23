@@ -16,10 +16,12 @@ pub struct AiSettings {
     pub provider: String,
     /// 使用するモデル名
     pub model: String,
-    /// システムプロンプト
+    /// システムプロンプト（設定保存用。送信時はフロント側で動的構築）
     pub system_prompt: String,
     /// ローカルLLM用ベースURL（例: "http://localhost:11434/v1"）
     pub base_url: Option<String>,
+    /// 作家タイプ（"explorer" | "architect"）
+    pub creator_type: Option<String>,
 }
 
 /// ストリーミング中に emit するイベントペイロード

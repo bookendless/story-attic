@@ -46,6 +46,7 @@ pub async fn ai_get_settings(
                 model,
                 system_prompt,
                 base_url: data["base_url"].as_str().map(String::from),
+                creator_type: data["creator_type"].as_str().map(String::from),
             })
         }
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(AiSettings::default()),
@@ -61,7 +62,10 @@ pub async fn ai_save_settings(
     settings: AiSettings,
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    let data = serde_json::json!({ "base_url": settings.base_url });
+    let data = serde_json::json!({
+        "base_url": settings.base_url,
+        "creator_type": settings.creator_type,
+    });
     db.execute(
         "INSERT INTO ai_settings (project_id, provider, model, system_prompt, data)
          VALUES (?1, ?2, ?3, ?4, ?5)
@@ -87,12 +91,16 @@ pub async fn ai_save_settings(
 // =========================================
 
 /// メッセージを送信し、レスポンスを "ai-chunk" イベントでストリーム配信する
+///
+/// `system_prompt` はフロントエンドが catalystPromptBuilder で動的構築して渡す。
+/// DB の system_prompt は送信には使用しない（設定保存用途のみ）。
 #[tauri::command]
 pub async fn ai_send_message(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     project_id: String,
     messages: Vec<AiMessage>,
+    system_prompt: String,
 ) -> Result<(), String> {
     // DB から設定を取得（ロックはこのブロックで解放）
     let settings = {
@@ -110,14 +118,15 @@ pub async fn ai_send_message(
             },
         );
         match result {
-            Ok((provider, model, system_prompt, data_str)) => {
+            Ok((provider, model, system_prompt_db, data_str)) => {
                 let data: serde_json::Value =
                     serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
                 AiSettings {
                     provider,
                     model,
-                    system_prompt,
+                    system_prompt: system_prompt_db,
                     base_url: data["base_url"].as_str().map(String::from),
+                    creator_type: data["creator_type"].as_str().map(String::from),
                 }
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => {
@@ -146,10 +155,15 @@ pub async fn ai_send_message(
         }
     };
 
-    // プロバイダー別にストリーミング
+    // role == "system" のメッセージを除外（Anthropic は messages[] に system ロールを含められないため）
+    let clean_messages: Vec<AiMessage> = messages.into_iter()
+        .filter(|m| m.role != "system")
+        .collect();
+
+    // プロバイダー別にストリーミング（フロントが構築したsystem_promptを使用）
     match settings.provider.as_str() {
         "anthropic" => {
-            stream_anthropic(&app, &api_key, &settings.model, &settings.system_prompt, &messages).await
+            stream_anthropic(&app, &api_key, &settings.model, &system_prompt, &clean_messages).await
         }
         _ => {
             // "openai" または "local"（OpenAI互換）
@@ -159,7 +173,7 @@ pub async fn ai_send_message(
                 .unwrap_or("https://api.openai.com/v1")
                 .trim_end_matches('/')
                 .to_string();
-            stream_openai_compatible(&app, &api_key, &base_url, &settings.model, &settings.system_prompt, &messages).await
+            stream_openai_compatible(&app, &api_key, &base_url, &settings.model, &system_prompt, &clean_messages).await
         }
     }
 }

@@ -1,7 +1,7 @@
 /**
  * AIチャットUI
  * メッセージ一覧・入力・ストリーミング送受信を担当する。
- * 送信時にペルソナ・口調・コンテキストからシステムプロンプトを動的構築する。
+ * 送信時に catalystPromptBuilder でシステムプロンプトを動的構築する。
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -12,12 +12,13 @@ import { useAppStore } from '@/shared/stores/appStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import {
   useAiStore, type ChatMessage,
-  PERSONA_PROMPTS, TONE_PREFIXES, CONTEXT_MAX_CHARS,
+  CONTEXT_MAX_CHARS,
 } from '@/shared/stores/aiStore';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
+import { buildCatalystPrompt } from './catalystPromptBuilder';
 import type {
-  AiChunkPayload, AiMessage, AiContextSource,
+  AiChunkPayload, AiMessage, AiContextSource, BlockType,
   Character, CharacterData,
   GlossaryItem, GlossaryData,
   Plot, PlotData,
@@ -36,7 +37,6 @@ interface AiChatProps {
   chatRef?: React.RefObject<AiChatHandle | null>;
 }
 
-/** コンテキストデータをテキストにシリアライズ */
 function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '…（省略）' : text;
 }
@@ -137,21 +137,47 @@ export function AiChat({ chatRef }: AiChatProps) {
     messages, isStreaming, streamBuffer,
     addUserMessage, startAssistantMessage, appendChunk,
     finalizeAssistantMessage, setStreamError, clearHistory,
-    persona, tone, contextSources,
+    removeLastError, loadMessagesForProject,
+    phase, creatorType, detectedBlock, creativeCore,
+    tone, contextSources,
+    setDetectedBlock,
   } = useAiStore();
   const theme = useUIStore((s) => s.theme);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const retryTextRef = useRef('');
+  const prevProjectRef = useRef<string | null>(null);
 
-  // 新メッセージ追加時に最下部へスクロール
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamBuffer]);
 
+  // プロジェクト切替時: 旧プロジェクトの履歴を保存 → 新プロジェクトの履歴を復元
+  useEffect(() => {
+    const prev = prevProjectRef.current;
+    if (prev) {
+      const toSave = messages.filter((m) => m.role !== 'error').slice(-50);
+      try { localStorage.setItem(`story-attic-ai-chat-${prev}`, JSON.stringify(toSave)); } catch { /* 無視 */ }
+    }
+    if (currentProjectId) {
+      loadMessagesForProject(currentProjectId);
+    }
+    prevProjectRef.current = currentProjectId ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProjectId]);
+
+  // メッセージ変化時に自動保存
+  useEffect(() => {
+    if (!currentProjectId || messages.length === 0) return;
+    const toSave = messages.filter((m) => m.role !== 'error').slice(-50);
+    try { localStorage.setItem(`story-attic-ai-chat-${currentProjectId}`, JSON.stringify(toSave)); } catch { /* 無視 */ }
+  }, [messages, currentProjectId]);
+
   const doSend = useCallback(async (text: string) => {
     if (!text.trim() || isStreaming || !currentProjectId) return;
 
+    retryTextRef.current = text.trim();
     setInput('');
     addUserMessage(text.trim());
     startAssistantMessage();
@@ -173,57 +199,56 @@ export function AiChat({ chatRef }: AiChatProps) {
         appendChunk(content);
       });
 
-      // システムプロンプトを動的構築
-      const systemParts: string[] = [
-        PERSONA_PROMPTS[persona],
-        TONE_PREFIXES[tone],
-      ];
-
       // コンテキストデータを取得
-      if (contextSources.length > 0) {
-        const contextText = await fetchContextData(
-          contextSources,
-          currentProjectId,
-          currentEpisode?.body ?? '',
-        );
-        if (contextText) {
-          systemParts.push('以下は参考情報です。必要に応じて活用してください。\n\n' + contextText);
-        }
-      }
+      const contextData = contextSources.length > 0
+        ? await fetchContextData(contextSources, currentProjectId, currentEpisode?.body ?? '')
+        : '';
 
-      const systemPrompt = systemParts.join('\n\n');
+      // catalystPromptBuilder でシステムプロンプトを動的構築
+      const systemPrompt = buildCatalystPrompt({
+        phase,
+        creatorType,
+        detectedBlock,
+        creativeCore,
+        tone,
+        contextData,
+      });
 
-      // 'error' ロールはUI表示用なのでRustへ送らずに除外する
+      // 'error' ロールと 'system' ロールはRustへ送らずに除外する
       const wireMessages: AiMessage[] = [
-        { role: 'system', content: systemPrompt },
         ...messages
           .filter((m): m is ChatMessage & { role: 'user' | 'assistant' } => m.role !== 'error')
           .map((m) => ({ role: m.role, content: m.content })),
         { role: 'user', content: text.trim() },
       ];
+
       await invoke('ai_send_message', {
         projectId: currentProjectId,
         messages: wireMessages,
+        systemPrompt,
       });
     } catch (e) {
       setStreamError(String(e));
       unlistenFn?.();
     }
-  }, [isStreaming, currentProjectId, currentEpisode, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, setStreamError, persona, tone, contextSources]);
+  }, [isStreaming, currentProjectId, currentEpisode, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, setStreamError, phase, creatorType, detectedBlock, creativeCore, tone, contextSources]);
 
-  // 外部から送信・テンプレート挿入できるよう ref を公開
   useEffect(() => {
     if (chatRef && 'current' in chatRef) {
       (chatRef as React.MutableRefObject<AiChatHandle | null>).current = {
         sendMessage: doSend,
         insertTemplate: (text: string) => {
           setInput(text);
-          // テキストエリアにフォーカス
           setTimeout(() => textareaRef.current?.focus(), 50);
         },
       };
     }
   }, [chatRef, doSend]);
+
+  const handleRetry = useCallback(() => {
+    removeLastError();
+    doSend(retryTextRef.current);
+  }, [removeLastError, doSend]);
 
   const handleSend = () => doSend(input);
 
@@ -233,6 +258,8 @@ export function AiChat({ chatRef }: AiChatProps) {
       handleSend();
     }
   };
+
+  const isWritePhase = phase === 'write';
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -245,7 +272,7 @@ export function AiChat({ chatRef }: AiChatProps) {
           className="text-xs font-medium"
           style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}
         >
-          AI アシスタント
+          {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
         </span>
         <button
           className="text-xs"
@@ -259,19 +286,41 @@ export function AiChat({ chatRef }: AiChatProps) {
 
       {/* メッセージ一覧 */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-        {messages.length === 0 && !isStreaming && (
+        {/* 停滞検知バナー */}
+        {messages.length === 0 && !isStreaming && detectedBlock !== 'none' && (
+          <BlockNotificationBanner
+            block={detectedBlock}
+            onAsk={() => {
+              const blockPrompts: Record<string, string> = {
+                idea: 'アイデア停滞を感じています。創作を再起動する問いをください。',
+                structure: '構造的な停滞を感じています。このシーンについて問いをください。',
+                motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
+              };
+              doSend(blockPrompts[detectedBlock] ?? '');
+            }}
+            onDismiss={() => setDetectedBlock('none')}
+          />
+        )}
+
+        {/* 空メッセージ時のヒント */}
+        {messages.length === 0 && !isStreaming && detectedBlock === 'none' && (
           <p
             className="text-xs text-center mt-8"
             style={{ color: 'var(--text-muted)', lineHeight: '1.8' }}
           >
-            執筆について何でも聞いてみてください。
-            <br />
-            あらすじ、キャラクター、文体など。
+            {isWritePhase
+              ? '執筆に集中してください。\n必要なときだけ呼んでください。'
+              : '創作について何でも話しかけてください。\n問いで思考を深めます。'}
           </p>
         )}
 
         {messages.map((msg, i) => (
-          <MessageBubble key={i} message={msg} theme={theme} />
+          <MessageBubble
+            key={i}
+            message={msg}
+            theme={theme}
+            onRetry={msg.role === 'error' && i === messages.length - 1 ? handleRetry : undefined}
+          />
         ))}
 
         {isStreaming && (
@@ -288,14 +337,20 @@ export function AiChat({ chatRef }: AiChatProps) {
       {/* 入力エリア */}
       <div
         className="flex-shrink-0 px-3 pb-3 pt-2"
-        style={{ borderTop: '1px solid var(--border)' }}
+        style={{
+          borderTop: '1px solid var(--border)',
+          opacity: isWritePhase ? 0.7 : 1,
+          transition: 'opacity 300ms',
+        }}
       >
         <div className="flex flex-col gap-2">
           <textarea
             ref={textareaRef}
             className="w-full text-xs resize-none"
             rows={3}
-            placeholder="メッセージを入力… (Enter で送信 / Shift+Enter で改行)"
+            placeholder={isWritePhase
+              ? '執筆中です。必要なときだけ入力してください…'
+              : 'メッセージを入力… (Enter で送信 / Shift+Enter で改行)'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -303,7 +358,7 @@ export function AiChat({ chatRef }: AiChatProps) {
             style={{
               background: 'var(--bg)',
               color: 'var(--text)',
-              border: '1px solid var(--border)',
+              border: `1px solid ${isWritePhase ? 'rgba(var(--border-rgb, 100,100,100), 0.4)' : 'var(--border)'}`,
               borderRadius: '6px',
               padding: '8px',
               outline: 'none',
@@ -330,14 +385,77 @@ export function AiChat({ chatRef }: AiChatProps) {
 // サブコンポーネント
 // =========================================
 
+function BlockNotificationBanner({
+  block,
+  onAsk,
+  onDismiss,
+}: {
+  block: Exclude<BlockType, 'none'>;
+  onAsk: () => void;
+  onDismiss: () => void;
+}) {
+  const labels: Record<Exclude<BlockType, 'none'>, { title: string; desc: string }> = {
+    idea: { title: 'アイデア停滞を検知', desc: 'しばらく入力が止まっています。思考を動かす問いを聞きますか？' },
+    structure: { title: '構造停滞を検知', desc: '同じ箇所の編集が繰り返されています。構造的な問いを聞きますか？' },
+    motivation: { title: '執筆リズムの乱れを検知', desc: '少し疲れているかもしれません。小さな一歩の問いを聞きますか？' },
+  };
+  const { title, desc } = labels[block];
+
+  return (
+    <div
+      className="rounded-lg px-3 py-2.5 text-xs"
+      style={{
+        background: 'rgba(var(--accent-rgb, 120,120,200), 0.08)',
+        border: '1px solid rgba(var(--accent-rgb, 120,120,200), 0.2)',
+        color: 'var(--text)',
+      }}
+    >
+      <div className="font-medium mb-1" style={{ color: 'var(--accent)' }}>{title}</div>
+      <p style={{ color: 'var(--text-mid)', marginBottom: '8px', lineHeight: '1.6' }}>{desc}</p>
+      <div className="flex gap-2">
+        <button
+          className="text-xs"
+          style={{
+            padding: '3px 10px',
+            borderRadius: '6px',
+            background: 'var(--accent)',
+            color: 'var(--bg-deep)',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+          onClick={onAsk}
+        >
+          問いを聞く
+        </button>
+        <button
+          className="text-xs"
+          style={{
+            padding: '3px 10px',
+            borderRadius: '6px',
+            background: 'transparent',
+            color: 'var(--text-muted)',
+            border: '1px solid var(--border)',
+            cursor: 'pointer',
+          }}
+          onClick={onDismiss}
+        >
+          無視する
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({
   message,
   theme,
   streaming = false,
+  onRetry,
 }: {
   message: ChatMessage;
   theme: 'dark' | 'light';
   streaming?: boolean;
+  onRetry?: () => void;
 }) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
@@ -375,6 +493,24 @@ function MessageBubble({
         ) : (
           message.content
         )}
+        {isError && onRetry && (
+          <button
+            onClick={onRetry}
+            style={{
+              display: 'block',
+              marginTop: '6px',
+              padding: '2px 10px',
+              borderRadius: '6px',
+              background: 'transparent',
+              color: theme === 'dark' ? 'rgba(255,120,120,0.85)' : 'rgba(180,40,40,0.8)',
+              border: `1px solid ${theme === 'dark' ? 'rgba(255,120,120,0.4)' : 'rgba(180,40,40,0.3)'}`,
+              cursor: 'pointer',
+              fontSize: '11px',
+            }}
+          >
+            ↺ 再試行
+          </button>
+        )}
         {streaming && (
           <span
             style={{
@@ -393,10 +529,6 @@ function MessageBubble({
   );
 }
 
-/**
- * AI応答のマークダウンレンダラ。
- * 吹き出し内に収めるため、段落・リスト・見出しのマージンを詰めている。
- */
 function MarkdownContent({ content, theme }: { content: string; theme: 'dark' | 'light' }) {
   const codeBg = theme === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)';
   const quoteBorder = theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';

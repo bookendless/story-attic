@@ -271,10 +271,12 @@ export interface AiSettings {
   provider: string;
   /** モデル名 */
   model: string;
-  /** システムプロンプト */
+  /** システムプロンプト（設定保存用。送信時はcatalystPromptBuilderが動的構築） */
   system_prompt: string;
   /** ローカルLLM用ベースURL（未設定時は null） */
   base_url: string | null;
+  /** 作家タイプ（プロジェクト単位で永続化） */
+  creator_type?: string;
 }
 
 /**
@@ -298,14 +300,31 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 // AIペルソナ・口調・コンテキスト
 // =========================================
 
-/** AIペルソナ */
-export type AiPersona = 'reader' | 'editor' | 'assistant';
-
 /** AI口調 */
 export type AiTone = 'formal' | 'casual' | 'harsh';
 
 /** AIコンテキストソース */
 export type AiContextSource = 'body' | 'characters' | 'glossary' | 'plot' | 'worldbuilding' | 'synopsis' | 'foreshadowing';
+
+// =========================================
+// AI Creator OS
+// =========================================
+
+/** 創作フェーズ */
+export type CreativePhase = 'explore' | 'structure' | 'write' | 'revise';
+
+/** 作家タイプ */
+export type CreatorType = 'explorer' | 'architect';
+
+/** 停滞タイプ */
+export type BlockType = 'none' | 'idea' | 'structure' | 'motivation';
+
+/** 作品のCore（重力の中心） */
+export interface CreativeCore {
+  theme: string;
+  centralEmotion: string;
+  coreQuestion: string;
+}
 
 // =========================================
 // スナップショット
@@ -528,7 +547,7 @@ export interface PlotStructure {
   data: string;
 }
 
-/** ASB Plot 準拠の 6 項目 + 構造タイプ */
+/** ASB Plot 準拠の 6 項目 + 構造タイプ + Creative Core拡張 */
 export interface PlotStructureData {
   theme: string;
   setting: string;
@@ -538,6 +557,10 @@ export interface PlotStructureData {
   ending: string;
   /** PlotStructureType のキー。未選択時は空文字 */
   structureType: string;
+  /** AI Creator OS: 作品の中心感情 */
+  centralEmotion?: string;
+  /** AI Creator OS: 作品を貫く問い */
+  coreQuestion?: string;
 }
 
 export const DEFAULT_PLOT_STRUCTURE_DATA: PlotStructureData = {
@@ -548,6 +571,8 @@ export const DEFAULT_PLOT_STRUCTURE_DATA: PlotStructureData = {
   mainObstacles: '',
   ending: '',
   structureType: '',
+  centralEmotion: '',
+  coreQuestion: '',
 };
 
 // =========================================
