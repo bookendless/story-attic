@@ -1251,6 +1251,257 @@ fn get_proof_rules() -> Vec<ProofRule> {
             message: "半角の感嘆符・疑問符は全角に統一しましょう",
             severity: "info",
         },
+        ProofRule {
+            category: "記号",
+            pattern: "~",
+            suggestion: "〜（全角波ダッシュ）",
+            message: "半角チルダ「~」は全角「〜」に統一しましょう",
+            severity: "info",
+        },
+        ProofRule {
+            category: "記号",
+            pattern: "...",
+            suggestion: "…（三点リーダー）",
+            message: "「...」は「…」または「……」を使うのが慣例です",
+            severity: "info",
+        },
+        // 二重表現（追加）
+        ProofRule {
+            category: "二重表現",
+            pattern: "各自それぞれ",
+            suggestion: "各自 / それぞれ",
+            message: "「各自」と「それぞれ」で意味が重複しています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "二重表現",
+            pattern: "必ず必要",
+            suggestion: "必要 / 必ず",
+            message: "「必ず」と「必要」で意味が重複しています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "二重表現",
+            pattern: "過去の経歴",
+            suggestion: "経歴",
+            message: "「経歴」は過去のことなので「過去の」は不要です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "二重表現",
+            pattern: "思いがけない偶然",
+            suggestion: "偶然 / 思いがけないこと",
+            message: "「偶然」は思いがけないことを含みます",
+            severity: "info",
+        },
+        ProofRule {
+            category: "二重表現",
+            pattern: "まだ未",
+            suggestion: "まだ〜ない / 未〜",
+            message: "「まだ」と「未」で意味が重複しています",
+            severity: "warning",
+        },
+        // 誤用（追加）
+        ProofRule {
+            category: "誤用",
+            pattern: "怒り心頭に達する",
+            suggestion: "怒り心頭に発する",
+            message: "「怒り心頭に達する」は「怒り心頭に発する」の誤用です",
+            severity: "error",
+        },
+        ProofRule {
+            category: "誤用",
+            pattern: "愛想を振りまく",
+            suggestion: "愛嬌を振りまく",
+            message: "「愛想を振りまく」は「愛嬌を振りまく」の誤用です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "誤用",
+            pattern: "煮詰まる",
+            suggestion: "（文脈確認）行き詰まる（意味の誤用に注意）",
+            message: "「煮詰まる」は本来「議論が完成に近づく」という意味です。「行き詰まる」と混同されがちです",
+            severity: "info",
+        },
+        ProofRule {
+            category: "誤用",
+            pattern: "押しも押されない",
+            suggestion: "押しも押されもせぬ",
+            message: "「押しも押されない」は「押しも押されもせぬ」の誤用です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "誤用",
+            pattern: "腹の虫がおさまらない",
+            suggestion: "腹の虫が治まらない",
+            message: "「おさまらない」は「治まらない」が正しい漢字です",
+            severity: "info",
+        },
+        // 冗長表現（追加）
+        ProofRule {
+            category: "冗長表現",
+            pattern: "という形で",
+            suggestion: "（省略）",
+            message: "「という形で」は多くの場合省略できます",
+            severity: "info",
+        },
+        ProofRule {
+            category: "冗長表現",
+            pattern: "ということになる",
+            suggestion: "〜になる",
+            message: "「ということになる」は「〜になる」に短縮できます",
+            severity: "info",
+        },
+        ProofRule {
+            category: "冗長表現",
+            pattern: "〜に関して言えば",
+            suggestion: "〜については",
+            message: "「に関して言えば」は「については」に短縮できます",
+            severity: "info",
+        },
+        ProofRule {
+            category: "冗長表現",
+            pattern: "してあげる",
+            suggestion: "する",
+            message: "「してあげる」は恩着せがましく聞こえる場合があります",
+            severity: "info",
+        },
+        ProofRule {
+            category: "冗長表現",
+            pattern: "非常に重要",
+            suggestion: "重要 / 肝心",
+            message: "「非常に重要」は「重要」だけで十分な場合があります",
+            severity: "info",
+        },
+        // 助詞重複
+        ProofRule {
+            category: "助詞重複",
+            pattern: "をを",
+            suggestion: "（助詞の重複を確認）",
+            message: "助詞「を」が連続しています",
+            severity: "error",
+        },
+        ProofRule {
+            category: "助詞重複",
+            pattern: "にに",
+            suggestion: "（助詞の重複を確認）",
+            message: "助詞「に」が連続しています",
+            severity: "error",
+        },
+        ProofRule {
+            category: "助詞重複",
+            pattern: "でで",
+            suggestion: "（助詞の重複を確認）",
+            message: "助詞「で」が連続しています",
+            severity: "error",
+        },
+        ProofRule {
+            category: "助詞重複",
+            pattern: "もも",
+            suggestion: "（助詞の重複を確認）",
+            message: "助詞「も」が連続しています",
+            severity: "warning",
+        },
+        // ら抜き言葉
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "食べれる",
+            suggestion: "食べられる",
+            message: "「食べれる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "見れる",
+            suggestion: "見られる",
+            message: "「見れる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "起きれる",
+            suggestion: "起きられる",
+            message: "「起きれる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "着れる",
+            suggestion: "着られる",
+            message: "「着れる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "寝れる",
+            suggestion: "寝られる",
+            message: "「寝れる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "出れる",
+            suggestion: "出られる",
+            message: "「出れる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "考えれる",
+            suggestion: "考えられる",
+            message: "「考えれる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "続けれる",
+            suggestion: "続けられる",
+            message: "「続けれる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "受けれる",
+            suggestion: "受けられる",
+            message: "「受けれる」はら抜き言葉です",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "ら抜き言葉",
+            pattern: "来れる",
+            suggestion: "来られる",
+            message: "「来れる」はら抜き言葉です",
+            severity: "warning",
+        },
+        // 禁則文字
+        ProofRule {
+            category: "禁則文字",
+            pattern: "\n。",
+            suggestion: "前の行末に句点を移動させてください",
+            message: "行頭に句点「。」があります（行頭禁則）",
+            severity: "error",
+        },
+        ProofRule {
+            category: "禁則文字",
+            pattern: "\n、",
+            suggestion: "前の行末または文中に読点を移動させてください",
+            message: "行頭に読点「、」があります（行頭禁則）",
+            severity: "error",
+        },
+        ProofRule {
+            category: "禁則文字",
+            pattern: "\n！",
+            suggestion: "段落構成を見直してください",
+            message: "行頭に感嘆符「！」があります（行頭禁則）",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "禁則文字",
+            pattern: "\n？",
+            suggestion: "段落構成を見直してください",
+            message: "行頭に疑問符「？」があります（行頭禁則）",
+            severity: "warning",
+        },
     ]
 }
 
@@ -1295,6 +1546,413 @@ pub fn run_proofread(text: String, categories: Vec<String>) -> CmdResult<Vec<Pro
 
     // オフセット順にソート
     issues.sort_by_key(|i| i.offset);
+
+    Ok(issues)
+}
+
+// =========================================
+// 可読性チェック
+// =========================================
+
+/// 文単位の (char_start, char_len) リストを返す
+fn split_sentences_with_offsets(chars: &[char]) -> Vec<(usize, usize)> {
+    let mut result = Vec::new();
+    let mut start = 0usize;
+    for (i, &ch) in chars.iter().enumerate() {
+        if matches!(ch, '。' | '！' | '？' | '!' | '?') {
+            if i >= start {
+                result.push((start, i - start + 1));
+            }
+            start = i + 1;
+        }
+    }
+    if start < chars.len() {
+        result.push((start, chars.len() - start));
+    }
+    result
+}
+
+/// 文末2文字（句点除く）を語尾として返す
+fn get_sentence_ending(chars: &[char], start: usize, len: usize) -> String {
+    if len < 2 {
+        return String::new();
+    }
+    let end = start + len;
+    let mut tail = end;
+    if tail > 0 && matches!(chars[tail - 1], '。' | '！' | '？' | '!' | '?') {
+        tail -= 1;
+    }
+    if tail < start + 2 {
+        return String::new();
+    }
+    chars[tail - 2..tail].iter().collect()
+}
+
+/// 漢字ラン・カタカナラン（2文字以上）の出現位置マップを返す
+fn extract_word_positions(chars: &[char]) -> HashMap<String, Vec<usize>> {
+    let mut map: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        let is_kj = is_kanji(ch);
+        let is_kt = is_katakana(ch);
+        if is_kj || is_kt {
+            let start = i;
+            if is_kj {
+                while i < chars.len() && is_kanji(chars[i]) { i += 1; }
+            } else {
+                while i < chars.len() && is_katakana(chars[i]) { i += 1; }
+            }
+            let len = i - start;
+            if len >= 2 {
+                let word: String = chars[start..i].iter().collect();
+                map.entry(word).or_default().push(start);
+            }
+        } else {
+            i += 1;
+        }
+    }
+    map
+}
+
+/// 可読性チェック：長文・語尾重複・漢字密度・読点過多・同語近接・語彙濫用を検出する
+#[tauri::command]
+pub fn run_readability(text: String) -> CmdResult<Vec<ProofIssue>> {
+    let plain = strip_html(&text);
+    let chars: Vec<char> = plain.chars().collect();
+    let mut issues = Vec::new();
+
+    // --- 長文チェック ---
+    let sentences = split_sentences_with_offsets(&chars);
+    for &(offset, length) in &sentences {
+        if length > 100 {
+            issues.push(ProofIssue {
+                category: "長文".to_string(),
+                message: format!("{}文字の長文です。読みにくい可能性があります", length),
+                suggestion: Some("句点で区切るか、文を分割してください".to_string()),
+                offset,
+                length,
+                severity: "warning".to_string(),
+            });
+        } else if length > 60 {
+            issues.push(ProofIssue {
+                category: "長文".to_string(),
+                message: format!("{}文字のやや長い文です", length),
+                suggestion: None,
+                offset,
+                length,
+                severity: "info".to_string(),
+            });
+        }
+    }
+
+    // --- 語尾重複チェック（3文連続で同じ語尾）---
+    if sentences.len() >= 3 {
+        let mut i = 0;
+        while i + 2 < sentences.len() {
+            let (s0, l0) = sentences[i];
+            let (s1, l1) = sentences[i + 1];
+            let (s2, l2) = sentences[i + 2];
+            let e0 = get_sentence_ending(&chars, s0, l0);
+            let e1 = get_sentence_ending(&chars, s1, l1);
+            let e2 = get_sentence_ending(&chars, s2, l2);
+            if !e0.is_empty() && e0 == e1 && e1 == e2 {
+                issues.push(ProofIssue {
+                    category: "語尾重複".to_string(),
+                    message: format!("「{}」で終わる文が3回以上連続しています", e0),
+                    suggestion: Some("語尾のバリエーションを増やしましょう".to_string()),
+                    offset: s0,
+                    length: s2 + l2 - s0,
+                    severity: "info".to_string(),
+                });
+                i += 3;
+            } else {
+                i += 1;
+            }
+        }
+    }
+
+    // --- 漢字密度チェック（段落単位）---
+    let paragraphs = split_paragraphs(&plain);
+    let mut para_offset = 0usize;
+    for para in &paragraphs {
+        let para_chars: Vec<char> = para.chars().collect();
+        let total = para_chars.len();
+        if total >= 20 {
+            let kanji_count = para_chars.iter().filter(|&&c| is_kanji(c)).count();
+            let kanji_rate = kanji_count as f64 / total as f64;
+            if kanji_rate > 0.40 {
+                issues.push(ProofIssue {
+                    category: "漢字密度".to_string(),
+                    message: format!(
+                        "漢字率 {:.0}%（高め）。難読になる可能性があります",
+                        kanji_rate * 100.0
+                    ),
+                    suggestion: Some("ひらがな表記への置換を検討してください".to_string()),
+                    offset: para_offset,
+                    length: total,
+                    severity: "info".to_string(),
+                });
+            }
+        }
+        para_offset += total + 1;
+    }
+
+    // --- 読点過多チェック ---
+    for &(offset, length) in &sentences {
+        let toten = chars[offset..offset + length]
+            .iter()
+            .filter(|&&c| c == '、')
+            .count();
+        if toten >= 6 {
+            issues.push(ProofIssue {
+                category: "読点過多".to_string(),
+                message: format!("1文に読点が{}個あります。文が複雑すぎる可能性があります", toten),
+                suggestion: Some("文を分割するか、読点を減らしてください".to_string()),
+                offset,
+                length,
+                severity: "warning".to_string(),
+            });
+        } else if toten >= 4 {
+            issues.push(ProofIssue {
+                category: "読点過多".to_string(),
+                message: format!("1文に読点が{}個あります", toten),
+                suggestion: None,
+                offset,
+                length,
+                severity: "info".to_string(),
+            });
+        }
+    }
+
+    // --- 同語近接繰り返しチェック（漢字・カタカナランに限定）---
+    let word_positions = extract_word_positions(&chars);
+    const PROXIMITY: usize = 30;
+    for (word, positions) in &word_positions {
+        for i in 0..positions.len().saturating_sub(1) {
+            let gap = positions[i + 1].saturating_sub(positions[i]);
+            if gap > 0 && gap <= PROXIMITY {
+                issues.push(ProofIssue {
+                    category: "同語近接".to_string(),
+                    message: format!("「{}」が{}文字以内に繰り返し使われています", word, gap),
+                    suggestion: Some("同義語・代名詞への置換を検討してください".to_string()),
+                    offset: positions[i],
+                    length: word.chars().count(),
+                    severity: "info".to_string(),
+                });
+            }
+        }
+    }
+
+    // --- 語彙濫用チェック ---
+    let overuse_targets: &[(&str, &str)] = &[
+        ("美しい", "形容詞"), ("素晴らしい", "形容詞"), ("素敵な", "形容詞"),
+        ("可愛い", "形容詞"), ("優しい", "形容詞"), ("悲しい", "形容詞"),
+        ("嬉しい", "形容詞"), ("怖い", "形容詞"), ("強い", "形容詞"),
+        ("とても", "副詞"), ("非常に", "副詞"), ("かなり", "副詞"),
+        ("すごく", "副詞"), ("もっと", "副詞"), ("ずっと", "副詞"),
+        ("全く", "副詞"), ("全然", "副詞"), ("やはり", "副詞"),
+        ("やっぱり", "副詞"), ("ちょっと", "副詞"), ("なんとなく", "副詞"),
+        ("とにかく", "副詞"), ("もちろん", "副詞"),
+    ];
+    for &(word, kind) in overuse_targets {
+        let wchars: Vec<char> = word.chars().collect();
+        let wlen = wchars.len();
+        let mut count = 0usize;
+        let mut first_offset = 0usize;
+        let mut found_first = false;
+        let mut pos = 0usize;
+        while pos + wlen <= chars.len() {
+            let slice: String = chars[pos..pos + wlen].iter().collect();
+            if slice == word {
+                count += 1;
+                if !found_first { first_offset = pos; found_first = true; }
+                pos += wlen;
+            } else {
+                pos += 1;
+            }
+        }
+        if count >= 10 {
+            issues.push(ProofIssue {
+                category: "語彙濫用".to_string(),
+                message: format!("{}「{}」がエピソード内で{}回使われています", kind, word, count),
+                suggestion: Some("同義語や言い換えを活用してください".to_string()),
+                offset: first_offset,
+                length: wlen,
+                severity: "warning".to_string(),
+            });
+        } else if count >= 5 {
+            issues.push(ProofIssue {
+                category: "語彙濫用".to_string(),
+                message: format!("{}「{}」がエピソード内で{}回使われています", kind, word, count),
+                suggestion: None,
+                offset: first_offset,
+                length: wlen,
+                severity: "info".to_string(),
+            });
+        }
+    }
+
+    issues.sort_by_key(|i| i.offset);
+    Ok(issues)
+}
+
+// =========================================
+// 一貫性チェック
+// =========================================
+
+/// 地の文（「」内を除いた）文を抽出する
+fn extract_jino_sentences(plain: &str) -> Vec<String> {
+    let mut depth = 0u32;
+    let mut current = String::new();
+    let mut sentences = Vec::new();
+    let terminators = ['。', '！', '？', '!', '?'];
+
+    for ch in plain.chars() {
+        match ch {
+            '「' | '『' => depth += 1,
+            '」' | '』' => {
+                depth = depth.saturating_sub(1);
+            }
+            _ => {
+                if depth == 0 {
+                    current.push(ch);
+                    if terminators.contains(&ch) {
+                        let s = current.trim().to_string();
+                        if s.chars().count() >= 3 {
+                            sentences.push(s);
+                        }
+                        current.clear();
+                    }
+                }
+            }
+        }
+    }
+    sentences
+}
+
+/// 一貫性チェック：文体混在・会話文の閉じ忘れ・数字表記ゆれ・時刻矛盾を検出する
+#[tauri::command]
+pub fn run_consistency_check(text: String) -> CmdResult<Vec<ProofIssue>> {
+    let plain = strip_html(&text);
+    let mut issues = Vec::new();
+
+    // --- 文体混在チェック ---
+    let jino_sentences = extract_jino_sentences(&plain);
+    if jino_sentences.len() >= 5 {
+        let keigo_markers = ["です", "ます", "でした", "ました", "ません", "でしょう", "ましょう"];
+        let jotai_markers = ["だ。", "だ！", "だ？", "だった", "だろう", "である", "であった"];
+        let mut keigo_count = 0usize;
+        let mut jotai_count = 0usize;
+        for sent in &jino_sentences {
+            if keigo_markers.iter().any(|m| sent.contains(m)) { keigo_count += 1; }
+            if jotai_markers.iter().any(|m| sent.contains(m)) { jotai_count += 1; }
+        }
+        let total = keigo_count + jotai_count;
+        if total >= 5 && keigo_count > 0 && jotai_count > 0 {
+            let minority_rate = keigo_count.min(jotai_count) as f64 / total as f64;
+            if minority_rate > 0.15 {
+                let (dominant, minority) = if keigo_count >= jotai_count {
+                    ("敬体（です・ます調）", "常体（だ・である調）")
+                } else {
+                    ("常体（だ・である調）", "敬体（です・ます調）")
+                };
+                issues.push(ProofIssue {
+                    category: "文体混在".to_string(),
+                    message: format!(
+                        "地の文で{}と{}が混在しています（混在率 {:.0}%）",
+                        dominant, minority, minority_rate * 100.0
+                    ),
+                    suggestion: Some("地の文の文体を統一することを推奨します".to_string()),
+                    offset: 0,
+                    length: 0,
+                    severity: "warning".to_string(),
+                });
+            }
+        }
+    }
+
+    // --- 会話文の閉じ忘れチェック ---
+    let open_kagi  = plain.chars().filter(|&c| c == '「').count();
+    let close_kagi = plain.chars().filter(|&c| c == '」').count();
+    let open_fuku  = plain.chars().filter(|&c| c == '『').count();
+    let close_fuku = plain.chars().filter(|&c| c == '』').count();
+    if open_kagi != close_kagi {
+        issues.push(ProofIssue {
+            category: "会話文".to_string(),
+            message: format!(
+                "「が{}個に対し、」が{}個です。カギカッコが対応していません",
+                open_kagi, close_kagi
+            ),
+            suggestion: Some("閉じカッコの漏れ・余分な開きカッコを確認してください".to_string()),
+            offset: 0,
+            length: 0,
+            severity: "warning".to_string(),
+        });
+    }
+    if open_fuku != close_fuku {
+        issues.push(ProofIssue {
+            category: "会話文".to_string(),
+            message: format!(
+                "『が{}個に対し、』が{}個です。二重カギカッコが対応していません",
+                open_fuku, close_fuku
+            ),
+            suggestion: Some("閉じカッコの漏れ・余分な開きカッコを確認してください".to_string()),
+            offset: 0,
+            length: 0,
+            severity: "warning".to_string(),
+        });
+    }
+
+    // --- 数字表記ゆれチェック ---
+    let arabic_count = plain
+        .chars()
+        .filter(|&c| c.is_ascii_digit() || ('\u{FF10}'..='\u{FF19}').contains(&c))
+        .count();
+    let numeric_kanji = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    let kanji_num_count = plain.chars().filter(|c| numeric_kanji.contains(c)).count();
+    if arabic_count >= 3 && kanji_num_count >= 3 {
+        issues.push(ProofIssue {
+            category: "数字表記ゆれ".to_string(),
+            message: format!(
+                "算用数字（{}箇所）と漢数字（{}箇所）が混在しています",
+                arabic_count, kanji_num_count
+            ),
+            suggestion: Some("数字の表記を統一してください".to_string()),
+            offset: 0,
+            length: 0,
+            severity: "warning".to_string(),
+        });
+    }
+
+    // --- 時刻矛盾チェック（段落単位）---
+    let morning_markers = ["早朝", "午前", "夜明け", "明け方", "朝方"];
+    let night_markers   = ["深夜", "真夜中", "未明", "夜更け", "夜間"];
+    let paragraphs = split_paragraphs(&plain);
+    let mut para_char_off = 0usize;
+    for para in &paragraphs {
+        let para_len = para.chars().count();
+        if para_len >= 15 {
+            let has_morning = morning_markers.iter().any(|m| para.contains(m))
+                || para.contains('朝') || para.contains('昼');
+            let has_night = night_markers.iter().any(|m| para.contains(m))
+                || para.contains('夜');
+            if has_morning && has_night {
+                issues.push(ProofIssue {
+                    category: "時刻矛盾".to_string(),
+                    message: "同一段落内に時間帯が矛盾する表現が含まれている可能性があります"
+                        .to_string(),
+                    suggestion: Some(
+                        "時間経過の描写か、意図的な表現かを確認してください".to_string(),
+                    ),
+                    offset: para_char_off,
+                    length: para_len,
+                    severity: "info".to_string(),
+                });
+            }
+        }
+        para_char_off += para_len + 1;
+    }
 
     Ok(issues)
 }

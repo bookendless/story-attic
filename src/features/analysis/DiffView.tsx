@@ -126,7 +126,7 @@ export function DiffView() {
         style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}
       >
         <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-          差分ビュー
+          変更履歴
         </span>
 
         {/* スナップショット選択 */}
@@ -181,9 +181,7 @@ export function DiffView() {
           {loading ? (
             <div className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>読み込み中...</div>
           ) : !selectedId ? (
-            <div className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
-              スナップショットを保存して差分を確認できます
-            </div>
+            <DiffEmptyState onSave={handleSaveSnapshot} saving={saving} />
           ) : (
             <DiffContent diffs={diffs} side="old" font={settings.editor_font} fontSize={settings.editor_font_size} />
           )}
@@ -199,6 +197,68 @@ export function DiffView() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// =========================================
+// 差分ビュー空状態コンポーネント
+// =========================================
+
+function DiffEmptyState({
+  onSave,
+  saving,
+}: {
+  onSave: () => void;
+  saving: boolean;
+}) {
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textAlign: 'center',
+      padding: '40px 32px',
+      height: '100%',
+    }}>
+      <div style={{ fontSize: '32px', marginBottom: '16px', opacity: 0.6 }}>⇄</div>
+      <div style={{
+        fontFamily: 'var(--font-heading)',
+        fontSize: '15px',
+        color: 'var(--text)',
+        marginBottom: '10px',
+      }}>
+        変更履歴を比較しよう
+      </div>
+      <p style={{
+        fontSize: '12px',
+        color: 'var(--text-mid)',
+        lineHeight: '1.9',
+        maxWidth: '320px',
+        marginBottom: '20px',
+      }}>
+        「現在を保存」でこの瞬間のスナップショットを作成できます。
+        保存後、いつでも過去の状態と現在を左右に並べて比較できます。
+        <br />
+        <span style={{ color: 'var(--accent)' }}>5分ごとに自動保存</span>もされます。
+      </p>
+      <button
+        className="btn btn-primary"
+        onClick={onSave}
+        disabled={saving}
+        style={{ fontSize: '13px' }}
+      >
+        {saving ? '保存中...' : '今すぐスナップショットを保存'}
+      </button>
+      <p style={{
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        marginTop: '14px',
+        lineHeight: '1.6',
+      }}>
+        ヒント: 執筆前に保存しておくと、大幅な書き直しの前後を比較できます
+      </p>
     </div>
   );
 }

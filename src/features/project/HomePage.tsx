@@ -13,6 +13,10 @@ export function HomePage() {
   const navigateTo = useAppStore((s) => s.navigateTo);
   const { theme, toggleTheme } = useUIStore();
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null);
+  const [showWelcome, setShowWelcome] = useState<boolean>(
+    () => localStorage.getItem('storyattic_welcome_dismissed') !== 'true',
+  );
+  const [showAiDialog, setShowAiDialog] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -26,6 +30,11 @@ export function HomePage() {
     if (!deleteTarget) return;
     await deleteProject(deleteTarget.id);
     setDeleteTarget(null);
+  };
+
+  const handleDismissWelcome = () => {
+    localStorage.setItem('storyattic_welcome_dismissed', 'true');
+    setShowWelcome(false);
   };
 
   const hasProjects = projects.length > 0;
@@ -59,6 +68,8 @@ export function HomePage() {
           <ImportExportButtons
             onImported={loadProjects}
             onAiImported={(id) => navigateTo('workspace', id)}
+            showAiDialog={showAiDialog}
+            setShowAiDialog={setShowAiDialog}
           />
           <button
             className="header-icon-btn"
@@ -72,6 +83,46 @@ export function HomePage() {
 
       {/* メインコンテンツ */}
       <main className="flex-1 overflow-y-auto relative z-[1]">
+        {/* ウェルカムバナー */}
+        {showWelcome && (
+          <div style={{
+            margin: '24px 40px 0',
+            borderRadius: '10px',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, var(--bg-elevated) 0%, rgba(196,149,106,0.06) 100%)',
+            border: '1px solid rgba(196,149,106,0.3)',
+          }}>
+            <div style={{ padding: '18px 24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                <div style={{ fontFamily: 'var(--font-heading)', fontSize: '15px', color: 'var(--text)' }}>
+                  StoryAtticへようこそ ✦
+                </div>
+                <button
+                  onClick={handleDismissWelcome}
+                  className="header-icon-btn"
+                  style={{ width: 24, height: 24, minWidth: 24 }}
+                >
+                  ✕
+                </button>
+              </div>
+              <p style={{ fontSize: '13px', color: 'var(--text-mid)', lineHeight: 1.8, marginBottom: '14px' }}>
+                「新規作成」で一から始めるか、
+                <strong style={{ color: 'var(--accent)' }}>AIインポート</strong>で
+                テキスト・設定ファイルから物語の骨格を自動生成できます。
+                まずはどちらかを試してみましょう。
+              </p>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="btn btn-primary" onClick={() => setShowAiDialog(true)}>
+                  AIインポートを試す
+                </button>
+                <button className="btn btn-ghost" onClick={handleDismissWelcome}>
+                  あとで見る
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 gap-3">
             <div

@@ -20,6 +20,7 @@ import { DualEditorView } from './DualEditorView';
 import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
 import { SelectionPopup } from './SelectionPopup';
+import { EditorEmptyState } from './EditorEmptyState';
 
 // debounce ユーティリティ
 function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
@@ -139,21 +140,7 @@ export function EditorArea() {
   }, [save, settings.auto_save, settings.auto_save_interval_sec]);
 
   if (!currentEpisode) {
-    return (
-      <div
-        className="h-full flex items-center justify-center text-sm"
-        style={{ color: 'var(--text-muted)', background: 'var(--bg)' }}
-      >
-        <div className="text-center">
-          <p className="mb-2" style={{ fontFamily: 'var(--font-heading)', fontSize: '16px' }}>
-            話を選択してください
-          </p>
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            左パネルから話を選ぶか、＋ボタンで新しい話を追加できます
-          </p>
-        </div>
-      </div>
-    );
+    return <EditorEmptyState />;
   }
 
   // 差分ビューモード
@@ -191,7 +178,7 @@ export function EditorArea() {
         </div>
         {/* 校正パネル（右側 320px） */}
         <div className="flex-shrink-0" style={{ width: '320px' }}>
-          <ProofreadPanel />
+          <ProofreadPanel editor={editor} />
         </div>
       </div>
     );

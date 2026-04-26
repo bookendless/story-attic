@@ -101,6 +101,9 @@ export const DEFAULT_PROOFREAD_SETTINGS: ProofreadSettings = {
     '誤用': true,
     '冗長表現': true,
     '記号': true,
+    '助詞重複': true,
+    'ら抜き言葉': true,
+    '禁則文字': true,
   },
   popup_enabled: true,
 };

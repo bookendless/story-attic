@@ -7,11 +7,15 @@ import { ImportAiStoryBuilderDialog } from '@/features/import/ImportAiStoryBuild
 interface Props {
   onImported: () => void;
   onAiImported?: (projectId: string) => void;
+  showAiDialog?: boolean;
+  setShowAiDialog?: (v: boolean) => void;
 }
 
-export function ImportExportButtons({ onImported, onAiImported }: Props) {
+export function ImportExportButtons({ onImported, onAiImported, showAiDialog: showAiDialogProp, setShowAiDialog: setShowAiDialogProp }: Props) {
   const [isImporting, setIsImporting] = useState(false);
-  const [showAiDialog, setShowAiDialog] = useState(false);
+  const [localShowAiDialog, setLocalShowAiDialog] = useState(false);
+  const showAiDialog = showAiDialogProp ?? localShowAiDialog;
+  const setShowAiDialog = setShowAiDialogProp ?? setLocalShowAiDialog;
 
   const handleImport = async () => {
     const filePath = await open({

@@ -74,6 +74,8 @@ pub fn run() {
             // 文章分析・校正
             commands::analysis::analyze_text,
             commands::analysis::run_proofread,
+            commands::analysis::run_readability,
+            commands::analysis::run_consistency_check,
             commands::analysis::extract_dialogues,
             // スナップショット
             commands::snapshot::save_snapshot,

@@ -321,6 +321,11 @@ interface UIState {
 
   /** プレビューのサブモードを切替 */
   setPreviewSubMode: (mode: PreviewSubMode) => void;
+
+  /** エピソードIDごとの除外済み校正指摘キー */
+  dismissedIssuesByEpisode: Record<string, string[]>;
+  addDismissedIssueKey: (episodeId: string, key: string) => void;
+  removeDismissedIssueKey: (episodeId: string, key: string) => void;
 }
 
 const initialAmbience = loadAmbienceSettings();
@@ -455,6 +460,28 @@ export const useUIStore = create<UIState>((set) => ({
     saveSidePanelVisible(true);
     set({ sidePanelVisible: true, activeSideTab: validTab });
   },
+
+  dismissedIssuesByEpisode: (() => {
+    try {
+      const stored = localStorage.getItem('story-attic-dismissed-issues');
+      return stored ? (JSON.parse(stored) as Record<string, string[]>) : {};
+    } catch { return {}; }
+  })(),
+  addDismissedIssueKey: (episodeId, key) =>
+    set((s) => {
+      const prev = s.dismissedIssuesByEpisode[episodeId] ?? [];
+      if (prev.includes(key)) return s;
+      const next = { ...s.dismissedIssuesByEpisode, [episodeId]: [...prev, key] };
+      try { localStorage.setItem('story-attic-dismissed-issues', JSON.stringify(next)); } catch { /* 無視 */ }
+      return { dismissedIssuesByEpisode: next };
+    }),
+  removeDismissedIssueKey: (episodeId, key) =>
+    set((s) => {
+      const prev = s.dismissedIssuesByEpisode[episodeId] ?? [];
+      const next = { ...s.dismissedIssuesByEpisode, [episodeId]: prev.filter((k) => k !== key) };
+      try { localStorage.setItem('story-attic-dismissed-issues', JSON.stringify(next)); } catch { /* 無視 */ }
+      return { dismissedIssuesByEpisode: next };
+    }),
 
   setDailyGoal: (goal) => {
     const value = goal && goal > 0 ? goal : null;

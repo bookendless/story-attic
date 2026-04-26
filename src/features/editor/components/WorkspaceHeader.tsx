@@ -28,6 +28,8 @@ function HeaderButton({
   label,
   shortLabel,
   shortcut,
+  description,
+  tourId,
   active = false,
   disabled = false,
   onClick,
@@ -36,6 +38,8 @@ function HeaderButton({
   label: string;
   shortLabel?: string;
   shortcut?: string;
+  description?: string;
+  tourId?: string;
   active?: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -45,6 +49,7 @@ function HeaderButton({
       className={`header-icon-btn flex-col ${active ? 'active' : ''}`}
       onClick={onClick}
       disabled={disabled}
+      data-tour={tourId}
       style={{
         height: 'auto',
         minHeight: '44px',
@@ -58,10 +63,32 @@ function HeaderButton({
       <span style={{ fontSize: '10px', lineHeight: 1, opacity: active ? 1 : 0.8, transform: 'scale(0.95)' }}>
         {shortLabel || label}
       </span>
-      <span className="tooltip">
-        {label}
-        {shortcut && <span style={{ opacity: 0.5, marginLeft: '6px' }}>{shortcut}</span>}
-      </span>
+      <div className="tooltip" style={{ minWidth: '160px', maxWidth: '220px', padding: '10px 14px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500, marginBottom: description ? '4px' : 0 }}>
+          {label}
+          {shortcut && (
+            <span style={{ opacity: 0.5, marginLeft: '6px', fontSize: '11px' }}>{shortcut}</span>
+          )}
+        </div>
+        {description && (
+          <div style={{ fontSize: '11px', color: 'var(--text-mid)', lineHeight: 1.6, marginBottom: shortcut ? '6px' : 0 }}>
+            {description}
+          </div>
+        )}
+        {shortcut && description && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ショートカット:</span>
+            <span style={{
+              fontSize: '10px',
+              color: 'var(--accent)',
+              background: 'var(--accent-soft)',
+              border: '1px solid rgba(196,149,106,0.3)',
+              borderRadius: '4px',
+              padding: '1px 6px',
+            }}>{shortcut}</span>
+          </div>
+        )}
+      </div>
     </button>
   );
 }
@@ -208,9 +235,18 @@ export function WorkspaceHeader() {
             <span style={{ fontSize: '10px', lineHeight: 1, opacity: 0.8, transform: 'scale(0.95)' }}>
               {isSaving ? '保存中...' : '保存'}
             </span>
-            <span className="tooltip">
-              保存<span style={{ opacity: 0.5, marginLeft: '6px' }}>Ctrl+S</span>
-            </span>
+            <div className="tooltip" style={{ minWidth: '160px', maxWidth: '220px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
+                保存<span style={{ opacity: 0.5, marginLeft: '6px', fontSize: '11px' }}>Ctrl+S</span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-mid)', lineHeight: 1.6, marginBottom: '6px' }}>
+                エピソードを保存します
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ショートカット:</span>
+                <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid rgba(196,149,106,0.3)', borderRadius: '4px', padding: '1px 6px' }}>Ctrl+S</span>
+              </div>
+            </div>
           </button>
 
           <div className="w-px h-5" style={{ background: 'var(--border)' }} />
@@ -220,6 +256,7 @@ export function WorkspaceHeader() {
             label="検索・置換"
             shortLabel="検索"
             shortcut="Ctrl+F"
+            description="本文内のテキストを検索・置換できます"
             active={searchBarVisible}
             onClick={toggleSearchBar}
           />
@@ -229,6 +266,8 @@ export function WorkspaceHeader() {
             label="AIアシスタント"
             shortLabel="AI"
             shortcut="Ctrl+Shift+A"
+            description="構成案の生成・台詞提案・文章校正などをAIがサポート"
+            tourId="ai-button"
             active={aiPanelVisible}
             onClick={toggleAiPanel}
           />
@@ -239,6 +278,7 @@ export function WorkspaceHeader() {
             className="header-icon-btn flex-col"
             onClick={toggleCommandPalette}
             title="コマンドパレット (Ctrl+P)"
+            data-tour="command-palette-button"
             style={{
               height: 'auto',
               minHeight: '44px',
@@ -254,9 +294,18 @@ export function WorkspaceHeader() {
             <span style={{ fontSize: '10px', lineHeight: 1, opacity: 0.8, transform: 'scale(0.95)' }}>
               コマンド
             </span>
-            <span className="tooltip">
-              コマンドパレット<span style={{ opacity: 0.5, marginLeft: '6px' }}>Ctrl+P</span>
-            </span>
+            <div className="tooltip" style={{ minWidth: '160px', maxWidth: '220px', padding: '10px 14px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
+                コマンドパレット<span style={{ opacity: 0.5, marginLeft: '6px', fontSize: '11px' }}>Ctrl+P</span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-mid)', lineHeight: 1.6, marginBottom: '6px' }}>
+                文章分析・執筆支援・設定など全機能へアクセス
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>ショートカット:</span>
+                <span style={{ fontSize: '10px', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid rgba(196,149,106,0.3)', borderRadius: '4px', padding: '1px 6px' }}>Ctrl+P</span>
+              </div>
+            </div>
           </button>
         </div>
       </header>

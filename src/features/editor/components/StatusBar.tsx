@@ -5,6 +5,8 @@ import { useUIStore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAppStore } from '@/shared/stores/appStore';
 import { IconSun, IconMoon } from '@/shared/components/Icons';
+import { toCamelCase } from '@/shared/hooks/useTauriCommand';
+import type { ProofIssue } from '@/shared/types';
 
 interface Props {
   editor: Editor;
@@ -51,6 +53,65 @@ function StatusBarToggle({
   );
 }
 
+function ProofSummaryPopup({
+  proofCount,
+  onClose,
+  onOpenPanel,
+}: {
+  proofCount: number;
+  onClose: () => void;
+  onOpenPanel: () => void;
+}) {
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: 'calc(100% + 6px)',
+      left: '0',
+      background: 'var(--bg-elevated)',
+      border: '1px solid var(--border-light)',
+      borderRadius: '8px',
+      padding: '14px 16px',
+      width: '240px',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+      zIndex: 100,
+    }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '10px',
+      }}>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>校正チェック</span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', lineHeight: 1 }}
+        >
+          ✕
+        </button>
+      </div>
+      {proofCount === 0 ? (
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0' }}>
+          <span style={{ fontSize: '16px', color: 'var(--success)' }}>✓</span>
+          <span style={{ fontSize: '12px', color: 'var(--text-mid)' }}>問題は見つかりませんでした</span>
+        </div>
+      ) : (
+        <>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: '1.5' }}>
+            {proofCount}件の指摘があります
+          </p>
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', fontSize: '12px', justifyContent: 'center' }}
+            onClick={onOpenPanel}
+          >
+            校正パネルで確認する
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 /** 秒数を MM:SS にフォーマット */
 function formatTime(sec: number) {
   const m = Math.floor(sec / 60);
@@ -59,7 +120,7 @@ function formatTime(sec: number) {
 }
 
 export function StatusBar({ editor }: Props) {
-  const { settings, proofreadSettings, setEditorViewMode, editorViewMode } = useUIStore();
+  const { settings, proofreadSettings, setEditorViewMode, editorViewMode, dismissedIssuesByEpisode } = useUIStore();
   const { timerRunning, timerRemaining, timerTotal, startTimer, stopTimer, tickTimer, dailyGoal } = useUIStore();
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
@@ -76,7 +137,11 @@ export function StatusBar({ editor }: Props) {
   const [showAutoSaved, setShowAutoSaved] = useState(false);
   const [showTimerPopover, setShowTimerPopover] = useState(false);
   const [timerMinutes, setTimerMinutes] = useState(25);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showProofSummary, setShowProofSummary] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const shortcutsRef = useRef<HTMLDivElement>(null);
+  const proofSummaryRef = useRef<HTMLDivElement>(null);
 
   // エディタの更新イベントを直接サブスクライブしてリアルタイム更新
   useEffect(() => {
@@ -91,22 +156,37 @@ export function StatusBar({ editor }: Props) {
   }, [editor]);
 
   // 校正件数をバックグラウンドで定期チェック（debounce 2秒）
-  const checkProofread = useCallback(() => {
-    if (!proofreadSettings.enabled) {
-      setProofCount(null);
+  // ProofreadPanel と同様に currentEpisode.body を使用し3種すべての結果を合算する
+  const checkProofread = useCallback(async () => {
+    if (!proofreadSettings.enabled || !currentEpisode) {
+      setProofCount(!proofreadSettings.enabled ? null : 0);
       return;
     }
     const enabledCategories = Object.entries(proofreadSettings.categories)
       .filter(([, v]) => v)
       .map(([k]) => k);
+    const text = currentEpisode.body;
 
-    invoke<unknown[]>('run_proofread', {
-      text: editor.getHTML(),
-      categories: enabledCategories,
-    })
-      .then((result) => setProofCount(result.length))
-      .catch(() => setProofCount(null));
-  }, [editor, proofreadSettings]);
+    try {
+      const [rules, readability, consistency] = await Promise.all([
+        invoke<unknown[]>('run_proofread', { text, categories: enabledCategories }),
+        invoke<unknown[]>('run_readability', { text }),
+        invoke<unknown[]>('run_consistency_check', { text }),
+      ]);
+      const episodeId = currentEpisode.id;
+      const dismissed = dismissedIssuesByEpisode[episodeId] ?? [];
+      const toKey = (i: ProofIssue) => `${i.category}-${i.offset}-${i.length}`;
+      const allIssues = [
+        ...rules.map((r) => toCamelCase<ProofIssue>(r)),
+        ...readability.map((r) => toCamelCase<ProofIssue>(r)),
+        ...consistency.map((r) => toCamelCase<ProofIssue>(r)),
+      ];
+      const activeCount = allIssues.filter((i) => !dismissed.includes(toKey(i))).length;
+      setProofCount(activeCount);
+    } catch {
+      setProofCount(null);
+    }
+  }, [currentEpisode, proofreadSettings, dismissedIssuesByEpisode]);
 
   useEffect(() => {
     if (!proofreadSettings.enabled) {
@@ -172,6 +252,30 @@ export function StatusBar({ editor }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showTimerPopover]);
 
+  // ショートカットパネル外クリックで閉じる
+  useEffect(() => {
+    if (!showShortcuts) return;
+    const handler = (e: MouseEvent) => {
+      if (shortcutsRef.current && !shortcutsRef.current.contains(e.target as Node)) {
+        setShowShortcuts(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showShortcuts]);
+
+  // 校正サマリーポップアップ外クリックで閉じる
+  useEffect(() => {
+    if (!showProofSummary) return;
+    const handler = (e: MouseEvent) => {
+      if (proofSummaryRef.current && !proofSummaryRef.current.contains(e.target as Node)) {
+        setShowProofSummary(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProofSummary]);
+
   const handleTimerClick = () => {
     if (timerRunning) {
       // 動作中はクリックで停止
@@ -235,21 +339,49 @@ export function StatusBar({ editor }: Props) {
             履歴 {new Date(lastSnapshotAt).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
           </span>
         )}
-        {proofCount !== null && proofCount > 0 && (
-          <button
-            className="hover:opacity-80 transition-opacity"
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: 'var(--warning)',
-              fontSize: '12px',
-            }}
-            onClick={() => setEditorViewMode(editorViewMode === 'proofread' ? 'editor' : 'proofread')}
-            title="校正パネルを開く"
-          >
-            校正: {proofCount}件
-          </button>
+        {proofCount !== null && (
+          <div style={{ position: 'relative' }} ref={proofSummaryRef}>
+            <button
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                padding: '2px 8px',
+                borderRadius: '4px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '11px',
+                transition: 'background 120ms',
+                color: proofCount === 0
+                  ? 'var(--success)'
+                  : proofCount <= 3
+                  ? 'var(--warning)'
+                  : 'var(--danger)',
+              }}
+              onClick={() => setShowProofSummary((v) => !v)}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)';
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLElement).style.background = 'transparent';
+              }}
+              title="校正チェック結果"
+            >
+              <span style={{ fontSize: '12px' }}>{proofCount === 0 ? '✓' : '✎'}</span>
+              <span>{proofCount === 0 ? '校正OK' : `校正 ${proofCount}件`}</span>
+            </button>
+            {showProofSummary && (
+              <ProofSummaryPopup
+                proofCount={proofCount}
+                onClose={() => setShowProofSummary(false)}
+                onOpenPanel={() => {
+                  setEditorViewMode(editorViewMode === 'proofread' ? 'editor' : 'proofread');
+                  setShowProofSummary(false);
+                }}
+              />
+            )}
+          </div>
         )}
         {dailyGoal && dailyGoal > 0 && (
           <div className="flex items-center gap-1.5" style={{ minWidth: '100px', maxWidth: '160px' }}>
@@ -298,6 +430,112 @@ export function StatusBar({ editor }: Props) {
         >
           {theme === 'dark' ? <IconSun size={14} /> : <IconMoon size={14} />}
         </StatusBarToggle>
+
+        {/* ショートカット一覧 */}
+        <StatusBarToggle
+          active={showShortcuts}
+          onClick={() => setShowShortcuts((v) => !v)}
+          title="ショートカット一覧"
+        >
+          <span style={{ fontSize: '11px', fontWeight: 600 }}>?</span>
+        </StatusBarToggle>
+
+        {/* ショートカットパネル */}
+        {showShortcuts && (
+          <div
+            ref={shortcutsRef}
+            style={{
+              position: 'absolute',
+              bottom: '100%',
+              right: '8px',
+              marginBottom: '4px',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-light)',
+              borderRadius: '8px',
+              padding: '16px 20px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+              zIndex: 100,
+              width: '380px',
+            }}
+          >
+            <p style={{ fontFamily: 'var(--font-heading)', fontSize: '13px', color: 'var(--accent)', marginBottom: '12px' }}>
+              キーボードショートカット
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+              {[
+                {
+                  label: 'ファイル操作',
+                  items: [
+                    { name: '保存', keys: ['Ctrl', 'S'] },
+                    { name: 'コマンドパレット', keys: ['Ctrl', 'P'] },
+                  ],
+                },
+                {
+                  label: 'ビューモード',
+                  items: [
+                    { name: 'デュアルビュー', keys: ['Ctrl', 'Shift', 'D'] },
+                    { name: 'プレビュー', keys: ['Ctrl', 'Shift', 'P'] },
+                    { name: '台詞ビュー', keys: ['Ctrl', 'Shift', 'L'] },
+                  ],
+                },
+                {
+                  label: 'パネル切替',
+                  items: [
+                    { name: '目次', keys: ['Ctrl', '1'] },
+                    { name: '章立て', keys: ['Ctrl', '2'] },
+                    { name: '人物', keys: ['Ctrl', '3'] },
+                    { name: 'プロット', keys: ['Ctrl', '4'] },
+                    { name: 'あらすじ', keys: ['Ctrl', '5'] },
+                    { name: '相関図', keys: ['Ctrl', '6'] },
+                    { name: '用語', keys: ['Ctrl', '7'] },
+                    { name: '世界観', keys: ['Ctrl', '8'] },
+                    { name: '伏線', keys: ['Ctrl', '9'] },
+                    { name: 'メモ', keys: ['Ctrl', '0'] },
+                    { name: 'パネル開閉', keys: ['Ctrl', 'Shift', 'R'] },
+                  ],
+                },
+                {
+                  label: 'AI・支援',
+                  items: [
+                    { name: 'AIアシスタント', keys: ['Ctrl', 'Shift', 'A'] },
+                    { name: 'タイマー開始/停止', keys: ['Ctrl', 'T'] },
+                  ],
+                },
+              ].map((group) => (
+                <div key={group.label} style={{ marginBottom: '12px' }}>
+                  <p style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '6px', textTransform: 'uppercase' }}>
+                    {group.label}
+                  </p>
+                  {group.items.map((item) => (
+                    <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', marginBottom: '4px' }}>
+                      <span style={{ color: 'var(--text-mid)' }}>{item.name}</span>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {item.keys.map((k, i) => (
+                          <span
+                            key={i}
+                            style={{
+                              background: 'var(--bg-deep)',
+                              border: '1px solid var(--border-light)',
+                              borderRadius: '4px',
+                              padding: '0 5px',
+                              height: '20px',
+                              fontSize: '10px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              color: 'var(--text-mid)',
+                            }}
+                          >
+                            {k}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="w-px h-4 mx-1" style={{ background: 'var(--border)' }} />
 

@@ -1,0 +1,106 @@
+import { useState } from 'react';
+import { useUIStore } from '@/shared/stores/uiStore';
+
+const STEPS = [
+  {
+    icon: '☰',
+    label: '目次タブを開く',
+    desc: 'サイドパネル「目次」から章・話を管理できます',
+    shortcut: 'Ctrl+1',
+  },
+  {
+    icon: '＋',
+    label: '新しい話を追加',
+    desc: '＋ボタンで最初の話を作成してみましょう',
+    shortcut: null,
+  },
+  {
+    icon: '✦',
+    label: 'AI相談から開始',
+    desc: 'AIアシスタントでプロット・あらすじの叩き台を作れます',
+    shortcut: 'Ctrl+Shift+A',
+  },
+];
+
+export function EditorEmptyState() {
+  const toggleAiPanel = useUIStore((s) => s.toggleAiPanel);
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+
+  return (
+    <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+      <div style={{ width: '100%', maxWidth: '360px', padding: '0 16px' }}>
+        {/* 上部: アイコン + 見出し + サブテキスト */}
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '24px', marginBottom: '8px', color: 'var(--accent)' }}>✦</div>
+          <p style={{ fontFamily: 'var(--font-heading)', fontSize: '15px', color: 'var(--text)', marginBottom: '6px' }}>
+            話がまだありません
+          </p>
+          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+            以下の手順で執筆を始めましょう
+          </p>
+        </div>
+
+        {/* 中部: ステップカード */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+          {STEPS.map((step, i) => {
+            const isActive = activeStep === i;
+            return (
+              <button
+                key={i}
+                onClick={() => setActiveStep(isActive ? null : i)}
+                style={{
+                  width: '100%',
+                  background: isActive ? 'var(--accent-soft)' : 'var(--bg-surface)',
+                  border: `1px solid ${isActive ? 'rgba(196,149,106,0.4)' : 'var(--border)'}`,
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'background 120ms, border-color 120ms',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '20px', flexShrink: 0, color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}>
+                    {step.icon}
+                  </span>
+                  <span style={{ flex: 1, fontSize: '13px', color: isActive ? 'var(--accent)' : 'var(--text)', fontFamily: 'var(--font-ui)' }}>
+                    {step.label}
+                  </span>
+                  {step.shortcut && (
+                    <span style={{
+                      fontSize: '10px',
+                      color: 'var(--text-muted)',
+                      background: 'var(--bg-elevated)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '4px',
+                      padding: '2px 6px',
+                      flexShrink: 0,
+                    }}>
+                      {step.shortcut}
+                    </span>
+                  )}
+                </div>
+                {isActive && (
+                  <p style={{ fontSize: '11px', color: 'var(--text-mid)', marginTop: '6px', lineHeight: 1.6, paddingLeft: '30px' }}>
+                    {step.desc}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 下部: AIボタン */}
+        <div style={{ textAlign: 'center' }}>
+          <button
+            className="btn btn-primary"
+            onClick={toggleAiPanel}
+            style={{ width: '100%' }}
+          >
+            AI相談から開始
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

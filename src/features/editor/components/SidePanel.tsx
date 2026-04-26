@@ -138,9 +138,10 @@ function ActivityBar({
 
   return (
     <div
+      data-tour="activity-bar"
       className="flex flex-col flex-shrink-0 py-2"
       style={{
-        width: '48px',
+        width: '64px',
         background: 'var(--bg-deep)',
         borderRight: '1px solid var(--border)',
       }}
@@ -153,11 +154,9 @@ function ActivityBar({
             key={tab.key}
             onClick={() => {
               if (collapsed) {
-                // 折りたたみ中にクリックされたら開いて切替
                 onTabChange(tab.key);
                 toggleSidePanel();
               } else if (activeTab === tab.key) {
-                // アクティブタブを再クリック → 閉じる
                 toggleSidePanel();
               } else {
                 onTabChange(tab.key);
@@ -166,10 +165,12 @@ function ActivityBar({
             title={`${tab.label} (${tab.shortcut})`}
             style={{
               width: '100%',
-              height: '44px',
+              height: '52px',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
+              gap: '3px',
               background: isActive ? 'var(--accent-soft)' : 'transparent',
               borderTop: 'none',
               borderRight: 'none',
@@ -188,7 +189,15 @@ function ActivityBar({
               if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent';
             }}
           >
-            <Icon size={18} />
+            <Icon size={16} />
+            <span style={{
+              fontSize: '9px',
+              lineHeight: 1,
+              letterSpacing: '0.02em',
+              fontFamily: 'var(--font-ui)',
+            }}>
+              {tab.label}
+            </span>
           </button>
         );
       })}
@@ -235,7 +244,7 @@ function ActionButton({
       title={title}
       style={{
         width: '100%',
-        height: '44px',
+        height: '52px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
