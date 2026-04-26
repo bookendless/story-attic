@@ -50,18 +50,21 @@ pub fn rename_chapter(id: String, title: String, state: State<AppState>) -> CmdR
     Ok(())
 }
 
-/// 章のタイトルと概要を更新する
+/// 章のタイトルと概要・設定・ムード・重要な出来事を更新する
 #[tauri::command]
 pub fn update_chapter(
     id: String,
     title: String,
     summary: String,
+    setting: String,
+    mood: String,
+    important_events: String,
     state: State<AppState>,
 ) -> CmdResult<()> {
     let conn = state.db.lock().map_err(err)?;
     conn.execute(
-        "UPDATE chapters SET title = ?1, summary = ?2 WHERE id = ?3",
-        rusqlite::params![title, summary, id],
+        "UPDATE chapters SET title = ?1, summary = ?2, setting = ?3, mood = ?4, important_events = ?5 WHERE id = ?6",
+        rusqlite::params![title, summary, setting, mood, important_events, id],
     )
     .map_err(err)?;
     Ok(())
@@ -159,7 +162,8 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
     // 章一覧を取得
     let chapters: Vec<Chapter> = conn
         .prepare(
-            "SELECT id, project_id, title, summary, nodes, sort_order, created_at
+            "SELECT id, project_id, title, summary, nodes, sort_order, created_at,
+                    setting, mood, important_events
              FROM chapters WHERE project_id = ?1 ORDER BY sort_order ASC",
         )
         .map_err(err)?
@@ -172,6 +176,9 @@ pub fn get_chapter_tree(project_id: String, state: State<AppState>) -> CmdResult
                 nodes: row.get(4)?,
                 sort_order: row.get(5)?,
                 created_at: row.get(6)?,
+                setting: row.get(7)?,
+                mood: row.get(8)?,
+                important_events: row.get(9)?,
             })
         })
         .map_err(err)?

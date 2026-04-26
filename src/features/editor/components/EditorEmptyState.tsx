@@ -17,7 +17,7 @@ const STEPS = [
   {
     icon: '✦',
     label: 'AI相談から開始',
-    desc: 'AIアシスタントでプロット・あらすじの叩き台を作れます',
+    desc: 'AIアシスタントと話すことでプロット・あらすじのヒントを得られます',
     shortcut: 'Ctrl+Shift+A',
   },
 ];
@@ -33,10 +33,10 @@ export function EditorEmptyState() {
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '24px', marginBottom: '8px', color: 'var(--accent)' }}>✦</div>
           <p style={{ fontFamily: 'var(--font-heading)', fontSize: '15px', color: 'var(--text)', marginBottom: '6px' }}>
-            話がまだありません
+            物語を始めよう
           </p>
           <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            以下の手順で執筆を始めましょう
+            以下の手順で執筆を始めます
           </p>
         </div>
 

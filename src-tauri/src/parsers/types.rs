@@ -59,12 +59,15 @@ pub struct ParsedPlotPhase {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedChapter {
     pub number: i32,
     pub title: String,
     pub summary: String,
+    pub setting: String,
+    pub mood: String,
+    pub important_events: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

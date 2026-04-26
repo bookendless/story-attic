@@ -167,5 +167,21 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // v8: 章に setting / mood / important_events カラムを追加
+    let applied_v8: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 8",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v8 == 0 {
+        let sql = include_str!("migrations/008_chapter_fields.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (8, datetime('now'))",
+            [],
+        )?;
+    }
+
     Ok(())
 }

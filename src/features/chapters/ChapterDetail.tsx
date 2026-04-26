@@ -16,21 +16,27 @@ interface Props {
 export function ChapterDetail({ chapter, episodeCount, onBack, onUpdate }: Props) {
   const [title, setTitle] = useState(chapter.title);
   const [summary, setSummary] = useState(chapter.summary ?? '');
+  const [setting, setSetting] = useState(chapter.setting ?? '');
+  const [mood, setMood] = useState(chapter.mood ?? '');
+  const [importantEvents, setImportantEvents] = useState(chapter.importantEvents ?? '');
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     setTitle(chapter.title);
     setSummary(chapter.summary ?? '');
+    setSetting(chapter.setting ?? '');
+    setMood(chapter.mood ?? '');
+    setImportantEvents(chapter.importantEvents ?? '');
     setDirty(false);
-  }, [chapter.id, chapter.title, chapter.summary]);
+  }, [chapter.id, chapter.title, chapter.summary, chapter.setting, chapter.mood, chapter.importantEvents]);
 
   const handleSave = useCallback(async () => {
     try {
-      await invoke('update_chapter', { id: chapter.id, title, summary });
+      await invoke('update_chapter', { id: chapter.id, title, summary, setting, mood, importantEvents });
       setDirty(false);
       await onUpdate();
     } catch { /* 無視 */ }
-  }, [chapter.id, title, summary, onUpdate]);
+  }, [chapter.id, title, summary, setting, mood, importantEvents, onUpdate]);
 
   return (
     <div className="flex flex-col h-full">
@@ -79,6 +85,39 @@ export function ChapterDetail({ chapter, episodeCount, onBack, onUpdate }: Props
             value={summary}
             onChange={(e) => { setSummary(e.target.value); setDirty(true); }}
             placeholder="この章の内容・狙いを記述"
+          />
+        </Field>
+
+        <Field label="設定・場所">
+          <textarea
+            rows={3}
+            className="w-full text-sm px-2 py-1 rounded resize-none"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            value={setting}
+            onChange={(e) => { setSetting(e.target.value); setDirty(true); }}
+            placeholder="登場する場所・舞台設定"
+          />
+        </Field>
+
+        <Field label="雰囲気・ムード">
+          <textarea
+            rows={3}
+            className="w-full text-sm px-2 py-1 rounded resize-none"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            value={mood}
+            onChange={(e) => { setMood(e.target.value); setDirty(true); }}
+            placeholder="章のトーン・雰囲気"
+          />
+        </Field>
+
+        <Field label="重要な出来事">
+          <textarea
+            rows={5}
+            className="w-full text-sm px-2 py-1 rounded resize-none"
+            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+            value={importantEvents}
+            onChange={(e) => { setImportantEvents(e.target.value); setDirty(true); }}
+            placeholder="この章で起きる主要な出来事"
           />
         </Field>
 

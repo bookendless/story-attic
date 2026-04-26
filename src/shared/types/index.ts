@@ -64,6 +64,9 @@ export interface Chapter {
   nodes: string;
   sortOrder: number;
   createdAt: string;
+  setting: string;
+  mood: string;
+  importantEvents: string;
 }
 
 export interface ChapterWithEpisodes {
@@ -744,6 +747,9 @@ export interface ParsedChapter {
   number: number;
   title: string;
   summary: string;
+  setting: string;
+  mood: string;
+  importantEvents: string;
 }
 
 export interface ParsedDraft {

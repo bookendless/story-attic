@@ -12,6 +12,9 @@ pub struct Chapter {
     pub nodes: String,
     pub sort_order: i64,
     pub created_at: String,
+    pub setting: String,
+    pub mood: String,
+    pub important_events: String,
 }
 
 /// 章とエピソードの紐づけ（フロント送信用）

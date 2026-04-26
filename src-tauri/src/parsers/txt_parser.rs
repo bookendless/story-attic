@@ -313,8 +313,43 @@ fn parse_plot_txt(lines: &[String]) -> ParsedPlot {
 }
 
 fn parse_chapters_txt(lines: &[String]) -> Vec<ParsedChapter> {
+    struct Accum {
+        number: i32,
+        title: String,
+        summary: String,
+        setting: String,
+        mood: String,
+        important_events: String,
+        field: &'static str,
+    }
+
+    fn push_line(acc: &mut Accum, t: &str) {
+        let buf = match acc.field {
+            "summary" => &mut acc.summary,
+            "setting" => &mut acc.setting,
+            "mood" => &mut acc.mood,
+            "events" => &mut acc.important_events,
+            _ => return,
+        };
+        if !buf.is_empty() {
+            buf.push('\n');
+        }
+        buf.push_str(t);
+    }
+
+    fn flush(acc: Accum) -> ParsedChapter {
+        ParsedChapter {
+            number: acc.number,
+            title: acc.title,
+            summary: acc.summary.trim().to_string(),
+            setting: acc.setting.trim().to_string(),
+            mood: acc.mood.trim().to_string(),
+            important_events: acc.important_events.trim().to_string(),
+        }
+    }
+
     let mut chapters = Vec::new();
-    let mut current: Option<(i32, String, String)> = None; // (number, title, summary)
+    let mut current: Option<Accum> = None;
 
     for line in lines {
         let t = line.trim();
@@ -324,27 +359,45 @@ fn parse_chapters_txt(lines: &[String]) -> Vec<ParsedChapter> {
 
         // `第N章: タイトル` パターン
         if t.starts_with('第') {
-            if let Some((n, title, summary)) = current.take() {
-                chapters.push(ParsedChapter { number: n, title, summary: summary.trim().to_string() });
+            if let Some(acc) = current.take() {
+                chapters.push(flush(acc));
             }
-
-            // 章番号抽出
             if let Some(colon_pos) = t.find(':').or_else(|| t.find('：')) {
-                let chapter_part = &t[..colon_pos];
-                let number = extract_chapter_number(chapter_part);
+                let number = extract_chapter_number(&t[..colon_pos]);
                 let title = t[colon_pos + 1..].trim().to_string();
-                current = Some((number, title, String::new()));
+                current = Some(Accum {
+                    number,
+                    title,
+                    summary: String::new(),
+                    setting: String::new(),
+                    mood: String::new(),
+                    important_events: String::new(),
+                    field: "",
+                });
             }
-        } else if let Some((_, _, ref mut summary)) = current {
-            if !summary.is_empty() {
-                summary.push('\n');
+            continue;
+        }
+
+        if let Some(ref mut acc) = current {
+            if let Some(v) = t.strip_prefix("あらすじ:") {
+                acc.field = "summary";
+                acc.summary = v.trim().to_string();
+            } else if let Some(v) = t.strip_prefix("設定・場所:") {
+                acc.field = "setting";
+                acc.setting = v.trim().to_string();
+            } else if let Some(v) = t.strip_prefix("雰囲気・ムード:") {
+                acc.field = "mood";
+                acc.mood = v.trim().to_string();
+            } else if t.starts_with("重要な出来事:") {
+                acc.field = "events";
+            } else {
+                push_line(acc, t);
             }
-            summary.push_str(t);
         }
     }
 
-    if let Some((n, title, summary)) = current {
-        chapters.push(ParsedChapter { number: n, title, summary: summary.trim().to_string() });
+    if let Some(acc) = current {
+        chapters.push(flush(acc));
     }
 
     chapters

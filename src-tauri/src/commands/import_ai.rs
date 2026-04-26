@@ -181,9 +181,9 @@ pub fn import_ai_story_builder(
             let id = Uuid::new_v4().to_string();
             let full_title = format!("第{}章: {}", ch.number, ch.title);
             conn.execute(
-                "INSERT INTO chapters (id, project_id, title, summary, sort_order, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                rusqlite::params![id, project_id, full_title, ch.summary, i as i64, now_ch],
+                "INSERT INTO chapters (id, project_id, title, summary, setting, mood, important_events, sort_order, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                rusqlite::params![id, project_id, full_title, ch.summary, ch.setting, ch.mood, ch.important_events, i as i64, now_ch],
             )
             .map_err(err)?;
 

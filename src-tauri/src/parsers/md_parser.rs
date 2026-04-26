@@ -242,14 +242,62 @@ fn parse_chapters_md(lines: &[String]) -> Vec<ParsedChapter> {
     for (header, body) in entries {
         let clean = strip_md_formatting(&header);
         let (number, title) = parse_chapter_header(&clean);
-        let summary = body
-            .iter()
-            .map(|l| l.trim())
-            .filter(|l| !l.is_empty())
-            .collect::<Vec<_>>()
-            .join("\n");
 
-        chapters.push(ParsedChapter { number, title, summary });
+        let mut summary = String::new();
+        let mut setting = String::new();
+        let mut mood = String::new();
+        let mut important_events = String::new();
+        let mut current_field = "";
+
+        for line in &body {
+            let t = line.trim();
+            if t.is_empty() {
+                continue;
+            }
+
+            if let Some((field, value)) = parse_bold_field(t) {
+                let val = value.trim().trim_matches('*').trim().to_string();
+                match field.as_str() {
+                    "あらすじ" => {
+                        current_field = "summary";
+                        summary = val;
+                    }
+                    "設定・場所" => {
+                        current_field = "setting";
+                        setting = val;
+                    }
+                    "雰囲気・ムード" => {
+                        current_field = "mood";
+                        mood = val;
+                    }
+                    "重要な出来事" => {
+                        current_field = "events";
+                    }
+                    _ => {}
+                }
+            } else {
+                let buf = match current_field {
+                    "summary" => &mut summary,
+                    "setting" => &mut setting,
+                    "mood" => &mut mood,
+                    "events" => &mut important_events,
+                    _ => continue,
+                };
+                if !buf.is_empty() {
+                    buf.push('\n');
+                }
+                buf.push_str(t);
+            }
+        }
+
+        chapters.push(ParsedChapter {
+            number,
+            title,
+            summary: summary.trim().to_string(),
+            setting: setting.trim().to_string(),
+            mood: mood.trim().to_string(),
+            important_events: important_events.trim().to_string(),
+        });
     }
 
     chapters
