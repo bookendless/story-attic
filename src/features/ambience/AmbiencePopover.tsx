@@ -3,7 +3,7 @@
  * ヘッダーボタンから開き、演出タイプ切替・環境音・タイピング音を即時操作できる。
  */
 
-import { useUIStore, type EffectType, type AmbientType, type TypingSoundType } from '@/shared/stores/uiStore';
+import { useUIStore, type EffectType, type AmbientType, type TypingSoundType, type ReaderPersona } from '@/shared/stores/uiStore';
 
 const EFFECT_OPTIONS: { key: EffectType; label: string }[] = [
   { key: 'rain', label: '雨' },
@@ -157,13 +157,55 @@ export function AmbiencePopover() {
 
       {/* ゴーストちゃんセクション */}
       <SectionLabel>ゴーストちゃん</SectionLabel>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-2">
         <MiniToggle
           checked={characterSettings.enabled}
           onChange={(v) => setCharacterSettings({ ...characterSettings, enabled: v })}
         />
         <span className="text-xs" style={{ color: 'var(--text-mid)' }}>執筆仲間を呼ぶ</span>
       </div>
+
+      {characterSettings.enabled && (
+        <>
+          <div className="flex items-center gap-2 mb-1.5">
+            <MiniToggle
+              checked={characterSettings.readerMode ?? false}
+              onChange={(v) => setCharacterSettings({ ...characterSettings, readerMode: v })}
+            />
+            <span className="text-xs" style={{ color: 'var(--text-mid)' }}>読者モード</span>
+          </div>
+
+          {characterSettings.readerMode && (
+            <div className="flex gap-1 ml-8">
+              {(['casual', 'genre', 'critical'] as ReaderPersona[]).map((p) => {
+                const labels: Record<ReaderPersona, string> = {
+                  casual: '一般',
+                  genre: 'ジャンル',
+                  critical: '批評的',
+                };
+                const active = (characterSettings.readerPersona ?? 'casual') === p;
+                return (
+                  <button
+                    key={p}
+                    className="text-xs px-2 py-0.5 rounded"
+                    style={{
+                      background: active ? 'rgba(139,124,246,0.15)' : 'var(--bg-deep)',
+                      color: active ? '#8b7cf6' : 'var(--text-muted)',
+                      border: active ? '1px solid rgba(139,124,246,0.4)' : '1px solid var(--border)',
+                      cursor: 'pointer',
+                      fontWeight: active ? 600 : 400,
+                      transition: 'all 150ms',
+                    }}
+                    onClick={() => setCharacterSettings({ ...characterSettings, readerPersona: p })}
+                  >
+                    {labels[p]}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

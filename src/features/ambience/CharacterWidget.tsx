@@ -9,7 +9,7 @@ import { useState, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
-import { useUIStore } from '@/shared/stores/uiStore';
+import { useUIStore, type CharacterSettings, type ReaderPersona } from '@/shared/stores/uiStore';
 import { onActivity } from '@/shared/utils/idleTracker';
 import './characterAnimations.css';
 
@@ -28,6 +28,15 @@ const WHISPERS = [
   'そっと、そばにいますよ',
 ];
 
+/** 読者モードのフォールバックメッセージ */
+const READER_FALLBACKS = [
+  'この場面、ドキドキしながら読みました',
+  '続きが気になっています',
+  'この先どうなるんでしょう',
+  'キャラクターの気持ちが伝わってきます',
+  '次の展開を待っています',
+];
+
 /** 吹き出しが自動で消えるまでの時間（ms） */
 const BUBBLE_AUTO_HIDE_MS = 8_000;
 
@@ -37,13 +46,14 @@ function stripHtml(html: string): string {
 }
 
 export function CharacterWidget() {
-  const { characterSettings, theme } = useUIStore();
+  const { characterSettings, setCharacterSettings, theme } = useUIStore();
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
-  
+
   const [showBubble, setShowBubble] = useState(false);
   const [message, setMessage] = useState('');
-  
+  const [showSettings, setShowSettings] = useState(false);
+
   // 各種アニメーションステート
   const [isThinking, setIsThinking] = useState(false);
   const [isSleepy, setIsSleepy] = useState(false);
@@ -52,6 +62,7 @@ export function CharacterWidget() {
 
   const bubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const [shouldRender, setShouldRender] = useState(characterSettings.enabled);
   const [isFadingOut, setIsFadingOut] = useState(false);
@@ -108,6 +119,24 @@ export function CharacterWidget() {
     };
   }, []);
 
+  // 設定メニュー外クリックで閉じる
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [showSettings]);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowBubble(false);
+    setShowSettings((prev) => !prev);
+  };
+
   if (!shouldRender) return null;
 
   const handleClick = async () => {
@@ -134,26 +163,39 @@ export function CharacterWidget() {
     setIsThinking(true);
 
     try {
-      // 現在のエピソード本文から文脈を生成（末尾300文字）
       const plain = stripHtml(currentEpisode?.body ?? '');
-      const context = plain.length > 300 ? plain.slice(-300) : plain;
 
-      // 長めの文章を書いている時のアクション（たっぷり書いた後は喜ぶアクションを追加）
-      if (context.length >= 200) {
-        setTimeout(() => {
-           setIsHappy(true);
-           setTimeout(() => setIsHappy(false), 700);
-        }, 500); // びっくりから0.5秒後に喜ぶ
+      if (characterSettings.readerMode) {
+        // 読者モード: 600文字コンテキスト + ai_get_reader_perspective
+        const context = plain.length > 600 ? plain.slice(-600) : plain;
+        const aiMsg = await invoke<string>('ai_get_reader_perspective', {
+          projectId: currentProjectId ?? '',
+          context,
+          persona: characterSettings.readerPersona ?? 'casual',
+        });
+        setMessage(aiMsg);
+      } else {
+        // 通常モード: 300文字コンテキスト + ai_get_whisper
+        const context = plain.length > 300 ? plain.slice(-300) : plain;
+
+        // たっぷり書いた後は喜ぶアクション
+        if (context.length >= 200) {
+          setTimeout(() => {
+            setIsHappy(true);
+            setTimeout(() => setIsHappy(false), 700);
+          }, 500);
+        }
+
+        const aiMsg = await invoke<string>('ai_get_whisper', {
+          projectId: currentProjectId ?? '',
+          context,
+        });
+        setMessage(aiMsg);
       }
-
-      const aiMsg = await invoke<string>('ai_get_whisper', {
-        projectId: currentProjectId ?? '',
-        context,
-      });
-      setMessage(aiMsg);
     } catch {
-      // AIエラー時はランダムつぶやき
-      const msg = WHISPERS[Math.floor(Math.random() * WHISPERS.length)];
+      // AIエラー時のフォールバック
+      const fallbacks = characterSettings.readerMode ? READER_FALLBACKS : WHISPERS;
+      const msg = fallbacks[Math.floor(Math.random() * fallbacks.length)];
       setMessage(msg);
     } finally {
       setIsThinking(false);
@@ -182,14 +224,24 @@ export function CharacterWidget() {
         alignItems: 'flex-end',
       }}
     >
-      {showBubble && <SpeechBubble message={message} thinking={isThinking} />}
+      {showSettings && (
+        <div ref={settingsRef}>
+          <GhostSettingsMenu
+            characterSettings={characterSettings}
+            setCharacterSettings={setCharacterSettings}
+            onClose={() => setShowSettings(false)}
+          />
+        </div>
+      )}
+      {showBubble && !showSettings && <SpeechBubble message={message} thinking={isThinking} />}
       <div
         className={animationClass}
         onClick={() => { void handleClick(); }}
+        onContextMenu={handleContextMenu}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         style={{ cursor: isThinking ? 'wait' : 'pointer', position: 'relative' }}
-        title="クリックでつぶやく"
+        title={characterSettings.readerMode ? 'クリックで読者の声を聞く / 右クリックで設定' : 'クリックでつぶやく / 右クリックで設定'}
       >
         {isHappy && (
           <>
@@ -207,6 +259,119 @@ export function CharacterWidget() {
 // =========================================
 // サブコンポーネント
 // =========================================
+
+function GhostSettingsMenu({
+  characterSettings,
+  setCharacterSettings,
+  onClose,
+}: {
+  characterSettings: CharacterSettings;
+  setCharacterSettings: (s: CharacterSettings) => void;
+  onClose: () => void;
+}) {
+  const PERSONAS: { key: ReaderPersona; label: string; desc: string }[] = [
+    { key: 'casual', label: '一般', desc: '感情・共感重視' },
+    { key: 'genre', label: 'ジャンル', desc: '期待・伏線重視' },
+    { key: 'critical', label: '批評的', desc: '整合性・理解重視' },
+  ];
+
+  return (
+    <div
+      style={{
+        background: 'rgba(18, 12, 36, 0.97)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(160, 148, 220, 0.3)',
+        borderRadius: '12px',
+        padding: '12px 14px',
+        marginBottom: '8px',
+        width: '196px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        color: 'rgba(228, 222, 255, 0.95)',
+        fontSize: '12px',
+      }}
+    >
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between mb-2">
+        <span style={{ fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', color: 'rgba(180,168,255,0.9)' }}>
+          ゴーストちゃん設定
+        </span>
+        <button
+          onClick={onClose}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(180,168,255,0.5)', fontSize: '14px', lineHeight: 1, padding: '0 2px' }}
+        >
+          ×
+        </button>
+      </div>
+
+      {/* 読者モードトグル */}
+      <div className="flex items-center justify-between mb-2">
+        <span style={{ color: 'rgba(228,222,255,0.8)' }}>読者モード</span>
+        <button
+          onClick={() => setCharacterSettings({ ...characterSettings, readerMode: !characterSettings.readerMode })}
+          style={{
+            width: '32px',
+            height: '18px',
+            borderRadius: '9px',
+            background: characterSettings.readerMode ? 'rgba(139,124,246,0.9)' : 'rgba(255,255,255,0.12)',
+            border: `1px solid ${characterSettings.readerMode ? 'rgba(139,124,246,0.6)' : 'rgba(255,255,255,0.2)'}`,
+            position: 'relative',
+            cursor: 'pointer',
+            transition: 'background 200ms',
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              position: 'absolute',
+              top: '2px',
+              left: characterSettings.readerMode ? '14px' : '2px',
+              width: '12px',
+              height: '12px',
+              borderRadius: '50%',
+              background: characterSettings.readerMode ? 'rgba(18,12,36,0.9)' : 'rgba(180,168,255,0.6)',
+              transition: 'left 200ms',
+            }}
+          />
+        </button>
+      </div>
+
+      {/* ペルソナ選択（読者モードON時のみ） */}
+      {characterSettings.readerMode && (
+        <div>
+          <div style={{ fontSize: '10px', color: 'rgba(180,168,255,0.55)', marginBottom: '6px' }}>読者タイプ</div>
+          <div className="flex flex-col gap-1">
+            {PERSONAS.map((p) => {
+              const active = (characterSettings.readerPersona ?? 'casual') === p.key;
+              return (
+                <button
+                  key={p.key}
+                  onClick={() => setCharacterSettings({ ...characterSettings, readerPersona: p.key })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '5px 8px',
+                    borderRadius: '7px',
+                    background: active ? 'rgba(139,124,246,0.18)' : 'rgba(255,255,255,0.05)',
+                    border: `1px solid ${active ? 'rgba(139,124,246,0.45)' : 'rgba(255,255,255,0.08)'}`,
+                    cursor: 'pointer',
+                    color: active ? 'rgba(200,192,255,0.95)' : 'rgba(180,168,255,0.6)',
+                    transition: 'all 150ms',
+                    textAlign: 'left',
+                  }}
+                >
+                  <span style={{ fontWeight: active ? 600 : 400 }}>{p.label}</span>
+                  <span style={{ fontSize: '10px', opacity: 0.65 }}>{p.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SpeechBubble({ message, thinking }: { message: string; thinking?: boolean }) {
   return (

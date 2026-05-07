@@ -59,13 +59,20 @@ export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   typingVolume: 0.3,
 };
 
+/** 読者シミュレーターのペルソナ */
+export type ReaderPersona = 'casual' | 'genre' | 'critical';
+
 /** キャラクターウィジェット設定 */
 export interface CharacterSettings {
   enabled: boolean;
+  readerMode: boolean;
+  readerPersona: ReaderPersona;
 }
 
 export const DEFAULT_CHARACTER_SETTINGS: CharacterSettings = {
   enabled: true,
+  readerMode: false,
+  readerPersona: 'casual',
 };
 
 /** 右パネルのアクティブタブ（AIは独立パネルに分離済み） */

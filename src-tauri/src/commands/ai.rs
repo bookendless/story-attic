@@ -300,13 +300,13 @@ pub async fn ai_get_whisper(
     };
 
     match provider.as_str() {
-        "anthropic" => whisper_anthropic(&api_key, &model, &user_msg).await,
+        "anthropic" => single_call_anthropic(&api_key, &model, WHISPER_SYSTEM, &user_msg, 80).await,
         _ => {
             let url = base_url
                 .as_deref()
                 .unwrap_or("https://api.openai.com/v1")
                 .trim_end_matches('/');
-            whisper_openai_compatible(&api_key, url, &model, &user_msg).await
+            single_call_openai_compatible(&api_key, url, &model, WHISPER_SYSTEM, &user_msg, 80).await
         }
     }
 }
@@ -319,11 +319,118 @@ const WHISPER_SYSTEM: &str = "\
 励まし・共感・さりげない観察など、やさしく幻想的なトーンで。\
 絵文字は使わないこと。かぎ括弧も使わないこと。";
 
-async fn whisper_openai_compatible(
+/// 読者シミュレーター用システムプロンプト（一般読者）
+const READER_CASUAL: &str = "\
+あなたはこの物語を楽しんでいる一般読者です。\
+今読んだ場面を踏まえ、読者として感じたこと・気になったことを伝えます。\
+返答は必ず日本語で50文字以内。一人称で語ること。\
+感情・疑問・次への期待のどれかを素直に伝えること。\
+書き方への批評・改善提案・続きの予測は禁止。絵文字は使わないこと。";
+
+/// 読者シミュレーター用システムプロンプト（ジャンル読者）
+const READER_GENRE: &str = "\
+あなたはこのジャンルに詳しい熱心な読者です。\
+今読んだ場面の中で、物語全体への期待や気になる展開・伏線について語ります。\
+返答は必ず日本語で50文字以内。感情より「この先どうなる？」という視点で。\
+書き方への批評・改善提案は禁止。絵文字は使わないこと。";
+
+/// 読者シミュレーター用システムプロンプト（批評的読者）
+const READER_CRITICAL: &str = "\
+あなたはこの物語を注意深く読んでいる読者です。\
+理解できた点・理解が追いついていない点を正直に伝えます。\
+返答は必ず日本語で50文字以内。「〜がわからなくなりました」「〜の理由が掴めていません」など。\
+書き方への批評・改善提案は禁止。読者体験の正直な報告のみ。絵文字は使わないこと。";
+
+/// 読者シミュレーター（AI生成・非ストリーミング）
+///
+/// `persona`: "casual" | "genre" | "critical"
+/// DB から登場キャラ名を取得してコンテキストに含める
+#[tauri::command]
+pub async fn ai_get_reader_perspective(
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    context: String,
+    persona: String,
+) -> Result<String, String> {
+    let (provider, model, base_url, char_names) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let result = db.query_row(
+            "SELECT provider, model, data FROM ai_settings WHERE project_id = ?1",
+            [&project_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        );
+        let (provider, model, data_str) = match result {
+            Ok(r) => r,
+            Err(_) => return Err("AI未設定".into()),
+        };
+        let data: serde_json::Value =
+            serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+        let base_url = data["base_url"].as_str().map(String::from);
+
+        // 登場キャラ名を取得（name は直接カラム）
+        let mut stmt = db
+            .prepare("SELECT name FROM characters WHERE project_id = ?1")
+            .map_err(|e| e.to_string())?;
+        let names: Vec<String> = stmt
+            .query_map([&project_id], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .filter(|n| !n.is_empty())
+            .collect();
+
+        (provider, model, base_url, names)
+    };
+
+    if provider.is_empty() || model.is_empty() {
+        return Err("AI未設定".into());
+    }
+
+    let api_key = match get_api_key(&provider).await? {
+        Some(key) => key,
+        None => return Err("APIキー未設定".into()),
+    };
+
+    let system = match persona.as_str() {
+        "genre" => READER_GENRE,
+        "critical" => READER_CRITICAL,
+        _ => READER_CASUAL,
+    };
+
+    let char_context = if char_names.is_empty() {
+        String::new()
+    } else {
+        format!("\n登場人物: {}", char_names.join("、"))
+    };
+    let user_msg = format!(
+        "今読んだ場面（末尾抜粋）：\n{}{}\n\n読者として一言伝えてください。",
+        context, char_context
+    );
+
+    match provider.as_str() {
+        "anthropic" => single_call_anthropic(&api_key, &model, system, &user_msg, 120).await,
+        _ => {
+            let url = base_url
+                .as_deref()
+                .unwrap_or("https://api.openai.com/v1")
+                .trim_end_matches('/');
+            single_call_openai_compatible(&api_key, url, &model, system, &user_msg, 120).await
+        }
+    }
+}
+
+async fn single_call_openai_compatible(
     api_key: &str,
     base_url: &str,
     model: &str,
+    system: &str,
     user_msg: &str,
+    max_tokens: u32,
 ) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
@@ -336,9 +443,9 @@ async fn whisper_openai_compatible(
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "model": model,
-            "max_tokens": 80,
+            "max_tokens": max_tokens,
             "messages": [
-                {"role": "system", "content": WHISPER_SYSTEM},
+                {"role": "system", "content": system},
                 {"role": "user",   "content": user_msg},
             ],
         }))
@@ -357,10 +464,12 @@ async fn whisper_openai_compatible(
         .ok_or_else(|| "レスポンスの解析に失敗しました".into())
 }
 
-async fn whisper_anthropic(
+async fn single_call_anthropic(
     api_key: &str,
     model: &str,
+    system: &str,
     user_msg: &str,
+    max_tokens: u32,
 ) -> Result<String, String> {
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(20))
@@ -374,8 +483,8 @@ async fn whisper_anthropic(
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
             "model": model,
-            "max_tokens": 80,
-            "system": WHISPER_SYSTEM,
+            "max_tokens": max_tokens,
+            "system": system,
             "messages": [{"role": "user", "content": user_msg}],
         }))
         .send()

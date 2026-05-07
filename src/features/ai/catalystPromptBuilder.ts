@@ -14,12 +14,16 @@ export interface CatalystContext {
   creativeCore: CreativeCore;
   tone: AiTone;
   contextData: string;
+  socratesMode?: boolean;
+  socratesDepth?: number;
 }
 
 export function buildCatalystPrompt(ctx: CatalystContext): string {
   const sections: string[] = [
     buildRoleSection(),
-    buildPrinciplesSection(ctx.phase),
+    ctx.socratesMode
+      ? buildSocratesSection(ctx.socratesDepth ?? 0)
+      : buildPrinciplesSection(ctx.phase),
     buildStateSection(ctx),
     buildTypeBehaviorSection(ctx.creatorType),
   ];
@@ -113,6 +117,20 @@ function buildBlockSection(block: Exclude<BlockType, 'none'>): string {
 執筆リズムの乱れが検知されています。まず創作者の状態を共感的に受け止め、次に「この場面の会話だけ書いてみますか？」のような小さな一歩を促す問いを一つ投げかけてください。`,
   };
   return blockPrompts[block];
+}
+
+function buildSocratesSection(depth: number): string {
+  const isWrapUp = depth >= 5;
+  return `# ソクラテス式深掘りモード（最重要ルール・通常原則より優先）
+- ユーザーの発言に対して、解決策・続き文・提案・代案を一切提供しない
+- 必ず「一つだけ」の深掘り質問を返す（複数質問禁止）
+- 質問は「なぜ」「何が」「もし〜だったら」「誰が」「いつ」で始まる開かれた問い
+- 相手の答えを誘導しない。選択肢を与えない
+- 現在の深掘り回数: ${depth}/5${
+    isWrapUp
+      ? '\n- 深掘りの締めくくり: 質問ではなく「ここまで考えてきたことを、ひとつの文で表現してみてください」とだけ伝えること'
+      : ''
+  }`;
 }
 
 function buildToneSection(tone: AiTone): string {

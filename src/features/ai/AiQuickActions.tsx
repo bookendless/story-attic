@@ -55,6 +55,8 @@ const PHASE_ACTIONS: Record<CreativePhase, Record<CreatorType, QuickAction[]>> =
   },
 };
 
+const SOCRATES_COLOR = { accent: '#8b7cf6', bg: 'rgba(139,124,246,0.1)' };
+
 interface AiQuickActionsProps {
   chatRef: React.RefObject<AiChatHandle | null>;
 }
@@ -63,23 +65,27 @@ export function AiQuickActions({ chatRef }: AiQuickActionsProps) {
   const isStreaming = useAiStore((s) => s.isStreaming);
   const phase = useAiStore((s) => s.phase);
   const creatorType = useAiStore((s) => s.creatorType);
+  const socratesMode = useAiStore((s) => s.socratesMode);
+  const socratesDepth = useAiStore((s) => s.socratesDepth);
+  const setSocratesMode = useAiStore((s) => s.setSocratesMode);
+  const resetSocrates = useAiStore((s) => s.resetSocrates);
   const color = PHASE_COLORS[phase];
 
   const actions = PHASE_ACTIONS[phase]?.[creatorType] ?? [];
-
-  if (actions.length === 0) return null;
 
   const handleClick = (action: QuickAction) => {
     if (!chatRef.current) return;
     chatRef.current.insertTemplate(action.prompt);
   };
 
+  if (actions.length === 0 && !socratesMode) return null;
+
   return (
     <div
       className="flex flex-wrap gap-1.5 px-3 py-2 flex-shrink-0"
       style={{ borderBottom: '1px solid var(--border)' }}
     >
-      {actions.map((action) => (
+      {!socratesMode && actions.map((action) => (
         <button
           key={action.label}
           className="text-xs"
@@ -113,6 +119,58 @@ export function AiQuickActions({ chatRef }: AiQuickActionsProps) {
           {action.label}
         </button>
       ))}
+
+      {socratesMode ? (
+        <button
+          className="text-xs"
+          style={{
+            padding: '3px 10px',
+            borderRadius: '10px',
+            border: `1px solid ${SOCRATES_COLOR.accent}`,
+            background: SOCRATES_COLOR.bg,
+            color: SOCRATES_COLOR.accent,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            fontWeight: 500,
+          }}
+          onClick={resetSocrates}
+          title="深掘りモードを終了する"
+        >
+          深掘り中 ({socratesDepth}/5) — 終了
+        </button>
+      ) : (
+        <button
+          className="text-xs"
+          style={{
+            padding: '3px 8px',
+            borderRadius: '10px',
+            border: '1px solid var(--border)',
+            background: 'var(--bg)',
+            color: 'var(--text-mid)',
+            cursor: isStreaming ? 'not-allowed' : 'pointer',
+            opacity: isStreaming ? 0.5 : 1,
+            transition: 'background 150ms, color 150ms, border-color 150ms',
+            whiteSpace: 'nowrap',
+          }}
+          onMouseEnter={(e) => {
+            if (!isStreaming) {
+              e.currentTarget.style.background = SOCRATES_COLOR.bg;
+              e.currentTarget.style.color = SOCRATES_COLOR.accent;
+              e.currentTarget.style.borderColor = SOCRATES_COLOR.accent;
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'var(--bg)';
+            e.currentTarget.style.color = 'var(--text-mid)';
+            e.currentTarget.style.borderColor = 'var(--border)';
+          }}
+          onClick={() => setSocratesMode(true)}
+          disabled={isStreaming}
+          title="AIが一問ずつ深掘り質問を返すモード（最大5往復）"
+        >
+          深掘りモード
+        </button>
+      )}
     </div>
   );
 }

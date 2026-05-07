@@ -141,6 +141,7 @@ export function AiChat({ chatRef }: AiChatProps) {
     phase, creatorType, detectedBlock, creativeCore,
     tone, contextSources,
     setDetectedBlock,
+    socratesMode, socratesDepth, incrementSocratesDepth,
   } = useAiStore();
   const theme = useUIStore((s) => s.theme);
   const [input, setInput] = useState('');
@@ -193,6 +194,7 @@ export function AiChat({ chatRef }: AiChatProps) {
         }
         if (done) {
           finalizeAssistantMessage();
+          incrementSocratesDepth();
           unlistenFn?.();
           return;
         }
@@ -212,6 +214,8 @@ export function AiChat({ chatRef }: AiChatProps) {
         creativeCore,
         tone,
         contextData,
+        socratesMode,
+        socratesDepth,
       });
 
       // 'error' ロールと 'system' ロールはRustへ送らずに除外する
@@ -231,7 +235,7 @@ export function AiChat({ chatRef }: AiChatProps) {
       setStreamError(String(e));
       unlistenFn?.();
     }
-  }, [isStreaming, currentProjectId, currentEpisode, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, setStreamError, phase, creatorType, detectedBlock, creativeCore, tone, contextSources]);
+  }, [isStreaming, currentProjectId, currentEpisode, messages, addUserMessage, startAssistantMessage, appendChunk, finalizeAssistantMessage, incrementSocratesDepth, setStreamError, phase, creatorType, detectedBlock, creativeCore, tone, contextSources, socratesMode, socratesDepth]);
 
   useEffect(() => {
     if (chatRef && 'current' in chatRef) {
@@ -268,12 +272,29 @@ export function AiChat({ chatRef }: AiChatProps) {
         className="flex items-center justify-between px-3 py-2 flex-shrink-0"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <span
-          className="text-xs font-medium"
-          style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}
-        >
-          {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className="text-xs font-medium"
+            style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}
+          >
+            {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
+          </span>
+          {socratesMode && (
+            <span
+              className="text-xs"
+              style={{
+                padding: '1px 7px',
+                borderRadius: '8px',
+                background: 'rgba(139,124,246,0.12)',
+                border: '1px solid rgba(139,124,246,0.4)',
+                color: '#8b7cf6',
+                fontWeight: 500,
+              }}
+            >
+              深掘り {socratesDepth}/5
+            </span>
+          )}
+        </div>
         <button
           className="text-xs"
           style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}

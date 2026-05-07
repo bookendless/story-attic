@@ -98,6 +98,7 @@ pub fn run() {
             commands::ai::ai_send_message,
             commands::ai::ai_test_connection,
             commands::ai::ai_get_whisper,
+            commands::ai::ai_get_reader_perspective,
             // タグ
             commands::tag::add_tag,
             commands::tag::remove_tag,

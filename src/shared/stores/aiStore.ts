@@ -83,12 +83,18 @@ interface AiState {
   clearHistory: () => void;
   removeLastError: () => void;
 
+  socratesMode: boolean;
+  socratesDepth: number;
+
   setPhase: (phase: CreativePhase) => void;
   setCreatorType: (type: CreatorType) => void;
   setDetectedBlock: (block: BlockType) => void;
   setCreativeCore: (core: Partial<CreativeCore>) => void;
   setTone: (tone: AiTone) => void;
   toggleContextSource: (source: AiContextSource) => void;
+  setSocratesMode: (mode: boolean) => void;
+  incrementSocratesDepth: () => void;
+  resetSocrates: () => void;
 
   /** プロジェクトロード時にDBからcreatorTypeを復元 */
   loadCreatorOsSettings: (projectId: string) => Promise<void>;
@@ -110,6 +116,8 @@ export const useAiStore = create<AiState>((set) => ({
   creativeCore: { ...DEFAULT_CREATIVE_CORE },
   tone: 'formal',
   contextSources: ['body'],
+  socratesMode: false,
+  socratesDepth: 0,
 
   addUserMessage: (content) =>
     set((s) => ({ messages: [...s.messages, { role: 'user', content }] })),
@@ -162,6 +170,15 @@ export const useAiStore = create<AiState>((set) => ({
           : [...s.contextSources, source],
       };
     }),
+  setSocratesMode: (mode) => set({ socratesMode: mode, socratesDepth: 0 }),
+  incrementSocratesDepth: () =>
+    set((s) => {
+      if (!s.socratesMode) return s;
+      const next = s.socratesDepth + 1;
+      if (next > 5) return { socratesMode: false, socratesDepth: 0 };
+      return { socratesDepth: next };
+    }),
+  resetSocrates: () => set({ socratesMode: false, socratesDepth: 0 }),
 
   loadCreatorOsSettings: async (projectId) => {
     try {

@@ -6,6 +6,8 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
+  useDraggable,
   type DragEndEvent,
 } from '@dnd-kit/core';
 import {
@@ -222,6 +224,36 @@ function DeleteEpisodeDialog({
 }
 
 // =========================================
+// ゴミ箱ドロップゾーン
+// =========================================
+function TrashDropZone() {
+  const { isOver, setNodeRef } = useDroppable({ id: 'trash' });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        margin: '6px 8px 8px',
+        padding: '8px 12px',
+        borderRadius: '8px',
+        border: `2px dashed ${isOver ? 'var(--danger)' : 'var(--border)'}`,
+        background: isOver ? 'rgba(180,60,60,0.1)' : 'transparent',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        fontSize: '12px',
+        color: isOver ? 'var(--danger)' : 'var(--text-muted)',
+        transition: 'border-color 120ms, background 120ms, color 120ms',
+        flexShrink: 0,
+      }}
+    >
+      <span style={{ fontSize: '14px' }}>🗑</span>
+      <span>ここにドロップして削除</span>
+    </div>
+  );
+}
+
+// =========================================
 // 左パネル本体
 // =========================================
 export function LeftPanel() {
@@ -240,11 +272,21 @@ export function LeftPanel() {
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EpisodeSummary | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const findEpisodeById = useCallback((id: string): EpisodeSummary | null => {
+    if (!chapterTree) return null;
+    const all = [
+      ...chapterTree.ungrouped,
+      ...chapterTree.chapters.flatMap((c) => c.episodes),
+    ];
+    return all.find((e) => e.id === id) ?? null;
+  }, [chapterTree]);
 
   const handleAddEpisode = async () => {
     if (!currentProjectId) return;
@@ -257,16 +299,35 @@ export function LeftPanel() {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    setIsDragging(false);
     const { active, over } = event;
-    if (!over || active.id === over.id || !currentProjectId) return;
+    if (!over || !currentProjectId) return;
+
+    const overId = String(over.id);
+    const activeId = String(active.id);
+
+    if (overId === 'trash') {
+      const ep = findEpisodeById(activeId);
+      if (ep) setDeleteTarget(ep);
+      return;
+    }
+
+    if (overId.startsWith('chapter-')) {
+      const chapterId = overId.replace('chapter-', '');
+      await assignEpisodeToChapter(activeId, chapterId);
+      return;
+    }
+
+    // 未分類内の並び替え
     const ungrouped = chapterTree?.ungrouped ?? [];
-    const oldIndex = ungrouped.findIndex((e) => e.id === active.id);
-    const newIndex = ungrouped.findIndex((e) => e.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = [...ungrouped];
-    const [moved] = reordered.splice(oldIndex, 1);
-    reordered.splice(newIndex, 0, moved);
-    await reorderEpisodes(currentProjectId, reordered.map((e) => e.id));
+    const oldIndex = ungrouped.findIndex((e) => e.id === activeId);
+    const newIndex = ungrouped.findIndex((e) => e.id === overId);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      const reordered = [...ungrouped];
+      const [moved] = reordered.splice(oldIndex, 1);
+      reordered.splice(newIndex, 0, moved);
+      await reorderEpisodes(currentProjectId, reordered.map((e) => e.id));
+    }
   };
 
   const handleContextMenu = useCallback(
@@ -322,31 +383,35 @@ export function LeftPanel() {
         </div>
       </div>
 
-      {/* スクロールエリア */}
-      <div className="flex-1 overflow-y-auto py-1">
-        {chapterTree.chapters.map((cwe) => (
-          <ChapterGroup
-            key={cwe.chapter.id}
-            data={cwe}
-            currentEpisodeId={currentEpisode?.id ?? null}
-            onSelectEpisode={switchEpisode}
-            onRenameEpisode={renameEpisode}
-            onContextMenu={(e, ep) => handleContextMenu(e, ep, true)}
-          />
-        ))}
+      {/* DnD全体コンテキスト */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={() => setIsDragging(true)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setIsDragging(false)}
+      >
+        {/* スクロールエリア */}
+        <div className="flex-1 overflow-y-auto py-1">
+          {chapterTree.chapters.map((cwe) => (
+            <ChapterGroup
+              key={cwe.chapter.id}
+              data={cwe}
+              currentEpisodeId={currentEpisode?.id ?? null}
+              onSelectEpisode={switchEpisode}
+              onRenameEpisode={renameEpisode}
+              onContextMenu={(e, ep) => handleContextMenu(e, ep, true)}
+              isDragging={isDragging}
+            />
+          ))}
 
-        {chapterTree.ungrouped.length > 0 && (
-          <div>
-            {chapterTree.chapters.length > 0 && (
-              <div className="px-3 pt-3 pb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-                未分類
-              </div>
-            )}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
+          {chapterTree.ungrouped.length > 0 && (
+            <div>
+              {chapterTree.chapters.length > 0 && (
+                <div className="px-3 pt-3 pb-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  未分類
+                </div>
+              )}
               <SortableContext
                 items={chapterTree.ungrouped.map((e) => e.id)}
                 strategy={verticalListSortingStrategy}
@@ -362,16 +427,19 @@ export function LeftPanel() {
                   />
                 ))}
               </SortableContext>
-            </DndContext>
-          </div>
-        )}
+            </div>
+          )}
 
-        {chapterTree.chapters.length === 0 && chapterTree.ungrouped.length === 0 && (
-          <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
-            ＋ボタンで話を追加
-          </div>
-        )}
-      </div>
+          {chapterTree.chapters.length === 0 && chapterTree.ungrouped.length === 0 && (
+            <div className="px-3 py-6 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              ＋ボタンで話を追加
+            </div>
+          )}
+        </div>
+
+        {/* ゴミ箱ゾーン（ドラッグ中のみ表示） */}
+        {isDragging && <TrashDropZone />}
+      </DndContext>
 
       {/* 章管理モーダル */}
       {showChapterModal && currentProjectId && (
@@ -384,8 +452,6 @@ export function LeftPanel() {
           {...contextMenu}
           chapters={allChapters}
           onRename={() => {
-            // リネームはコンテキストメニュー経由でも同じくインラインで行う
-            // （この呼び出しはcontextMenuのepisodeに対してinlineRenameを発動）
             setContextMenu(null);
           }}
           onDelete={() => {
@@ -415,7 +481,7 @@ export function LeftPanel() {
 }
 
 // =========================================
-// 章グループ
+// 章グループ（ドロップ可能な章ヘッダー）
 // =========================================
 interface ChapterGroupProps {
   data: ChapterWithEpisodes;
@@ -423,36 +489,54 @@ interface ChapterGroupProps {
   onSelectEpisode: (id: string) => void;
   onRenameEpisode: (id: string, title: string) => Promise<void>;
   onContextMenu: (e: React.MouseEvent, episode: EpisodeSummary) => void;
+  isDragging: boolean;
 }
 
 function ChapterGroup({
-  data, currentEpisodeId, onSelectEpisode, onRenameEpisode, onContextMenu,
+  data, currentEpisodeId, onSelectEpisode, onRenameEpisode, onContextMenu, isDragging,
 }: ChapterGroupProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const { isOver, setNodeRef } = useDroppable({ id: `chapter-${data.chapter.id}` });
 
   return (
     <div>
       <button
+        ref={setNodeRef}
         className="w-full flex items-center gap-1 px-3 py-1.5 text-left"
-        style={{ color: 'var(--text-mid)', fontSize: '12px' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+        style={{
+          color: 'var(--text-mid)',
+          fontSize: '12px',
+          background: isOver ? 'var(--accent-soft)' : 'transparent',
+          outline: isOver ? '2px solid rgba(196,149,106,0.35)' : 'none',
+          outlineOffset: '-2px',
+          transition: 'background 120ms, outline 120ms',
+        }}
+        onMouseEnter={(e) => {
+          if (!isOver) (e.currentTarget as HTMLElement).style.background = 'var(--bg-elevated)';
+        }}
+        onMouseLeave={(e) => {
+          if (!isOver) (e.currentTarget as HTMLElement).style.background = 'transparent';
+        }}
         onClick={() => setCollapsed((c) => !c)}
       >
         <span style={{ fontSize: '10px', opacity: 0.6 }}>{collapsed ? '▷' : '▽'}</span>
         <span className="truncate font-medium">{data.chapter.title}</span>
         <span className="ml-auto text-xs opacity-50">{data.episodes.length}</span>
+        {isDragging && (
+          <span style={{ fontSize: '9px', color: 'var(--accent)', opacity: 0.7, marginLeft: '4px', flexShrink: 0 }}>
+            ← drop
+          </span>
+        )}
       </button>
       {!collapsed &&
         data.episodes.map((episode) => (
-          <EpisodeItem
+          <DraggableEpisodeItem
             key={episode.id}
             episode={episode}
             isActive={episode.id === currentEpisodeId}
             onSelect={() => onSelectEpisode(episode.id)}
             onRename={onRenameEpisode}
             onContextMenu={(e) => onContextMenu(e, episode)}
-            indent
           />
         ))}
     </div>
@@ -542,7 +626,48 @@ function EpisodeItem({ episode, isActive, onSelect, onRename, onContextMenu, ind
 }
 
 // =========================================
-// ソート可能なエピソードアイテム
+// ドラッグ可能なエピソードアイテム（章内エピソード用）
+// =========================================
+function DraggableEpisodeItem({
+  episode, isActive, onSelect, onRename, onContextMenu,
+}: Omit<EpisodeItemProps, 'indent'>) {
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({ id: episode.id });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+        opacity: isDragging ? 0.4 : 1,
+        display: 'flex',
+        alignItems: 'center',
+      }}
+      {...attributes}
+    >
+      <span
+        {...listeners}
+        className="flex-shrink-0 cursor-grab active:cursor-grabbing select-none"
+        style={{ color: 'var(--text-muted)', paddingLeft: '6px', paddingRight: '2px', fontSize: '12px' }}
+        title="ドラッグして章を変更"
+      >
+        ⠿
+      </span>
+      <div className="flex-1 min-w-0">
+        <EpisodeItem
+          episode={episode}
+          isActive={isActive}
+          onSelect={onSelect}
+          onRename={onRename}
+          onContextMenu={onContextMenu}
+          indent
+        />
+      </div>
+    </div>
+  );
+}
+
+// =========================================
+// ソート可能なエピソードアイテム（未分類用）
 // =========================================
 interface SortableEpisodeItemProps {
   episode: EpisodeSummary;

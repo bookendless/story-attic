@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useUIStore } from '@/shared/stores/uiStore';
+import { useEditorStore } from '@/shared/stores/editorStore';
+import { useAppStore } from '@/shared/stores/appStore';
 
 const STEPS = [
   {
@@ -7,24 +9,47 @@ const STEPS = [
     label: '目次タブを開く',
     desc: 'サイドパネル「目次」から章・話を管理できます',
     shortcut: 'Ctrl+1',
+    hint: 'ダブルクリックで開く',
   },
   {
     icon: '＋',
     label: '新しい話を追加',
     desc: '＋ボタンで最初の話を作成してみましょう',
     shortcut: null,
+    hint: 'ダブルクリックで追加',
   },
   {
     icon: '✦',
     label: 'AI相談から開始',
     desc: 'AIアシスタントと話すことでプロット・あらすじのヒントを得られます',
     shortcut: 'Ctrl+Shift+A',
+    hint: null,
   },
 ];
 
 export function EditorEmptyState() {
   const toggleAiPanel = useUIStore((s) => s.toggleAiPanel);
+  const openSidePanelTab = useUIStore((s) => s.openSidePanelTab);
   const [activeStep, setActiveStep] = useState<number | null>(null);
+
+  const currentProjectId = useAppStore((s) => s.currentProjectId);
+  const { createEpisode, switchEpisode, chapterTree } = useEditorStore();
+
+  const handleStepDoubleClick = async (e: React.MouseEvent, index: number) => {
+    e.preventDefault();
+    if (index === 0) {
+      openSidePanelTab('toc');
+    } else if (index === 1) {
+      if (!currentProjectId) return;
+      openSidePanelTab('toc');
+      const allEpisodes = [
+        ...(chapterTree?.chapters.flatMap((c) => c.episodes) ?? []),
+        ...(chapterTree?.ungrouped ?? []),
+      ];
+      const id = await createEpisode(currentProjectId, `第${allEpisodes.length + 1}話`);
+      await switchEpisode(id);
+    }
+  };
 
   return (
     <div className="h-full flex items-center justify-center" style={{ background: 'var(--bg)' }}>
@@ -48,6 +73,8 @@ export function EditorEmptyState() {
               <button
                 key={i}
                 onClick={() => setActiveStep(isActive ? null : i)}
+                onDoubleClick={(e) => handleStepDoubleClick(e, i)}
+                title={step.hint ?? undefined}
                 style={{
                   width: '100%',
                   background: isActive ? 'var(--accent-soft)' : 'var(--bg-surface)',
@@ -77,6 +104,16 @@ export function EditorEmptyState() {
                       flexShrink: 0,
                     }}>
                       {step.shortcut}
+                    </span>
+                  )}
+                  {step.hint && (
+                    <span style={{
+                      fontSize: '9px',
+                      color: 'var(--text-muted)',
+                      opacity: 0.65,
+                      flexShrink: 0,
+                    }}>
+                      {step.hint}
                     </span>
                   )}
                 </div>
