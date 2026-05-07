@@ -222,6 +222,13 @@ export interface AnalysisResult {
   // 文章
   readabilityScore: number;
   writingRhythm: number;
+
+  // 感覚語バランス
+  sensoryVisualCount: number;
+  sensoryAuditoryCount: number;
+  sensoryTactileCount: number;
+  sensoryOlfactoryCount: number;
+  sensoryGustatoryCount: number;
 }
 
 // =========================================

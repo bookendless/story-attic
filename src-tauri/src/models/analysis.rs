@@ -165,6 +165,18 @@ pub struct AnalysisResult {
     pub readability_score: f64,
     /// 文章リズム（句点間の平均文字数）
     pub writing_rhythm: f64,
+
+    // --- 感覚語バランス ---
+    /// 視覚語数
+    pub sensory_visual_count: usize,
+    /// 聴覚語数
+    pub sensory_auditory_count: usize,
+    /// 触覚語数
+    pub sensory_tactile_count: usize,
+    /// 嗅覚語数
+    pub sensory_olfactory_count: usize,
+    /// 味覚語数
+    pub sensory_gustatory_count: usize,
 }
 
 // =========================================

@@ -37,6 +37,20 @@ function PrimaryPane() {
   const { currentEpisode, updateBody } = useEditorStore();
   const { settings, isTategaki } = useUIStore();
   const lastIdRef = useRef<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !isTategaki) return;
+    const handler = (e: WheelEvent) => {
+      const content = container.querySelector<HTMLElement>('.editor-content');
+      if (!content) return;
+      e.preventDefault();
+      content.scrollLeft -= e.deltaY;
+    };
+    container.addEventListener('wheel', handler, { passive: false });
+    return () => container.removeEventListener('wheel', handler);
+  }, [isTategaki]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedUpdate = useCallback(
@@ -85,7 +99,7 @@ function PrimaryPane() {
       >
         {currentEpisode?.title ?? '未選択'}
       </div>
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <EditorContent editor={editor} className="h-full" />
       </div>
       {settings.show_char_count && editor && <StatusBar editor={editor} />}
@@ -105,6 +119,20 @@ function SecondaryPane() {
   } = useEditorStore();
   const { settings, isTategaki } = useUIStore();
   const lastIdRef = useRef<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !isTategaki) return;
+    const handler = (e: WheelEvent) => {
+      const content = container.querySelector<HTMLElement>('.editor-content');
+      if (!content) return;
+      e.preventDefault();
+      content.scrollLeft -= e.deltaY;
+    };
+    container.addEventListener('wheel', handler, { passive: false });
+    return () => container.removeEventListener('wheel', handler);
+  }, [isTategaki]);
 
   const availableEpisodes = useMemo(() => {
     if (!chapterTree) return [];
@@ -176,7 +204,7 @@ function SecondaryPane() {
       {/* エディタ */}
       {secondaryEpisode ? (
         <>
-          <div className="flex-1 overflow-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-auto">
             <EditorContent editor={editor} className="h-full" />
           </div>
           {settings.show_char_count && editor && <StatusBar editor={editor} />}

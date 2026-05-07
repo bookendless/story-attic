@@ -35,6 +35,21 @@ export function EditorArea() {
   const { currentEpisode, updateBody, save } = useEditorStore();
   const { searchBarVisible, isTategaki, settings, editorViewMode } = useUIStore();
   const lastEpisodeIdRef = useRef<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 縦書きモード時: マウスホイール縦スクロール → 横スクロールに変換
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || !isTategaki) return;
+    const handler = (e: WheelEvent) => {
+      const content = container.querySelector<HTMLElement>('.editor-content');
+      if (!content) return;
+      e.preventDefault();
+      content.scrollLeft -= e.deltaY;
+    };
+    container.addEventListener('wheel', handler, { passive: false });
+    return () => container.removeEventListener('wheel', handler);
+  }, [isTategaki, editorViewMode]);
 
   // debounce済みの本文更新（300ms）
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,7 +84,7 @@ export function EditorArea() {
         style: [
           `font-family: ${settings.editor_font}, serif`,
           `font-size: ${settings.editor_font_size}px`,
-          `max-width: ${settings.editor_max_width > 0 ? `${settings.editor_max_width}px` : 'none'}`,
+          `max-width: ${settings.editor_max_width > 0 ? `${settings.editor_max_width}px` : '100%'}`,
           settings.editor_max_width > 0 ? 'margin: 0 auto' : '',
         ].filter(Boolean).join('; ') + ';',
       },
@@ -95,13 +110,13 @@ export function EditorArea() {
           style: [
             `font-family: ${settings.editor_font}, serif`,
             `font-size: ${settings.editor_font_size}px`,
-            `max-width: ${settings.editor_max_width > 0 ? `${settings.editor_max_width}px` : 'none'}`,
+            `max-width: ${settings.editor_max_width > 0 ? `${settings.editor_max_width}px` : '100%'}`,
             settings.editor_max_width > 0 ? 'margin: 0 auto' : '',
           ].filter(Boolean).join('; ') + ';',
         },
       },
     });
-  }, [editor, settings.editor_font, settings.editor_font_size, settings.editor_max_width]);
+  }, [editor, settings.editor_font, settings.editor_font_size, settings.editor_max_width, isTategaki]);
 
   // エピソードが切り替わったらエディタの内容を更新し、Undo履歴をリセット
   useEffect(() => {
@@ -171,7 +186,7 @@ export function EditorArea() {
         <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''}`} style={{ background: 'var(--bg)' }}>
           {editor && <EditorToolbar editor={editor} />}
           {searchBarVisible && editor && <SearchBar editor={editor} />}
-          <div className="flex-1 overflow-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-auto">
             <EditorContent editor={editor} className="h-full" />
           </div>
           {settings.show_char_count && editor && <StatusBar editor={editor} />}
@@ -194,7 +209,7 @@ export function EditorArea() {
       {searchBarVisible && editor && <SearchBar editor={editor} />}
 
       {/* エディタ本体 */}
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
         <EditorContent editor={editor} className="h-full" />
       </div>
 

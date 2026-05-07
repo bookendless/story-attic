@@ -851,7 +851,63 @@ fn empty_result() -> AnalysisResult {
         emotion_curve: vec![0.0; 10],
         readability_score: 0.0,
         writing_rhythm: 0.0,
+        sensory_visual_count: 0,
+        sensory_auditory_count: 0,
+        sensory_tactile_count: 0,
+        sensory_olfactory_count: 0,
+        sensory_gustatory_count: 0,
     }
+}
+
+// =========================================
+/// 感覚語カウント：視覚・聴覚・触覚・嗅覚・味覚の語彙出現数を返す
+fn count_sensory_words(plain: &str) -> (usize, usize, usize, usize, usize) {
+    let count_occurrences = |words: &[&str]| -> usize {
+        words
+            .iter()
+            .map(|w| {
+                let mut count = 0usize;
+                let mut search = plain;
+                while let Some(pos) = search.find(w) {
+                    count += 1;
+                    let byte_end = pos + w.len();
+                    if byte_end >= search.len() {
+                        break;
+                    }
+                    search = &search[byte_end..];
+                }
+                count
+            })
+            .sum()
+    };
+
+    let visual = &[
+        "見る", "見える", "輝く", "光る", "暗い", "明るい", "眩しい",
+        "きらめく", "輝き", "影", "映る", "見つめる", "眺める", "鮮やか",
+        "透明", "光景", "景色",
+    ];
+    let auditory = &[
+        "聞く", "聞こえる", "叫ぶ", "響く", "鳴る", "ざわめく",
+        "騒音", "囁く", "音楽", "轟く",
+    ];
+    let tactile = &[
+        "触れる", "触る", "柔らかい", "硬い", "温かい", "冷たい", "痛い",
+        "なめらか", "ざらざら", "感触", "重い", "軽い", "熱い", "ひんやり",
+    ];
+    let olfactory = &[
+        "香る", "匂い", "芳しい", "漂う", "芳香", "臭気", "香り", "嗅ぐ",
+    ];
+    let gustatory = &[
+        "甘い", "辛い", "苦い", "酸っぱい", "塩辛い", "美味しい", "まずい",
+    ];
+
+    (
+        count_occurrences(visual),
+        count_occurrences(auditory),
+        count_occurrences(tactile),
+        count_occurrences(olfactory),
+        count_occurrences(gustatory),
+    )
 }
 
 // =========================================
@@ -967,6 +1023,15 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
     let (positive_word_count, negative_word_count, tension_word_count, emotion_curve) =
         compute_emotion(&plain, char_count);
 
+    // --- 感覚語バランス ---
+    let (
+        sensory_visual_count,
+        sensory_auditory_count,
+        sensory_tactile_count,
+        sensory_olfactory_count,
+        sensory_gustatory_count,
+    ) = count_sensory_words(&plain);
+
     // --- 文章 ---
     let kanji_rate_val = kanji_count as f64 / total;
     let readability_score = compute_readability_score(avg_sentence_length, kanji_rate_val, difficult_word_rate);
@@ -1027,6 +1092,11 @@ pub fn analyze_text(text: String) -> CmdResult<AnalysisResult> {
         emotion_curve,
         readability_score,
         writing_rhythm,
+        sensory_visual_count,
+        sensory_auditory_count,
+        sensory_tactile_count,
+        sensory_olfactory_count,
+        sensory_gustatory_count,
     })
 }
 
@@ -1502,7 +1572,319 @@ fn get_proof_rules() -> Vec<ProofRule> {
             message: "行頭に疑問符「？」があります（行頭禁則）",
             severity: "warning",
         },
+        // さ入れ言葉
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "まさせ",
+            suggestion: "「さ」を削除（例：読まさせる→読ませる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "かさせ",
+            suggestion: "「さ」を削除（例：書かさせる→書かせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "らさせ",
+            suggestion: "「さ」を削除（例：やらさせる→やらせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "なさせ",
+            suggestion: "「さ」を削除（例：死なさせる→死なせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "ばさせ",
+            suggestion: "「さ」を削除（例：遊ばさせる→遊ばせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "わさせ",
+            suggestion: "「さ」を削除（例：笑わさせる→笑わせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "たさせ",
+            suggestion: "「さ」を削除（例：持たさせる→持たせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        ProofRule {
+            category: "さ入れ言葉",
+            pattern: "がさせ",
+            suggestion: "「さ」を削除（例：急がさせる→急がせる）",
+            message: "「さ入れ言葉」です。不必要な「さ」が挿入されています",
+            severity: "warning",
+        },
+        // い抜き言葉
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "ってる",
+            suggestion: "「っている」に修正",
+            message: "「い抜き言葉」です。「っている」の「い」が省略されています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "ってた",
+            suggestion: "「っていた」に修正",
+            message: "「い抜き言葉」です。「っていた」の「い」が省略されています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "してる",
+            suggestion: "「している」に修正",
+            message: "「い抜き言葉」です。「している」の「い」が省略されています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "してた",
+            suggestion: "「していた」に修正",
+            message: "「い抜き言葉」です。「していた」の「い」が省略されています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "んでる",
+            suggestion: "「んでいる」に修正",
+            message: "「い抜き言葉」です。「んでいる」の「い」が省略されています",
+            severity: "info",
+        },
+        ProofRule {
+            category: "い抜き言葉",
+            pattern: "んでた",
+            suggestion: "「んでいた」に修正",
+            message: "「い抜き言葉」です。「んでいた」の「い」が省略されています",
+            severity: "info",
+        },
+        // 陳腐な表現
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "心臓が高鳴",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "背筋が凍",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "血が凍",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "頭が真っ白",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "体が震え",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "涙が止まら",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "胸がいっぱい",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "言葉を失",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "我に返",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "膝から崩れ落ち",
+            suggestion: "より具体的な動作描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "顔が真っ青",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "顔が真っ赤",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "息が詰ま",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "時が止ま",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "世界が止ま",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "胸が締め付けら",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "全身が震え",
+            suggestion: "より具体的な感覚描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "思わず立ち上が",
+            suggestion: "より具体的な動作描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "思わず声を上げ",
+            suggestion: "より具体的な動作描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
+        ProofRule {
+            category: "陳腐な表現",
+            pattern: "目が輝",
+            suggestion: "より具体的な描写を検討してください",
+            message: "よく使われる常套句です",
+            severity: "info",
+        },
     ]
+}
+
+/// 呼応の副詞チェック：副詞と対応する文末表現の不一致を検出する
+fn check_correlative_adverbs(chars: &[char], issues: &mut Vec<ProofIssue>) {
+    let pairs: &[(&str, &[&str])] = &[
+        ("決して",   &["ない", "ぬ", "ず"]),
+        ("めったに", &["ない", "ぬ", "ず"]),
+        ("ちっとも", &["ない", "ぬ", "ず"]),
+        ("少しも",   &["ない", "ぬ", "ず"]),
+        ("まるで",   &["ようだ", "ような", "みたいだ", "ごとく"]),
+        ("たとえ",   &["ても", "でも"]),
+        ("もし",     &["なら", "ならば", "たら", "れば"]),
+        ("いくら",   &["ても", "でも"]),
+        ("なぜなら", &["から", "ため"]),
+    ];
+    let sentence_spans = split_sentences_with_offsets(chars);
+    for (adverb, expected) in pairs {
+        for &(s_offset, s_len) in &sentence_spans {
+            if s_len == 0 {
+                continue;
+            }
+            let sentence: String = chars[s_offset..s_offset + s_len].iter().collect();
+            if !sentence.contains(adverb) {
+                continue;
+            }
+            let has_response = expected.iter().any(|e| sentence.contains(e));
+            if !has_response {
+                issues.push(ProofIssue {
+                    category: "呼応の副詞".to_string(),
+                    message: format!(
+                        "「{}」に対応する表現（{}等）が見当たりません",
+                        adverb, expected[0]
+                    ),
+                    suggestion: Some(format!(
+                        "「{}〜{}」の形にしてください",
+                        adverb, expected[0]
+                    )),
+                    offset: s_offset,
+                    length: s_len,
+                    severity: "warning".to_string(),
+                });
+            }
+        }
+    }
+}
+
+/// 主述のねじれ検出（簡易版）：「〜は〜したい」等の典型パターンを検出する
+fn check_subject_predicate_mismatch(chars: &[char], issues: &mut Vec<ProofIssue>) {
+    let goal_nouns = ["夢は", "目標は", "希望は", "目的は", "願いは", "悩みは"];
+    let want_endings = ["したい", "なりたい", "やりたい", "行きたい", "食べたい", "いたい"];
+    let sentence_spans = split_sentences_with_offsets(chars);
+    for &(s_offset, s_len) in &sentence_spans {
+        if s_len == 0 {
+            continue;
+        }
+        let sentence: String = chars[s_offset..s_offset + s_len].iter().collect();
+        let has_goal = goal_nouns.iter().any(|n| sentence.contains(n));
+        let has_want = want_endings.iter().any(|e| sentence.contains(e));
+        if has_goal && has_want {
+            issues.push(ProofIssue {
+                category: "主述のねじれ".to_string(),
+                message: "主語と述語がねじれている可能性があります".to_string(),
+                suggestion: Some(
+                    "「〜は〜することだ」など名詞述語への修正を検討してください".to_string(),
+                ),
+                offset: s_offset,
+                length: s_len,
+                severity: "info".to_string(),
+            });
+        }
+    }
 }
 
 /// 校正を実行する
@@ -1544,6 +1926,11 @@ pub fn run_proofread(text: String, categories: Vec<String>) -> CmdResult<Vec<Pro
         }
     }
 
+    // 呼応の副詞・主述のねじれチェック
+    let proof_chars: Vec<char> = plain.chars().collect();
+    check_correlative_adverbs(&proof_chars, &mut issues);
+    check_subject_predicate_mismatch(&proof_chars, &mut issues);
+
     // オフセット順にソート
     issues.sort_by_key(|i| i.offset);
 
@@ -1562,6 +1949,11 @@ fn split_sentences_with_offsets(chars: &[char]) -> Vec<(usize, usize)> {
         if matches!(ch, '。' | '！' | '？' | '!' | '?') {
             if i >= start {
                 result.push((start, i - start + 1));
+            }
+            start = i + 1;
+        } else if ch == '\n' {
+            if i > start {
+                result.push((start, i - start));
             }
             start = i + 1;
         }
@@ -1613,6 +2005,152 @@ fn extract_word_positions(chars: &[char]) -> HashMap<String, Vec<usize>> {
         }
     }
     map
+}
+
+/// 受動態偏重チェック：段落内の受動態文の割合が50%以上を検出する
+fn check_passive_overuse(plain: &str, issues: &mut Vec<ProofIssue>) {
+    let passive_endings = [
+        "れた。", "られた。", "れている。", "られている。",
+        "れていた。", "られていた。", "れる。", "られる。",
+    ];
+    let paragraphs = split_paragraphs(plain);
+    let mut para_offset = 0usize;
+    for para in &paragraphs {
+        let sentences = split_sentences(para);
+        if sentences.len() >= 3 {
+            let passive_count = sentences
+                .iter()
+                .filter(|s| passive_endings.iter().any(|e| s.ends_with(e)))
+                .count();
+            let ratio = passive_count as f32 / sentences.len() as f32;
+            if ratio >= 0.5 {
+                issues.push(ProofIssue {
+                    category: "受動態偏重".to_string(),
+                    message: format!(
+                        "この段落の文の約{}割が受動態です",
+                        (ratio * 10.0).round() as u32
+                    ),
+                    suggestion: Some("能動態への書き換えを検討してください".to_string()),
+                    offset: para_offset,
+                    length: para.chars().count(),
+                    severity: "info".to_string(),
+                });
+            }
+        }
+        para_offset += para.chars().count() + 1;
+    }
+}
+
+/// 話者なし連続会話検出：地の文なしで3つ以上続く会話を検出する
+fn check_consecutive_dialogue_no_attribution(chars: &[char], issues: &mut Vec<ProofIssue>) {
+    const ATTRIBUTION_MIN: usize = 10;
+    const THRESHOLD: usize = 3;
+
+    let mut dialogues: Vec<(usize, usize)> = Vec::new();
+    let mut depth = 0u32;
+    let mut d_start = 0usize;
+
+    for (i, &ch) in chars.iter().enumerate() {
+        match ch {
+            '「' | '『' => {
+                if depth == 0 {
+                    d_start = i;
+                }
+                depth += 1;
+            }
+            '」' | '』' => {
+                if depth > 0 {
+                    depth -= 1;
+                    if depth == 0 {
+                        dialogues.push((d_start, i));
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if dialogues.len() < THRESHOLD {
+        return;
+    }
+
+    let mut streak = 1usize;
+    let mut streak_start = dialogues[0].0;
+
+    for i in 1..dialogues.len() {
+        let gap_start = dialogues[i - 1].1 + 1;
+        let gap_end = dialogues[i].0;
+        let gap_len = gap_end.saturating_sub(gap_start);
+
+        if gap_len < ATTRIBUTION_MIN {
+            streak += 1;
+            if streak == THRESHOLD {
+                issues.push(ProofIssue {
+                    category: "話者なし連続会話".to_string(),
+                    message: format!(
+                        "話者の説明がない会話が{}つ以上続いています",
+                        THRESHOLD
+                    ),
+                    suggestion: Some(
+                        "地の文で話者を明示することを検討してください".to_string(),
+                    ),
+                    offset: streak_start,
+                    length: dialogues[i].1 - streak_start + 1,
+                    severity: "info".to_string(),
+                });
+            }
+        } else {
+            streak = 1;
+            streak_start = dialogues[i].0;
+        }
+    }
+}
+
+/// 「言った」系動詞過多検出：「と言〜」パターンが5回以上繰り返される場合に警告する
+fn check_itta_overuse(plain: &str, issues: &mut Vec<ProofIssue>) {
+    let pattern = "と言";
+    let pchars: Vec<char> = pattern.chars().collect();
+    let plen = pchars.len();
+    let chars: Vec<char> = plain.chars().collect();
+    let mut count = 0usize;
+    let mut first_offset = 0usize;
+    let mut found_first = false;
+    let mut i = 0;
+    while i + plen <= chars.len() {
+        let slice: String = chars[i..i + plen].iter().collect();
+        if slice == pattern {
+            count += 1;
+            if !found_first {
+                first_offset = i;
+                found_first = true;
+            }
+            i += plen;
+        } else {
+            i += 1;
+        }
+    }
+    if count >= 10 {
+        issues.push(ProofIssue {
+            category: "言った系過多".to_string(),
+            message: format!("「と言〜」が{}回使われています", count),
+            suggestion: Some(
+                "「とつぶやいた」「と叫んだ」「と答えた」等の多様な表現を活用してください"
+                    .to_string(),
+            ),
+            offset: if found_first { first_offset } else { 0 },
+            length: plen,
+            severity: "warning".to_string(),
+        });
+    } else if count >= 5 {
+        issues.push(ProofIssue {
+            category: "言った系過多".to_string(),
+            message: format!("「と言〜」が{}回使われています", count),
+            suggestion: Some("会話動詞を多様にすることを検討してください".to_string()),
+            offset: if found_first { first_offset } else { 0 },
+            length: plen,
+            severity: "info".to_string(),
+        });
+    }
 }
 
 /// 可読性チェック：長文・語尾重複・漢字密度・読点過多・同語近接・語彙濫用を検出する
@@ -1793,6 +2331,11 @@ pub fn run_readability(text: String) -> CmdResult<Vec<ProofIssue>> {
         }
     }
 
+    // 受動態偏重・話者なし連続会話・言った系過多チェック
+    check_passive_overuse(&plain, &mut issues);
+    check_consecutive_dialogue_no_attribution(&chars, &mut issues);
+    check_itta_overuse(&plain, &mut issues);
+
     issues.sort_by_key(|i| i.offset);
     Ok(issues)
 }
@@ -1829,6 +2372,62 @@ fn extract_jino_sentences(plain: &str) -> Vec<String> {
         }
     }
     sentences
+}
+
+/// 送り仮名のゆれ検出：同一テキスト内で送り仮名の異なる表記が混在する場合に警告する
+fn check_okurigana_variation(plain: &str, issues: &mut Vec<ProofIssue>) {
+    let pairs: &[(&str, &str)] = &[
+        ("取り組む", "取組む"),
+        ("申し込む", "申込む"),
+        ("打ち合わせ", "打合わせ"),
+        ("受け付ける", "受付ける"),
+        ("受け取る", "受取る"),
+        ("手続き", "手続"),
+        ("売り込む", "売込む"),
+        ("立て替える", "立替える"),
+        ("読み返す", "読返す"),
+        ("呼び掛ける", "呼びかける"),
+    ];
+    for &(a, b) in pairs {
+        if plain.contains(a) && plain.contains(b) {
+            issues.push(ProofIssue {
+                category: "送り仮名のゆれ".to_string(),
+                message: format!("「{}」と「{}」が混在しています", a, b),
+                suggestion: Some("送り仮名の表記を統一してください".to_string()),
+                offset: 0,
+                length: 0,
+                severity: "warning".to_string(),
+            });
+        }
+    }
+}
+
+/// 外来語表記ゆれ検出：語末の長音符あり/なしの揺れを検出する
+fn check_foreign_word_variation(plain: &str, issues: &mut Vec<ProofIssue>) {
+    let pairs: &[(&str, &str)] = &[
+        ("コンピューター", "コンピュータ"),
+        ("サーバー", "サーバ"),
+        ("ユーザー", "ユーザ"),
+        ("プリンター", "プリンタ"),
+        ("スキャナー", "スキャナ"),
+        ("モニター", "モニタ"),
+        ("ルーター", "ルータ"),
+        ("ドライバー", "ドライバ"),
+        ("アダプター", "アダプタ"),
+        ("プロセッサー", "プロセッサ"),
+    ];
+    for &(a, b) in pairs {
+        if plain.contains(a) && plain.contains(b) {
+            issues.push(ProofIssue {
+                category: "外来語表記ゆれ".to_string(),
+                message: format!("「{}」と「{}」が混在しています", a, b),
+                suggestion: Some("外来語の表記を統一してください".to_string()),
+                offset: 0,
+                length: 0,
+                severity: "warning".to_string(),
+            });
+        }
+    }
 }
 
 /// 一貫性チェック：文体混在・会話文の閉じ忘れ・数字表記ゆれ・時刻矛盾を検出する
@@ -1911,7 +2510,7 @@ pub fn run_consistency_check(text: String) -> CmdResult<Vec<ProofIssue>> {
         .count();
     let numeric_kanji = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
     let kanji_num_count = plain.chars().filter(|c| numeric_kanji.contains(c)).count();
-    if arabic_count >= 3 && kanji_num_count >= 3 {
+    if arabic_count >= 1 && kanji_num_count >= 1 {
         issues.push(ProofIssue {
             category: "数字表記ゆれ".to_string(),
             message: format!(
@@ -1953,6 +2552,10 @@ pub fn run_consistency_check(text: String) -> CmdResult<Vec<ProofIssue>> {
         }
         para_char_off += para_len + 1;
     }
+
+    // 送り仮名のゆれ・外来語表記ゆれチェック
+    check_okurigana_variation(&plain, &mut issues);
+    check_foreign_word_variation(&plain, &mut issues);
 
     Ok(issues)
 }

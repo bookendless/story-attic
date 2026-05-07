@@ -415,6 +415,8 @@ function VocabularyTab({ result }: { result: AnalysisResult }) {
           ※ 形態素解析なしの概算値。実際の品詞とは異なる場合があります。
         </p>
       </Section>
+
+      <SensoryBalanceSection result={result} />
     </>
   );
 }
@@ -728,6 +730,66 @@ function WritingTab({ result }: { result: AnalysisResult }) {
         )}
       </Section>
     </>
+  );
+}
+
+// =========================================
+// 感覚語バランス
+// =========================================
+
+function SensoryBalanceSection({ result }: { result: AnalysisResult }) {
+  const total =
+    result.sensoryVisualCount +
+    result.sensoryAuditoryCount +
+    result.sensoryTactileCount +
+    result.sensoryOlfactoryCount +
+    result.sensoryGustatoryCount;
+
+  if (total === 0) {
+    return (
+      <Section title="感覚語バランス">
+        <EmptyHint text="感覚語が検出されませんでした" />
+      </Section>
+    );
+  }
+
+  const maxCount = Math.max(
+    result.sensoryVisualCount,
+    result.sensoryAuditoryCount,
+    result.sensoryTactileCount,
+    result.sensoryOlfactoryCount,
+    result.sensoryGustatoryCount,
+    1,
+  );
+
+  const senses = [
+    { label: '視覚', count: result.sensoryVisualCount, color: '#6b9fc4' },
+    { label: '聴覚', count: result.sensoryAuditoryCount, color: '#7cb8a0' },
+    { label: '触覚', count: result.sensoryTactileCount, color: '#c8a070' },
+    { label: '嗅覚', count: result.sensoryOlfactoryCount, color: '#a07cb8' },
+    { label: '味覚', count: result.sensoryGustatoryCount, color: '#c87070' },
+  ];
+
+  return (
+    <Section title="感覚語バランス（五感）">
+      <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+        視覚・聴覚・触覚・嗅覚・味覚の語彙分布（計{total}語）
+      </p>
+      <div className="space-y-2">
+        {senses.map(({ label, count, color }) => (
+          <RateBar
+            key={label}
+            label={label}
+            rate={count / maxCount}
+            color={color}
+            valueLabel={`${count}語`}
+          />
+        ))}
+      </div>
+      <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+        ※ 視覚偏重が多い場合、聴覚・触覚・嗅覚の描写を加えると没入感が増します。
+      </p>
+    </Section>
   );
 }
 
