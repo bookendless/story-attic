@@ -11,7 +11,6 @@
     "fs:default",
     "fs:allow-write-text-file",
     "fs:allow-write-file",
-    "fs:allow-read-text-file",
-    "shell:default"
+    "fs:allow-read-text-file"
   ]
 }

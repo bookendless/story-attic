@@ -5,13 +5,105 @@
 //! フロントエンドは `listen("ai-chunk", ...)` で受信し、テキストを蓄積する。
 //!
 //! # 対応プロバイダー
-//! - `"openai"`   → OpenAI API（GPT-4o 等）
+//! - `"openai"`    → OpenAI API（GPT-4o 等）
 //! - `"anthropic"` → Anthropic API（Claude 等）
-//! - `"local"`    → OpenAI互換ローカルLLM（Ollama 等）
+//! - `"google"`    → Google Gemini（OpenAI 互換エンドポイント経由）
+//! - `"xai"`       → xAI Grok（OpenAI 互換エンドポイント経由）
+//! - `"local"`     → OpenAI互換ローカルLLM（Ollama 等）
 
 use crate::models::ai::{AiChunkPayload, AiMessage, AiSettings};
 use crate::AppState;
 use tauri::Emitter;
+
+// =========================================
+// プロバイダーガード / 既定値 / 秘匿マスキング
+// =========================================
+
+/// 受け付けるプロバイダー識別子（不明値を弾く allowlist）
+const PROVIDER_ALLOWLIST: &[&str] = &["openai", "anthropic", "google", "xai", "local"];
+
+fn ensure_allowed(provider: &str) -> Result<(), String> {
+    if PROVIDER_ALLOWLIST.contains(&provider) {
+        Ok(())
+    } else {
+        Err(format!("不正なプロバイダー: {}", provider))
+    }
+}
+
+/// プロバイダー別の既定ベースURL（OpenAI 互換エンドポイント）
+fn default_base_url(provider: &str) -> &'static str {
+    match provider {
+        "google" => "https://generativelanguage.googleapis.com/v1beta/openai",
+        "xai" => "https://api.x.ai/v1",
+        _ => "https://api.openai.com/v1",
+    }
+}
+
+/// local プロバイダーの base_url をバリデーションする。
+/// http(s)://localhost/* / http(s)://127.0.0.1/* / http(s)://[::1]/* のみ許可。
+fn validate_local_base_url(raw: &str) -> Result<String, String> {
+    let without_scheme = raw
+        .strip_prefix("http://")
+        .or_else(|| raw.strip_prefix("https://"))
+        .ok_or_else(|| "base_url は http:// または https:// で始まる必要があります".to_string())?;
+
+    let host = without_scheme
+        .split(|c: char| c == '/' || c == ':')
+        .next()
+        .unwrap_or("");
+    let host_clean = host.trim_matches('[').trim_matches(']');
+
+    if host_clean != "localhost" && host_clean != "127.0.0.1" && host_clean != "::1" {
+        return Err(
+            "local プロバイダーの base_url はループバックアドレス（localhost / 127.0.0.1 / ::1）のみ許可されています".into(),
+        );
+    }
+
+    Ok(raw.trim_end_matches('/').to_string())
+}
+
+/// プロバイダーと設定から有効な base_url を解決する。
+/// local 以外のプロバイダーは base_url を無視し常に既定値を返す。
+fn resolve_base_url(provider: &str, base_url: Option<&str>) -> Result<String, String> {
+    if provider == "local" {
+        match base_url {
+            Some(url) if !url.is_empty() => validate_local_base_url(url),
+            _ => Ok(default_base_url(provider).to_string()),
+        }
+    } else {
+        Ok(default_base_url(provider).to_string())
+    }
+}
+
+/// API エラー本文に含まれうる秘匿情報をマスクする。
+/// - 渡された `api_key` の文字列一致はそのまま `***` 置換
+/// - 一般的なキー先頭プレフィクス (`sk-` / `xai-` / `AIza`) は粗く検出して `***` に
+fn mask_secrets(api_key: &str, body: &str) -> String {
+    let mut out = body.to_string();
+    if !api_key.is_empty() {
+        out = out.replace(api_key, "***");
+    }
+    for prefix in ["sk-", "xai-", "AIza"] {
+        let mut idx = 0;
+        while let Some(rel) = out[idx..].find(prefix) {
+            let start = idx + rel;
+            let tail_len = out[start + prefix.len()..]
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
+                .map(|c| c.len_utf8())
+                .sum::<usize>();
+            if tail_len < 8 {
+                // 誤検知防止: prefix を超えて次の探索位置へ進める
+                idx = start + prefix.len();
+                continue;
+            }
+            let end = start + prefix.len() + tail_len;
+            out.replace_range(start..end, "***");
+            idx = start + 3; // "***" の長さ
+        }
+    }
+    out
+}
 
 // =========================================
 // DB 操作
@@ -62,8 +154,17 @@ pub async fn ai_save_settings(
     settings: AiSettings,
 ) -> Result<(), String> {
     let db = state.db.lock().map_err(|e| e.to_string())?;
+    // local 以外は base_url を保存しない。local はバリデーション済み値のみ保存。
+    let validated_base_url: Option<String> = if settings.provider == "local" {
+        match settings.base_url.as_deref() {
+            Some(url) if !url.is_empty() => Some(validate_local_base_url(url)?),
+            other => other.map(String::from),
+        }
+    } else {
+        None
+    };
     let data = serde_json::json!({
-        "base_url": settings.base_url,
+        "base_url": validated_base_url,
         "creator_type": settings.creator_type,
     });
     db.execute(
@@ -142,6 +243,11 @@ pub async fn ai_send_message(
         return Ok(());
     }
 
+    if let Err(e) = ensure_allowed(&settings.provider) {
+        emit_error(&app, e);
+        return Ok(());
+    }
+
     // キーリングから API キーを取得
     let api_key = match get_api_key(&settings.provider).await {
         Ok(Some(key)) => key,
@@ -166,13 +272,11 @@ pub async fn ai_send_message(
             stream_anthropic(&app, &api_key, &settings.model, &system_prompt, &clean_messages).await
         }
         _ => {
-            // "openai" または "local"（OpenAI互換）
-            let base_url = settings
-                .base_url
-                .as_deref()
-                .unwrap_or("https://api.openai.com/v1")
-                .trim_end_matches('/')
-                .to_string();
+            // OpenAI / Google / xAI / local — OpenAI 互換ルート
+            let base_url = match resolve_base_url(&settings.provider, settings.base_url.as_deref()) {
+                Ok(url) => url,
+                Err(e) => { emit_error(&app, e); return Ok(()); }
+            };
             stream_openai_compatible(&app, &api_key, &base_url, &settings.model, &system_prompt, &clean_messages).await
         }
     }
@@ -188,6 +292,8 @@ pub async fn ai_test_connection(
     service: String,
     base_url: Option<String>,
 ) -> Result<String, String> {
+    ensure_allowed(&service)?;
+
     let api_key = match get_api_key(&service).await? {
         Some(key) => key,
         None => return Err("APIキーが設定されていません".into()),
@@ -213,33 +319,30 @@ pub async fn ai_test_connection(
                 }))
                 .send()
                 .await
-                .map_err(|e| format!("接続エラー: {}", e))?;
+                .map_err(|e| format!("接続エラー: {}", mask_secrets(&api_key, &e.to_string())))?;
 
             if resp.status().is_success() {
                 Ok("接続に成功しました".into())
             } else {
                 let body = resp.text().await.unwrap_or_default();
-                Err(format!("APIエラー: {}", body))
+                Err(format!("APIエラー: {}", mask_secrets(&api_key, &body)))
             }
         }
         _ => {
-            // OpenAI / local: モデル一覧エンドポイントで確認
-            let url = base_url
-                .as_deref()
-                .unwrap_or("https://api.openai.com/v1")
-                .trim_end_matches('/');
+            // OpenAI / Google / xAI / local: モデル一覧エンドポイントで確認
+            let url_owned = resolve_base_url(&service, base_url.as_deref())?;
             let resp = client
-                .get(format!("{}/models", url))
+                .get(format!("{}/models", url_owned))
                 .header("Authorization", format!("Bearer {}", api_key))
                 .send()
                 .await
-                .map_err(|e| format!("接続エラー: {}", e))?;
+                .map_err(|e| format!("接続エラー: {}", mask_secrets(&api_key, &e.to_string())))?;
 
             if resp.status().is_success() {
                 Ok("接続に成功しました".into())
             } else {
                 let body = resp.text().await.unwrap_or_default();
-                Err(format!("APIエラー: {}", body))
+                Err(format!("APIエラー: {}", mask_secrets(&api_key, &body)))
             }
         }
     }
@@ -287,6 +390,7 @@ pub async fn ai_get_whisper(
     if provider.is_empty() || model.is_empty() {
         return Err("AI未設定".into());
     }
+    ensure_allowed(&provider)?;
 
     let api_key = match get_api_key(&provider).await? {
         Some(key) => key,
@@ -300,13 +404,17 @@ pub async fn ai_get_whisper(
     };
 
     match provider.as_str() {
-        "anthropic" => single_call_anthropic(&api_key, &model, WHISPER_SYSTEM, &user_msg, 80).await,
+        "anthropic" => {
+            single_call_anthropic(&api_key, &model, WHISPER_SYSTEM, &user_msg, 80)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
+        }
         _ => {
-            let url = base_url
-                .as_deref()
-                .unwrap_or("https://api.openai.com/v1")
-                .trim_end_matches('/');
-            single_call_openai_compatible(&api_key, url, &model, WHISPER_SYSTEM, &user_msg, 80).await
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, WHISPER_SYSTEM, &user_msg, 80)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
         }
     }
 }
@@ -390,6 +498,7 @@ pub async fn ai_get_reader_perspective(
     if provider.is_empty() || model.is_empty() {
         return Err("AI未設定".into());
     }
+    ensure_allowed(&provider)?;
 
     let api_key = match get_api_key(&provider).await? {
         Some(key) => key,
@@ -413,13 +522,15 @@ pub async fn ai_get_reader_perspective(
     );
 
     match provider.as_str() {
-        "anthropic" => single_call_anthropic(&api_key, &model, system, &user_msg, 120).await,
+        "anthropic" => single_call_anthropic(&api_key, &model, system, &user_msg, 120)
+            .await
+            .map_err(|e| mask_secrets(&api_key, &e)),
         _ => {
-            let url = base_url
-                .as_deref()
-                .unwrap_or("https://api.openai.com/v1")
-                .trim_end_matches('/');
-            single_call_openai_compatible(&api_key, url, &model, system, &user_msg, 120).await
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, system, &user_msg, 120)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
         }
     }
 }
@@ -606,7 +717,7 @@ async fn stream_openai_compatible(
 
     if !response.status().is_success() {
         let body = response.text().await.unwrap_or_default();
-        emit_error(app, format!("APIエラー: {}", body));
+        emit_error(app, format!("APIエラー: {}", mask_secrets(api_key, &body)));
         return Ok(());
     }
 
@@ -675,7 +786,7 @@ async fn stream_anthropic(
 
     if !response.status().is_success() {
         let body_text = response.text().await.unwrap_or_default();
-        emit_error(app, format!("APIエラー: {}", body_text));
+        emit_error(app, format!("APIエラー: {}", mask_secrets(api_key, &body_text)));
         return Ok(());
     }
 

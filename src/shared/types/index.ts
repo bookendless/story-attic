@@ -260,7 +260,7 @@ export interface ProofIssue {
 // =========================================
 
 /** AIプロバイダー識別子 */
-export type AiProvider = 'openai' | 'anthropic' | 'local';
+export type AiProvider = 'openai' | 'anthropic' | 'google' | 'xai' | 'local';
 
 /** チャットメッセージの役割（Rust側送信時の値と一致） */
 export type AiMessageRole = 'user' | 'assistant' | 'system';

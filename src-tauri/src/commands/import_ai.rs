@@ -71,7 +71,22 @@ pub struct ImportCounts {
 /// AI Story Builder ファイルをパースしてプレビュー用データを返す（DB書き込みなし）
 #[tauri::command]
 pub fn parse_ai_story_builder_file(path: String) -> CmdResult<ParsedStoryProject> {
-    let content = std::fs::read_to_string(&path)
+    let p = std::path::Path::new(&path);
+
+    // .txt のみ許可
+    match p.extension().and_then(|s| s.to_str()) {
+        Some("txt") => {}
+        _ => return Err("テキストファイル（.txt）のみインポート可能です".into()),
+    }
+
+    // 10MB 以下に制限
+    let meta = std::fs::metadata(p)
+        .map_err(|e| format!("ファイル情報の取得に失敗しました: {}", e))?;
+    if meta.len() > 10 * 1024 * 1024 {
+        return Err("ファイルサイズが大きすぎます（上限: 10MB）".into());
+    }
+
+    let content = std::fs::read_to_string(p)
         .map_err(|e| format!("ファイル読み込みエラー: {}", e))?;
     Ok(parse_content(&content))
 }

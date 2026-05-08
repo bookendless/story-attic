@@ -136,7 +136,13 @@ function SmartphonePreview({ html }: { html: string }) {
             overflowY: 'auto',
             maxHeight: 'calc(100vh - 200px)',
           }}
-          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(html, {
+              USE_PROFILES: { html: true },
+              FORBID_TAGS: ['style', 'iframe', 'object', 'embed', 'form', 'script', 'base', 'link'],
+              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus', 'onblur'],
+            }),
+          }}
         />
       </div>
     </div>

@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"StoryAttic デフォルト権限","local":true,"windows":["main"],"permissions":["core:default","dialog:default","dialog:allow-save","dialog:allow-open","fs:default","fs:allow-write-text-file","fs:allow-write-file","fs:allow-read-text-file","shell:default"]}}
+{"default":{"identifier":"default","description":"StoryAttic デフォルト権限","local":true,"windows":["main"],"permissions":["core:default","dialog:default","dialog:allow-save","dialog:allow-open","fs:default","fs:allow-write-text-file","fs:allow-write-file","fs:allow-read-text-file"]}}

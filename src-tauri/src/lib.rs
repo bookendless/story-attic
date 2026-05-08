@@ -17,7 +17,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // データディレクトリを取得（%APPDATA%/StoryAttic/）
             let app_dir = app
@@ -91,6 +90,7 @@ pub fn run() {
             // APIキー管理
             commands::keyring::save_api_key,
             commands::keyring::get_api_key,
+            commands::keyring::has_api_key,
             commands::keyring::delete_api_key,
             // AI連携
             commands::ai::ai_get_settings,
