@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { invoke } from '@tauri-apps/api/core';
 import type { ProjectSettings, ProofreadSettings } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_PROOFREAD_SETTINGS } from '../types';
 
@@ -237,6 +238,24 @@ function saveAmbienceToStorage(enabled: boolean, settings: AmbienceSettings) {
   }
 }
 
+/** 今日の執筆合計秒数をlocalStorageから復元（別日付なら0にリセット） */
+function loadTodaySession(): { sec: number; date: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const stored = localStorage.getItem('story-attic-today-session');
+    if (stored) {
+      const parsed = JSON.parse(stored) as { date: string; sec: number };
+      if (parsed.date === today) return { sec: Number(parsed.sec) || 0, date: today };
+    }
+  } catch { /* 無視 */ }
+  return { sec: 0, date: today };
+}
+
+/** 今日の執筆合計秒数をlocalStorageに保存 */
+function saveTodaySessionToStorage(date: string, sec: number) {
+  try { localStorage.setItem('story-attic-today-session', JSON.stringify({ date, sec })); } catch { /* 無視 */ }
+}
+
 interface UIState {
   searchBarVisible: boolean;
   isTategaki: boolean;
@@ -323,6 +342,14 @@ interface UIState {
   stopTimer: () => void;
   tickTimer: () => void;
 
+  /** パッシブ執筆追跡 */
+  passiveSessionSec: number;     // 未フラッシュのセッション秒数
+  todayTotalSec: number;         // 今日の確定済み合計秒数（localStorage永続化）
+  todayDate: string;             // todayTotalSec に対応する日付 YYYY-MM-DD
+  incrementPassiveSession: (deltaSec: number) => void;
+  flushPassiveSession: (projectId: string, charCount: number) => Promise<void>;
+  resetTodayIfNeeded: () => void;
+
   /** 目標文字数を設定（0やnullで解除） */
   setDailyGoal: (goal: number | null) => void;
 
@@ -337,7 +364,9 @@ interface UIState {
 
 const initialAmbience = loadAmbienceSettings();
 
-export const useUIStore = create<UIState>((set) => ({
+const initialTodaySession = loadTodaySession();
+
+export const useUIStore = create<UIState>((set, get) => ({
   searchBarVisible: false,
   isTategaki: false,
   settings: DEFAULT_SETTINGS,
@@ -357,6 +386,9 @@ export const useUIStore = create<UIState>((set) => ({
   timerRunning: false,
   timerRemaining: 0,
   timerTotal: 0,
+  passiveSessionSec: 0,
+  todayTotalSec: initialTodaySession.sec,
+  todayDate: initialTodaySession.date,
   previewSubMode: 'manuscript' as PreviewSubMode,
   commandPaletteVisible: false,
   ambiencePopoverVisible: false,
@@ -441,6 +473,30 @@ export const useUIStore = create<UIState>((set) => ({
       }
       return { timerRemaining: next };
     }),
+
+  incrementPassiveSession: (deltaSec) =>
+    set((s) => ({ passiveSessionSec: s.passiveSessionSec + deltaSec })),
+
+  flushPassiveSession: async (projectId, charCount) => {
+    const { passiveSessionSec, todayTotalSec } = get();
+    if (passiveSessionSec <= 0 || !projectId) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const newTotal = todayTotalSec + passiveSessionSec;
+    set({ passiveSessionSec: 0, todayTotalSec: newTotal, todayDate: today });
+    saveTodaySessionToStorage(today, newTotal);
+    await invoke('append_diary_session', {
+      projectId, date: today, charCount, deltaSec: passiveSessionSec,
+    }).catch(() => { /* 無視 */ });
+  },
+
+  resetTodayIfNeeded: () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { todayDate } = get();
+    if (todayDate !== today) {
+      set({ todayTotalSec: 0, todayDate: today, passiveSessionSec: 0 });
+      saveTodaySessionToStorage(today, 0);
+    }
+  },
 
   setPreviewSubMode: (previewSubMode) => set({ previewSubMode }),
 

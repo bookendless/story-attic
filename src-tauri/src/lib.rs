@@ -144,6 +144,7 @@ pub fn run() {
             commands::plot::rename_timeline,
             // 執筆支援
             commands::writing_support::save_diary_entry,
+            commands::writing_support::append_diary_session,
             commands::writing_support::get_diary_entries,
             commands::writing_support::get_diary_entries_range,
             // あらすじ

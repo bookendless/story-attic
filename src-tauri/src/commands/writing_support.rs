@@ -27,6 +27,28 @@ pub fn save_diary_entry(
     Ok(())
 }
 
+/// 執筆セッション秒数を累積加算する（同日は session_sec を加算、char_count は上書き）
+#[tauri::command]
+pub fn append_diary_session(
+    project_id: String,
+    date: String,
+    char_count: i64,
+    delta_sec: i64,
+    state: State<AppState>,
+) -> CmdResult<()> {
+    let conn = state.db.lock().map_err(err)?;
+    conn.execute(
+        "INSERT INTO diary_entries (project_id, date, char_count, session_sec)
+         VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(project_id, date) DO UPDATE SET
+           char_count = excluded.char_count,
+           session_sec = session_sec + excluded.session_sec",
+        rusqlite::params![project_id, date, char_count, delta_sec],
+    )
+    .map_err(err)?;
+    Ok(())
+}
+
 /// プロジェクトの全日記エントリを取得する
 #[tauri::command]
 pub fn get_diary_entries(project_id: String, state: State<AppState>) -> CmdResult<Vec<DiaryEntry>> {

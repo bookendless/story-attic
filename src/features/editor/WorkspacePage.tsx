@@ -6,6 +6,7 @@ import { useUIStore } from '@/shared/stores/uiStore';
 import { useAutoSave } from '@/shared/hooks/useAutoSave';
 import { useHistorySnapshot } from '@/shared/hooks/useHistorySnapshot';
 import { useSound } from '@/shared/hooks/useSound';
+import { usePassiveSessionTracker } from '@/features/writing-support/usePassiveSessionTracker';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { EditorArea } from './components/EditorArea';
 import { SidePanel } from './components/SidePanel';
@@ -39,6 +40,9 @@ export function WorkspacePage() {
   useHistorySnapshot();
   // サウンド管理フック
   useSound();
+  // パッシブ執筆追跡フック
+  const currentEpisodeForTracker = useEditorStore((s) => s.currentEpisode);
+  usePassiveSessionTracker(currentProjectId, currentEpisodeForTracker?.charCount ?? 0);
 
   useEffect(() => {
     if (currentProjectId) {

@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAppStore } from '@/shared/stores/appStore';
-import { IconSun, IconMoon } from '@/shared/components/Icons';
+import { IconSun, IconMoon, IconGhost } from '@/shared/components/Icons';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { ProofIssue } from '@/shared/types';
 
@@ -119,14 +119,23 @@ function formatTime(sec: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+/** 秒数を「Xm」にフォーマット */
+function formatMinutes(sec: number) {
+  return `${Math.floor(sec / 60)}m`;
+}
+
 export function StatusBar({ editor }: Props) {
   const { settings, proofreadSettings, setEditorViewMode, editorViewMode, dismissedIssuesByEpisode } = useUIStore();
   const { timerRunning, timerRemaining, timerTotal, startTimer, stopTimer, tickTimer, dailyGoal } = useUIStore();
+  const todayTotalSec = useUIStore((s) => s.todayTotalSec);
+  const passiveSessionSec = useUIStore((s) => s.passiveSessionSec);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const ambienceEnabled = useUIStore((s) => s.ambienceEnabled);
   const soundEnabled = useUIStore((s) => s.soundSettings.enabled);
   const toggleAmbiencePopover = useUIStore((s) => s.toggleAmbiencePopover);
+  const characterSettings = useUIStore((s) => s.characterSettings);
+  const setCharacterSettings = useUIStore((s) => s.setCharacterSettings);
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
   const lastSnapshotAt = useEditorStore((s) => s.lastSnapshotAt);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
@@ -413,13 +422,22 @@ export function StatusBar({ editor }: Props) {
 
       {/* 右側: トグル群 + タイマー */}
       <div className="flex items-center gap-1 px-2 relative" style={{ flexShrink: 0 }}>
-        {/* 雰囲気ポップオーバー起動 (演出/サウンド/ゴースト) */}
+        {/* 雰囲気ポップオーバー起動 (演出/サウンド) */}
         <StatusBarToggle
           active={ambienceEnabled || soundEnabled}
           onClick={toggleAmbiencePopover}
-          title="雰囲気設定 (演出/サウンド/ゴースト)"
+          title="雰囲気設定 (演出/サウンド)"
         >
           <span style={{ fontSize: '13px' }}>♪</span>
+        </StatusBarToggle>
+
+        {/* ゴーストちゃん */}
+        <StatusBarToggle
+          active={characterSettings.enabled}
+          onClick={() => setCharacterSettings({ ...characterSettings, enabled: !characterSettings.enabled })}
+          title="ゴーストちゃん (執筆仲間を呼ぶ)"
+        >
+          <IconGhost size={14} />
         </StatusBarToggle>
 
         {/* テーマ切替 */}
@@ -538,6 +556,21 @@ export function StatusBar({ editor }: Props) {
         )}
 
         <div className="w-px h-4 mx-1" style={{ background: 'var(--border)' }} />
+
+        {/* 今日の執筆時間バッジ */}
+        {(todayTotalSec + passiveSessionSec) >= 60 && (
+          <span
+            title="今日の執筆時間（タイマーなしでも自動計測）"
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              whiteSpace: 'nowrap',
+              padding: '0 4px',
+            }}
+          >
+            今日 {formatMinutes(todayTotalSec + passiveSessionSec)}
+          </span>
+        )}
 
         <button
           className="flex items-center gap-1 hover:opacity-80 transition-opacity"
