@@ -56,6 +56,22 @@ export interface ChapterNode {
   children: ChapterNode[];
 }
 
+export interface FiveSenses {
+  weather: string;
+  season: string;
+  smell: string;
+  sound: string;
+  temperature: string;
+  lighting: string;
+}
+
+export interface InfoAsymmetryResult {
+  readerKnows: string[];
+  protagonistKnows: string[];
+  hidden: string[];
+  analysisNote: string;
+}
+
 export interface Chapter {
   id: string;
   projectId: string;
@@ -67,6 +83,7 @@ export interface Chapter {
   setting: string;
   mood: string;
   importantEvents: string;
+  fiveSenses?: FiveSenses;
 }
 
 export interface ChapterWithEpisodes {

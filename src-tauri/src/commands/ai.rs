@@ -535,6 +535,198 @@ pub async fn ai_get_reader_perspective(
     }
 }
 
+// =========================================
+// 共鳴スコア（非ストリーミング・JSON返却）
+// =========================================
+
+/// 共鳴スコアフィードバック用システムプロンプト
+const RESONANCE_SYSTEM: &str = "\
+あなたは小説編集者です。渡された文章を以下の4軸で100点満点評価し、\
+必ずJSON形式のみで返してください（説明文不要）。\
+{\"tension\":<0-100>,\"empathy\":<0-100>,\"tempo\":<0-100>,\"surprise\":<0-100>,\
+\"suggestions\":[\"改善提案1\",\"改善提案2\",\"改善提案3\"]}\
+tension=緊張感・ドラマ性, empathy=読者の感情移入しやすさ, \
+tempo=文章のテンポ・リズム感, surprise=意外性・展開の新鮮さ。\
+改善提案は具体的に3つ、日本語で。JSON以外の文字は絶対に出力しないこと。";
+
+/// 文章の共鳴スコアを4軸で評価する（AI生成・非ストリーミング）
+#[tauri::command]
+pub async fn ai_get_resonance_score(
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    content: String,
+) -> Result<String, String> {
+    let (provider, model, base_url) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let result = db.query_row(
+            "SELECT provider, model, data FROM ai_settings WHERE project_id = ?1",
+            [&project_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)),
+        );
+        match result {
+            Ok((provider, model, data_str)) => {
+                let data: serde_json::Value =
+                    serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+                (provider, model, data["base_url"].as_str().map(String::from))
+            }
+            Err(_) => return Err("AI未設定".into()),
+        }
+    };
+
+    if provider.is_empty() || model.is_empty() {
+        return Err("AI未設定".into());
+    }
+    ensure_allowed(&provider)?;
+
+    let api_key = match get_api_key(&provider).await? {
+        Some(key) => key,
+        None => return Err("APIキー未設定".into()),
+    };
+
+    let user_msg = format!("以下の文章を評価してください:\n\n{}", &content[..content.len().min(3000)]);
+
+    match provider.as_str() {
+        "anthropic" => single_call_anthropic(&api_key, &model, RESONANCE_SYSTEM, &user_msg, 400)
+            .await
+            .map_err(|e| mask_secrets(&api_key, &e)),
+        _ => {
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, RESONANCE_SYSTEM, &user_msg, 400)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
+        }
+    }
+}
+
+// =========================================
+// 読者情報格差分析（非ストリーミング・JSON返却）
+// =========================================
+
+/// 読者情報格差分析用システムプロンプト
+const INFO_GAP_SYSTEM: &str = "\
+あなたは物語分析の専門家です。渡された小説本文とキャラクター設定を読み、\
+指定エピソード終了時点での「情報の非対称性」を分析し、\
+必ずJSON形式のみで返してください。\
+{\"reader_knows\":[\"...\"],\"protagonist_knows\":[\"...\"],\"hidden\":[\"...\"],\"analysis_note\":\"...\"}\
+reader_knows=読者がこの時点で知っている情報（最大5件）、\
+protagonist_knows=主人公視点で知っている情報（最大5件）、\
+hidden=読者にまだ明かされていない情報・伏線（最大5件）、\
+analysis_note=情報格差の特徴を1〜2文で（日本語）。\
+JSON以外の文字は絶対に出力しないこと。";
+
+/// 指定エピソードまでの読者情報格差を分析する（AI生成・非ストリーミング）
+#[tauri::command]
+pub async fn ai_get_info_asymmetry(
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    episode_id: String,
+) -> Result<String, String> {
+    let (provider, model, base_url, story_text, char_context) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+
+        let result = db.query_row(
+            "SELECT provider, model, data FROM ai_settings WHERE project_id = ?1",
+            [&project_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?)),
+        );
+        let (provider, model, data_str) = match result {
+            Ok(r) => r,
+            Err(_) => return Err("AI未設定".into()),
+        };
+        let data: serde_json::Value =
+            serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+        let base_url = data["base_url"].as_str().map(String::from);
+
+        // 対象エピソードの sort_order を取得
+        let target_order: i64 = db.query_row(
+            "SELECT sort_order FROM episodes WHERE id = ?1",
+            [&episode_id],
+            |row| row.get(0),
+        ).unwrap_or(0);
+
+        // 対象エピソードまでの全エピソード本文を結合（最大 3000 文字）
+        let mut stmt = db.prepare(
+            "SELECT title, body FROM episodes WHERE project_id = ?1 AND sort_order <= ?2 ORDER BY sort_order ASC",
+        ).map_err(|e| e.to_string())?;
+        let episodes: Vec<(String, String)> = stmt
+            .query_map(rusqlite::params![project_id, target_order], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        let mut combined = String::new();
+        for (title, body) in &episodes {
+            let stripped: String = {
+                let mut s = String::new();
+                let mut in_tag = false;
+                for ch in body.chars() {
+                    match ch {
+                        '<' => in_tag = true,
+                        '>' => in_tag = false,
+                        _ if !in_tag => s.push(ch),
+                        _ => {}
+                    }
+                }
+                s
+            };
+            combined.push_str(&format!("【{}】\n{}\n\n", title, stripped));
+            if combined.len() >= 3000 {
+                combined.truncate(3000);
+                break;
+            }
+        }
+
+        // キャラクター名一覧
+        let mut char_stmt = db.prepare(
+            "SELECT name FROM characters WHERE project_id = ?1",
+        ).map_err(|e| e.to_string())?;
+        let names: Vec<String> = char_stmt
+            .query_map([&project_id], |row| row.get::<_, String>(0))
+            .map_err(|e| e.to_string())?
+            .filter_map(|r| r.ok())
+            .filter(|n| !n.is_empty())
+            .collect();
+        let char_context = if names.is_empty() {
+            String::new()
+        } else {
+            format!("\n\n登場人物: {}", names.join("、"))
+        };
+
+        (provider, model, base_url, combined, char_context)
+    };
+
+    if provider.is_empty() || model.is_empty() {
+        return Err("AI未設定".into());
+    }
+    ensure_allowed(&provider)?;
+
+    let api_key = match get_api_key(&provider).await? {
+        Some(key) => key,
+        None => return Err("APIキー未設定".into()),
+    };
+
+    let user_msg = format!(
+        "以下の小説本文を分析してください。{}\n\n本文:\n{}",
+        char_context, story_text
+    );
+
+    match provider.as_str() {
+        "anthropic" => single_call_anthropic(&api_key, &model, INFO_GAP_SYSTEM, &user_msg, 600)
+            .await
+            .map_err(|e| mask_secrets(&api_key, &e)),
+        _ => {
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, INFO_GAP_SYSTEM, &user_msg, 600)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
+        }
+    }
+}
+
 async fn single_call_openai_compatible(
     api_key: &str,
     base_url: &str,

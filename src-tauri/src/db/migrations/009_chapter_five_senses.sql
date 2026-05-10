@@ -1,0 +1,1 @@
+ALTER TABLE chapters ADD COLUMN five_senses TEXT NOT NULL DEFAULT '';

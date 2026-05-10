@@ -26,6 +26,7 @@ import {
   IconWorld,
   IconForeshadowing,
   IconSynopsis,
+  IconInfoGap,
 } from '@/shared/components/Icons';
 import { LeftPanel } from './LeftPanel';
 import { CharacterPanel } from '@/features/characters/CharacterPanel';
@@ -37,6 +38,7 @@ import { PlotThreadPanel } from '@/features/plot-threads/PlotThreadPanel';
 import { ChapterPanel } from '@/features/chapters/ChapterPanel';
 import { RelationshipPanel } from '@/features/relationship/RelationshipPanel';
 import { WorldSettingPanel } from '@/features/world/WorldSettingPanel';
+import { InfoGapPanel } from '@/features/info-gap/InfoGapPanel';
 
 interface TabDef {
   key: SideTab;
@@ -56,6 +58,7 @@ const TABS: TabDef[] = [
   { key: 'world',         label: '世界観',     shortcut: 'Ctrl+8', icon: IconWorld },
   { key: 'foreshadowing', label: '伏線',       shortcut: 'Ctrl+9', icon: IconForeshadowing },
   { key: 'memo',          label: 'メモ',       shortcut: 'Ctrl+0', icon: IconMemo },
+  { key: 'info-gap',      label: '情報格差',   shortcut: '',       icon: IconInfoGap },
 ];
 
 export function SidePanel() {
@@ -299,6 +302,8 @@ function TabContent({ tabKey }: { tabKey: SideTab }) {
       return <PlotThreadPanel />;
     case 'memo':
       return <MemoPanel />;
+    case 'info-gap':
+      return <InfoGapPanel />;
   }
 }
 

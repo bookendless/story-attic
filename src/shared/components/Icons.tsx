@@ -303,6 +303,17 @@ export function IconMemo({ size = defaults.size, className }: IconProps) {
   );
 }
 
+/** 読者情報格差（目＋人＋?） */
+export function IconInfoGap({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <ellipse cx="8" cy="8" rx="6" ry="4" />
+      <circle cx="8" cy="8" r="1.5" />
+      <path d="M11 4.5l1-1.5M13 6l1.5-.5" />
+    </svg>
+  );
+}
+
 /** パネル閉じる（×） */
 export function IconClose({ size = defaults.size, className }: IconProps) {
   return (

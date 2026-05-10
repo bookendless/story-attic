@@ -5,7 +5,7 @@ import { useEditorStore } from '@/shared/stores/editorStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { AnalysisResult, StructureSection } from '@/shared/types';
 
-type TabKey = 'structure' | 'tempo' | 'vocabulary' | 'character' | 'emotion' | 'narrative' | 'writing';
+type TabKey = 'structure' | 'tempo' | 'vocabulary' | 'character' | 'emotion' | 'narrative' | 'writing' | 'resonance';
 type AnalysisScope = 'episode' | 'project';
 
 const TABS: { key: TabKey; label: string }[] = [
@@ -16,6 +16,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'emotion',    label: '感情' },
   { key: 'narrative',  label: '物語' },
   { key: 'writing',    label: '文章' },
+  { key: 'resonance',  label: '共鳴スコア' },
 ];
 
 export function AnalysisModal() {
@@ -129,31 +130,40 @@ export function AnalysisModal() {
 
         {/* コンテンツエリア（ここだけスクロール） */}
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {loading && (
-            <div
-              className="text-sm text-center py-8"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              分析中...
-            </div>
-          )}
+          {activeTab === 'resonance' ? (
+            <ResonanceTab
+              projectId={currentEpisode?.projectId ?? ''}
+              content={currentEpisode?.body ?? ''}
+            />
+          ) : (
+            <>
+              {loading && (
+                <div
+                  className="text-sm text-center py-8"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  分析中...
+                </div>
+              )}
 
-          {error && (
-            <div className="text-sm py-4" style={{ color: 'var(--danger)' }}>
-              エラー: {error}
-            </div>
-          )}
+              {error && (
+                <div className="text-sm py-4" style={{ color: 'var(--danger)' }}>
+                  エラー: {error}
+                </div>
+              )}
 
-          {result && !loading && (
-            <div className="space-y-5">
-              {activeTab === 'structure'  && <StructureTab result={result} />}
-              {activeTab === 'tempo'      && <TempoTab result={result} />}
-              {activeTab === 'vocabulary' && <VocabularyTab result={result} />}
-              {activeTab === 'character'  && <CharacterTab result={result} characterCount={characterCount} />}
-              {activeTab === 'emotion'    && <EmotionTab result={result} />}
-              {activeTab === 'narrative'  && <NarrativeTab result={result} />}
-              {activeTab === 'writing'    && <WritingTab result={result} />}
-            </div>
+              {result && !loading && (
+                <div className="space-y-5">
+                  {activeTab === 'structure'  && <StructureTab result={result} />}
+                  {activeTab === 'tempo'      && <TempoTab result={result} />}
+                  {activeTab === 'vocabulary' && <VocabularyTab result={result} />}
+                  {activeTab === 'character'  && <CharacterTab result={result} characterCount={characterCount} />}
+                  {activeTab === 'emotion'    && <EmotionTab result={result} />}
+                  {activeTab === 'narrative'  && <NarrativeTab result={result} />}
+                  {activeTab === 'writing'    && <WritingTab result={result} />}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -790,6 +800,190 @@ function SensoryBalanceSection({ result }: { result: AnalysisResult }) {
         ※ 視覚偏重が多い場合、聴覚・触覚・嗅覚の描写を加えると没入感が増します。
       </p>
     </Section>
+  );
+}
+
+// =========================================
+// 共鳴スコアタブ（AI分析）
+// =========================================
+
+interface ResonanceScore {
+  tension: number;
+  empathy: number;
+  tempo: number;
+  surprise: number;
+  suggestions: string[];
+}
+
+function ResonanceTab({ projectId, content }: { projectId: string; content: string }) {
+  const [score, setScore] = useState<ResonanceScore | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleAnalyze = () => {
+    if (!projectId || !content) return;
+    setLoading(true);
+    setError(null);
+    invoke<string>('ai_get_resonance_score', { projectId, content })
+      .then((raw) => {
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+        const parsed = JSON.parse(cleaned) as ResonanceScore;
+        setScore({
+          tension: Number(parsed.tension ?? 0),
+          empathy: Number(parsed.empathy ?? 0),
+          tempo: Number(parsed.tempo ?? 0),
+          surprise: Number(parsed.surprise ?? 0),
+          suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions : [],
+        });
+      })
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
+  };
+
+  return (
+    <div className="space-y-4 p-1">
+      <div className="flex items-center justify-between">
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+          現在の話をAIが4軸で評価します
+        </p>
+        <button
+          onClick={handleAnalyze}
+          disabled={loading || !projectId}
+          className="text-xs px-3 py-1 rounded"
+          style={{
+            background: loading ? 'var(--bg-surface)' : 'var(--accent)',
+            color: loading ? 'var(--text-muted)' : 'var(--bg)',
+            border: '1px solid var(--border)',
+            cursor: loading ? 'default' : 'pointer',
+          }}
+        >
+          {loading ? '分析中...' : 'AI分析'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-xs py-2" style={{ color: 'var(--danger)' }}>
+          {error}
+        </div>
+      )}
+
+      {score && (
+        <>
+          <Section title="共鳴スコア（4軸評価）">
+            <div
+              className="rounded-lg p-4 flex flex-col items-center gap-4"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)' }}
+            >
+              <RadarChart score={score} />
+              <div className="grid grid-cols-2 gap-2 w-full">
+                {(
+                  [
+                    { key: 'tension',  label: '緊張感',  color: '#c87070' },
+                    { key: 'empathy',  label: '共感度',  color: '#7cb8a0' },
+                    { key: 'tempo',    label: 'テンポ',  color: '#6b9fc4' },
+                    { key: 'surprise', label: '意外性',  color: '#a07cb8' },
+                  ] as { key: keyof ResonanceScore; label: string; color: string }[]
+                ).map(({ key, label, color }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                    <span className="text-xs font-medium ml-auto" style={{ color: 'var(--text)' }}>
+                      {score[key as 'tension' | 'empathy' | 'tempo' | 'surprise']}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
+          {score.suggestions.length > 0 && (
+            <Section title="改善提案">
+              <ul className="flex flex-col gap-2">
+                {score.suggestions.map((s, i) => (
+                  <li
+                    key={i}
+                    className="text-xs px-3 py-2 rounded"
+                    style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
+                  >
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+        </>
+      )}
+
+      {!score && !loading && (
+        <div
+          className="text-xs text-center py-8 rounded-lg"
+          style={{ color: 'var(--text-muted)', background: 'var(--bg-surface)', border: '1px dashed var(--border)' }}
+        >
+          「AI分析」を押すと共鳴スコアを算出します
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RadarChart({ score }: { score: ResonanceScore }) {
+  const cx = 80;
+  const cy = 80;
+  const r = 55;
+
+  const axes = [
+    { key: 'tension',  label: '緊張感', angle: -90 },
+    { key: 'empathy',  label: '共感度', angle: 0 },
+    { key: 'tempo',    label: 'テンポ', angle: 90 },
+    { key: 'surprise', label: '意外性', angle: 180 },
+  ] as const;
+
+  const toPoint = (angle: number, radius: number) => {
+    const rad = (angle * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  };
+
+  const scorePoints = axes
+    .map(({ key, angle }) => toPoint(angle, r * (score[key] / 100)))
+    .map((p) => `${p.x},${p.y}`)
+    .join(' ');
+
+  const gridLevels = [0.25, 0.5, 0.75, 1.0];
+
+  return (
+    <svg width="160" height="160" viewBox="0 0 160 160">
+      {/* グリッド */}
+      {gridLevels.map((level) => {
+        const pts = axes.map(({ angle }) => toPoint(angle, r * level)).map((p) => `${p.x},${p.y}`).join(' ');
+        return (
+          <polygon key={level} points={pts} fill="none" stroke="var(--border)" strokeWidth="0.8" />
+        );
+      })}
+      {/* 軸線 */}
+      {axes.map(({ angle }) => {
+        const end = toPoint(angle, r);
+        return <line key={angle} x1={cx} y1={cy} x2={end.x} y2={end.y} stroke="var(--border)" strokeWidth="0.8" />;
+      })}
+      {/* スコアポリゴン */}
+      <polygon points={scorePoints} fill="var(--accent)" fillOpacity="0.25" stroke="var(--accent)" strokeWidth="1.5" />
+      {/* 軸ラベル */}
+      {axes.map(({ angle, label }) => {
+        const pos = toPoint(angle, r + 12);
+        return (
+          <text
+            key={label}
+            x={pos.x}
+            y={pos.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontSize="8"
+            fill="var(--text-muted)"
+          >
+            {label}
+          </text>
+        );
+      })}
+    </svg>
   );
 }
 

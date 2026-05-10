@@ -78,13 +78,13 @@ export const DEFAULT_CHARACTER_SETTINGS: CharacterSettings = {
 /** 右パネルのアクティブタブ（AIは独立パネルに分離済み） */
 export type RightPanelTab =
   | 'chapter' | 'character' | 'plot' | 'synopsis'
-  | 'relationship' | 'glossary' | 'world' | 'foreshadowing' | 'memo';
+  | 'relationship' | 'glossary' | 'world' | 'foreshadowing' | 'memo' | 'info-gap';
 
 /** 統合サイドパネルのアクティブタブ (目次 + 既存 RightPanelTab) */
 export type SideTab = 'toc' | RightPanelTab;
 const VALID_SIDE_TABS: SideTab[] = [
   'toc', 'chapter', 'character', 'plot', 'synopsis',
-  'relationship', 'glossary', 'world', 'foreshadowing', 'memo',
+  'relationship', 'glossary', 'world', 'foreshadowing', 'memo', 'info-gap',
 ];
 
 function loadActiveSideTab(): SideTab {

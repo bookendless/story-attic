@@ -99,6 +99,8 @@ pub fn run() {
             commands::ai::ai_test_connection,
             commands::ai::ai_get_whisper,
             commands::ai::ai_get_reader_perspective,
+            commands::ai::ai_get_resonance_score,
+            commands::ai::ai_get_info_asymmetry,
             // タグ
             commands::tag::add_tag,
             commands::tag::remove_tag,

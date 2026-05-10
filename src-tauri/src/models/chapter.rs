@@ -15,6 +15,7 @@ pub struct Chapter {
     pub setting: String,
     pub mood: String,
     pub important_events: String,
+    pub five_senses: String,
 }
 
 /// 章とエピソードの紐づけ（フロント送信用）
