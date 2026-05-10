@@ -67,7 +67,7 @@ StoryAttic は、日本語小説の執筆に特化した Windows 向けネイテ
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/<your-username>/story-attic.git
+git clone https://github.com/bookendless/story-attic.git
 cd story-attic
 
 # 依存パッケージをインストール
@@ -117,14 +117,13 @@ story-attic/
 │   │   ├── ambience/       # 演出機能
 │   │   └── ...             # その他支援機能
 │   └── shared/             # 型定義・ユーティリティ・ストア
-├── src-tauri/              # Rust バックエンド
-│   ├── src/
-│   │   ├── commands/       # Tauri コマンドハンドラ
-│   │   ├── db/             # SQLite マイグレーション
-│   │   └── models/         # データモデル
-│   └── tauri.conf.json
-├── plans/                  # 設計ドキュメント
-└── specs/                  # 機能仕様書
+└── src-tauri/              # Rust バックエンド
+    ├── src/
+    │   ├── commands/       # Tauri コマンドハンドラ
+    │   ├── db/             # SQLite マイグレーション
+    │   └── models/         # データモデル
+    └── tauri.conf.json
+
 ```
 
 ---
