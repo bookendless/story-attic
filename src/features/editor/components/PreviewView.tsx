@@ -3,11 +3,16 @@ import DOMPurify from 'dompurify';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore, type PreviewSubMode } from '@/shared/stores/uiStore';
 
-/** HTMLタグを除去してプレーンテキストを返す */
+/** HTMLタグを除去してプレーンテキストを返す（ブロック要素は改行に変換） */
 function stripHtml(html: string): string {
+  const withBreaks = html
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/li>/gi, '\n');
   const div = document.createElement('div');
-  div.innerHTML = html;
-  return div.textContent ?? '';
+  div.innerHTML = withBreaks;
+  return (div.textContent ?? '').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
 }
 
 /** 原稿用紙モード: 20×20マスのグリッド表示（縦書き） */
@@ -18,11 +23,41 @@ const MANUSCRIPT_MAX_PAGES = 10;
 
 function ManuscriptPreview({ text }: { text: string }) {
   const pages = useMemo(() => {
-    const chars = [...text];
     const result: string[][] = [];
-    const pageCount = Math.min(Math.ceil(chars.length / MANUSCRIPT_CHARS_PER_PAGE), MANUSCRIPT_MAX_PAGES);
-    for (let p = 0; p < pageCount; p++) {
-      result.push(chars.slice(p * MANUSCRIPT_CHARS_PER_PAGE, (p + 1) * MANUSCRIPT_CHARS_PER_PAGE));
+    let currentPage: string[] = [];
+    let cellIndex = 0;
+
+    for (const ch of text) {
+      if (result.length >= MANUSCRIPT_MAX_PAGES) break;
+      if (cellIndex >= MANUSCRIPT_CHARS_PER_PAGE) {
+        result.push(currentPage);
+        currentPage = [];
+        cellIndex = 0;
+      }
+
+      if (ch === '\n') {
+        const currentRow = cellIndex % MANUSCRIPT_ROWS;
+        if (currentRow !== 0) {
+          const padding = MANUSCRIPT_ROWS - currentRow;
+          for (let i = 0; i < padding; i++) {
+            if (cellIndex >= MANUSCRIPT_CHARS_PER_PAGE) {
+              result.push(currentPage);
+              currentPage = [];
+              cellIndex = 0;
+              break;
+            }
+            currentPage.push('');
+            cellIndex++;
+          }
+        }
+      } else {
+        currentPage.push(ch);
+        cellIndex++;
+      }
+    }
+
+    if (currentPage.length > 0 && result.length < MANUSCRIPT_MAX_PAGES) {
+      result.push(currentPage);
     }
     if (result.length === 0) result.push([]);
     return result;
@@ -55,7 +90,6 @@ function ManuscriptPreview({ text }: { text: string }) {
           >
             {Array.from({ length: MANUSCRIPT_CHARS_PER_PAGE }, (_, i) => {
               const ch = pageChars[i] ?? '';
-              const isNewline = ch === '\n';
               return (
                 <div
                   key={i}
@@ -69,10 +103,10 @@ function ManuscriptPreview({ text }: { text: string }) {
                     border: '0.5px solid var(--border)',
                     fontSize: '14px',
                     fontFamily: 'var(--font-heading)',
-                    color: isNewline ? 'transparent' : 'var(--text)',
+                    color: 'var(--text)',
                   }}
                 >
-                  {isNewline ? '' : ch}
+                  {ch}
                 </div>
               );
             })}
@@ -158,6 +192,11 @@ export function PreviewView() {
     [currentEpisode?.body],
   );
 
+  const totalManuscriptPages = useMemo(() => {
+    const charCount = [...plainText].filter((ch) => ch !== '\n').length;
+    return charCount > 0 ? Math.ceil(charCount / MANUSCRIPT_CHARS_PER_PAGE) : 0;
+  }, [plainText]);
+
   const modes: { key: PreviewSubMode; label: string }[] = [
     { key: 'manuscript', label: '原稿用紙' },
     { key: 'smartphone', label: 'スマートフォン' },
@@ -176,6 +215,15 @@ export function PreviewView() {
         >
           プレビュー
         </span>
+        {totalManuscriptPages > 0 && previewSubMode === 'manuscript' && (
+          <span
+            className="text-xs"
+            style={{ color: 'var(--text-muted)' }}
+            title="400字詰め原稿用紙換算の総枚数"
+          >
+            全 {totalManuscriptPages} 枚
+          </span>
+        )}
         <div className="flex items-center gap-1 ml-auto">
           {modes.map(({ key, label }) => (
             <button

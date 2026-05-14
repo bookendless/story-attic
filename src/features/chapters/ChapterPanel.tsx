@@ -26,6 +26,7 @@ import { useEditorStore } from '@/shared/stores/editorStore';
 import type { ChapterNode, ChapterWithEpisodes, Timeline } from '@/shared/types';
 import { ChapterDetail } from './ChapterDetail';
 import { TimelineTable } from '../plot/TimelineTable';
+import { TimelineModal } from '../plot/TimelineModal';
 
 type SubTab = 'chapters' | 'timeline';
 
@@ -81,6 +82,7 @@ export function ChapterPanel() {
   const [subTab, setSubTab] = useState<SubTab>('chapters');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [timelines, setTimelines] = useState<Timeline[]>([]);
+  const [showTimelineModal, setShowTimelineModal] = useState(false);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const chapters = useMemo(() => chapterTree?.chapters ?? [], [chapterTree]);
@@ -180,9 +182,19 @@ export function ChapterPanel() {
             projectId={projectId}
             timelines={timelines}
             onReload={loadTimelines}
+            onExpand={() => setShowTimelineModal(true)}
           />
         )}
       </div>
+
+      {showTimelineModal && (
+        <TimelineModal
+          projectId={projectId}
+          timelines={timelines}
+          onReload={loadTimelines}
+          onClose={() => setShowTimelineModal(false)}
+        />
+      )}
     </div>
   );
 }

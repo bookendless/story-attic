@@ -139,6 +139,7 @@ export function StatusBar({ editor }: Props) {
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
   const lastSnapshotAt = useEditorStore((s) => s.lastSnapshotAt);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
+  const episodes = useEditorStore((s) => s.episodes);
   const projectId = useAppStore((s) => s.currentProjectId);
   const [charCount, setCharCount] = useState(0);
   const [lineCount, setLineCount] = useState(0);
@@ -315,6 +316,10 @@ export function StatusBar({ editor }: Props) {
   const charsPerPage = settings.chars_per_line * settings.lines_per_page;
   const pageCount = charsPerPage > 0 ? Math.ceil(charCount / charsPerPage) : 0;
 
+  // 作品全体の原稿換算枚数（400字詰め固定）
+  const totalWorkCharCount = episodes.reduce((sum, ep) => sum + ep.charCount, 0);
+  const totalWorkPages = totalWorkCharCount > 0 ? Math.ceil(totalWorkCharCount / 400) : 0;
+
   return (
     <div
       className="flex items-center flex-shrink-0 border-t text-xs"
@@ -330,6 +335,11 @@ export function StatusBar({ editor }: Props) {
         <span>{charCount.toLocaleString()} 字</span>
         <span>{lineCount.toLocaleString()} 行</span>
         <span>{pageCount} P</span>
+        {totalWorkPages > 0 && (
+          <span title={`作品全体 ${totalWorkCharCount.toLocaleString()} 字 / 400字詰め原稿用紙換算`}>
+            作品計 {totalWorkPages} 枚
+          </span>
+        )}
         {showAutoSaved && (
           <span
             style={{

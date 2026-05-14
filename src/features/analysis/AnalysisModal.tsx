@@ -1338,73 +1338,97 @@ function IntensityChart({
 }
 
 function EmotionCurveChart({ curve }: { curve: number[] }) {
-  // curve: -1.0〜+1.0 の配列（10要素）
-  // 上半分がポジティブ、下半分がネガティブ
+  const W = 300;
+  const H = 80;
+  const padX = 8;
+  const padY = 8;
+  const midY = H / 2;
+  const amp = midY - padY;
+
+  const n = curve.length;
+  if (n === 0) return null;
+
+  const pts = curve.map((v, i) => ({
+    x: n === 1 ? W / 2 : padX + (i / (n - 1)) * (W - padX * 2),
+    y: midY - v * amp,
+  }));
+
+  const buildPath = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return `M ${points[0].x},${points[0].y}`;
+    let d = `M ${points[0].x},${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[Math.max(0, i - 1)];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[Math.min(points.length - 1, i + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+    }
+    return d;
+  };
+
+  const linePath = buildPath(pts);
+  const areaPath = `${linePath} L ${pts[pts.length - 1].x},${midY} L ${pts[0].x},${midY} Z`;
+
   return (
     <div
       className="rounded overflow-hidden"
-      style={{ height: '80px', background: 'var(--bg-deep)', padding: '4px', position: 'relative' }}
+      style={{ background: 'var(--bg-deep)', padding: '4px' }}
     >
-      {/* 中心線 */}
-      <div
-        style={{
-          position: 'absolute',
-          left: 4,
-          right: 4,
-          top: '50%',
-          height: '1px',
-          background: 'var(--border)',
-          zIndex: 1,
-        }}
-      />
-      <div className="flex items-center h-full gap-1" style={{ position: 'relative', zIndex: 2 }}>
-        {curve.map((score, i) => {
-          const isPos = score >= 0;
-          const pct = Math.abs(score) * 46; // 最大46px (高さ80の半分-余白)
-          return (
-            <div
-              key={i}
-              className="flex-1 flex flex-col items-center justify-center h-full"
-            >
-              {isPos ? (
-                <>
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end' }}>
-                    <div
-                      style={{
-                        width: '100%',
-                        height: `${pct}px`,
-                        background: '#5a9e6e',
-                        borderRadius: '2px 2px 0 0',
-                        opacity: 0.85,
-                        minWidth: '4px',
-                      }}
-                      title={`ブロック${i + 1}: +${score.toFixed(2)}`}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }} />
-                </>
-              ) : (
-                <>
-                  <div style={{ flex: 1 }} />
-                  <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start' }}>
-                    <div
-                      style={{
-                        width: '100%',
-                        height: `${pct}px`,
-                        background: '#c87070',
-                        borderRadius: '0 0 2px 2px',
-                        opacity: 0.85,
-                        minWidth: '4px',
-                      }}
-                      title={`ブロック${i + 1}: ${score.toFixed(2)}`}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <svg
+        width="100%"
+        height={H}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <linearGradient id="emoAreaGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#5a9e6e" stopOpacity="0.35" />
+            <stop offset="50%" stopColor="#5a9e6e" stopOpacity="0" />
+            <stop offset="50%" stopColor="#c87070" stopOpacity="0" />
+            <stop offset="100%" stopColor="#c87070" stopOpacity="0.35" />
+          </linearGradient>
+        </defs>
+
+        {/* 中心線 */}
+        <line
+          x1={padX} y1={midY}
+          x2={W - padX} y2={midY}
+          stroke="var(--border)"
+          strokeWidth="1"
+        />
+
+        {/* 塗りつぶしエリア */}
+        <path d={areaPath} fill="url(#emoAreaGrad)" />
+
+        {/* 感情曲線 */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* データ点 */}
+        {pts.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r="3"
+            fill={curve[i] >= 0 ? '#5a9e6e' : '#c87070'}
+            stroke="var(--bg-deep)"
+            strokeWidth="1"
+          >
+            <title>{`ブロック${i + 1}: ${curve[i] >= 0 ? '+' : ''}${curve[i].toFixed(2)}`}</title>
+          </circle>
+        ))}
+      </svg>
     </div>
   );
 }
