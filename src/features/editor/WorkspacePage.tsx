@@ -16,6 +16,7 @@ import { AiPanel } from '@/features/ai/AiPanel';
 import { AnalysisModal } from '@/features/analysis/AnalysisModal';
 import { SettingsModal } from '@/features/settings/SettingsModal';
 import { WritingSupportModal } from '@/features/writing-support/WritingSupportModal';
+import { AiManualModal } from '@/features/ai/AiManualModal';
 import { CommandPalette } from './components/CommandPalette';
 import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
 
@@ -27,8 +28,8 @@ export function WorkspacePage() {
     aiPanelVisible, aiPanelMode,
     setSettings, toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
     timerRunning, startTimer, stopTimer, toggleWritingSupportModal,
-    analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
-    toggleAnalysisModal, toggleSettingsModal,
+    analysisModalVisible, settingsModalVisible, writingSupportModalVisible, aiManualVisible,
+    toggleAnalysisModal, toggleSettingsModal, toggleAiManual,
     toggleCommandPalette, commandPaletteVisible,
     setActiveSideTab,
     ambiencePopoverVisible, toggleAmbiencePopover,
@@ -122,6 +123,7 @@ export function WorkspacePage() {
       // Escape: モーダル/フローティングパネル閉じ
       if (e.key === 'Escape') {
         if (commandPaletteVisible) { toggleCommandPalette(); return; }
+        if (aiManualVisible) { toggleAiManual(); return; }
         if (analysisModalVisible) { toggleAnalysisModal(); return; }
         if (settingsModalVisible) { toggleSettingsModal(); return; }
         if (writingSupportModalVisible) { toggleWritingSupportModal(); return; }
@@ -134,8 +136,8 @@ export function WorkspacePage() {
   }, [
     toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
     timerRunning, startTimer, stopTimer, save, saveSecondary,
-    aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible,
-    toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal,
+    aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible, aiManualVisible,
+    toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal, toggleAiManual,
     toggleCommandPalette, commandPaletteVisible, setActiveSideTab,
   ]);
 
@@ -201,6 +203,7 @@ export function WorkspacePage() {
       <AnalysisModal />
       <SettingsModal />
       <WritingSupportModal />
+      <AiManualModal />
     </div>
   );
 }

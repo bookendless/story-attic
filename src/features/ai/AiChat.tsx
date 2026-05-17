@@ -142,6 +142,7 @@ export function AiChat({ chatRef }: AiChatProps) {
     tone, contextSources,
     setDetectedBlock,
     socratesMode, socratesDepth, incrementSocratesDepth,
+    setSocratesMode, resetSocrates,
   } = useAiStore();
   const theme = useUIStore((s) => s.theme);
   const [input, setInput] = useState('');
@@ -279,20 +280,41 @@ export function AiChat({ chatRef }: AiChatProps) {
           >
             {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
           </span>
-          {socratesMode && (
-            <span
+          {socratesMode ? (
+            <button
               className="text-xs"
               style={{
-                padding: '1px 7px',
+                padding: '1px 8px',
                 borderRadius: '8px',
                 background: 'rgba(139,124,246,0.12)',
                 border: '1px solid rgba(139,124,246,0.4)',
                 color: '#8b7cf6',
                 fontWeight: 500,
+                cursor: 'pointer',
               }}
+              onClick={resetSocrates}
+              title="深掘りモードを終了する"
             >
-              深掘り {socratesDepth}/5
-            </span>
+              深掘り {socratesDepth}/5 — 終了
+            </button>
+          ) : (
+            <button
+              className="text-xs"
+              style={{
+                padding: '1px 8px',
+                borderRadius: '8px',
+                background: 'none',
+                border: '1px solid var(--border)',
+                color: 'var(--text-muted)',
+                cursor: isStreaming ? 'not-allowed' : 'pointer',
+                opacity: isStreaming ? 0.4 : 1,
+              }}
+              onClick={() => setSocratesMode(true)}
+              disabled={isStreaming}
+              title="AIが一問ずつ深掘り質問を返すモード（最大5往復）"
+            >
+              深掘り
+            </button>
           )}
         </div>
         <button
@@ -307,22 +329,6 @@ export function AiChat({ chatRef }: AiChatProps) {
 
       {/* メッセージ一覧 */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-        {/* 停滞検知バナー */}
-        {messages.length === 0 && !isStreaming && detectedBlock !== 'none' && (
-          <BlockNotificationBanner
-            block={detectedBlock}
-            onAsk={() => {
-              const blockPrompts: Record<string, string> = {
-                idea: 'アイデア停滞を感じています。創作を再起動する問いをください。',
-                structure: '構造的な停滞を感じています。このシーンについて問いをください。',
-                motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
-              };
-              doSend(blockPrompts[detectedBlock] ?? '');
-            }}
-            onDismiss={() => setDetectedBlock('none')}
-          />
-        )}
-
         {/* 空メッセージ時のヒント */}
         {messages.length === 0 && !isStreaming && detectedBlock === 'none' && (
           <p
@@ -349,6 +355,22 @@ export function AiChat({ chatRef }: AiChatProps) {
             message={{ role: 'assistant', content: streamBuffer }}
             theme={theme}
             streaming
+          />
+        )}
+
+        {/* 停滞検知バナー — 会話中でも最下部に常時表示 */}
+        {!isStreaming && detectedBlock !== 'none' && (
+          <BlockNotificationBanner
+            block={detectedBlock}
+            onAsk={() => {
+              const blockPrompts: Record<string, string> = {
+                idea: 'アイデア停滞を感じています。創作を再起動する問いをください。',
+                structure: '構造的な停滞を感じています。このシーンについて問いをください。',
+                motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
+              };
+              doSend(blockPrompts[detectedBlock] ?? '');
+            }}
+            onDismiss={() => setDetectedBlock('none')}
           />
         )}
 

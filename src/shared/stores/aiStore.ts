@@ -51,6 +51,18 @@ const PHASE_DEFAULT_SOURCES: Record<CreativePhase, AiContextSource[]> = {
   revise:    ['body', 'synopsis'],
 };
 
+const VALID_PHASES: CreativePhase[] = ['explore', 'structure', 'write', 'revise'];
+
+function loadSavedPhase(): CreativePhase {
+  try {
+    const v = localStorage.getItem('story-attic-ai-phase') as CreativePhase;
+    if (VALID_PHASES.includes(v)) return v;
+  } catch { /* 無視 */ }
+  return 'explore';
+}
+
+const INITIAL_PHASE = loadSavedPhase();
+
 const DEFAULT_CREATIVE_CORE: CreativeCore = {
   theme: '',
   centralEmotion: '',
@@ -110,12 +122,12 @@ export const useAiStore = create<AiState>((set) => ({
   messages: [],
   isStreaming: false,
   streamBuffer: '',
-  phase: 'explore',
+  phase: INITIAL_PHASE,
   creatorType: 'explorer',
   detectedBlock: 'none',
   creativeCore: { ...DEFAULT_CREATIVE_CORE },
   tone: 'formal',
-  contextSources: ['body'],
+  contextSources: PHASE_DEFAULT_SOURCES[INITIAL_PHASE],
   socratesMode: false,
   socratesDepth: 0,
 
@@ -155,7 +167,10 @@ export const useAiStore = create<AiState>((set) => ({
       return { messages: msgs.slice(0, removeFrom) };
     }),
 
-  setPhase: (phase) => set({ phase, contextSources: PHASE_DEFAULT_SOURCES[phase] }),
+  setPhase: (phase) => {
+    try { localStorage.setItem('story-attic-ai-phase', phase); } catch { /* 無視 */ }
+    set({ phase, contextSources: PHASE_DEFAULT_SOURCES[phase] });
+  },
   setCreatorType: (creatorType) => set({ creatorType }),
   setDetectedBlock: (detectedBlock) => set({ detectedBlock }),
   setCreativeCore: (core) =>

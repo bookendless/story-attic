@@ -101,6 +101,7 @@ pub fn run() {
             commands::ai::ai_get_reader_perspective,
             commands::ai::ai_get_resonance_score,
             commands::ai::ai_get_info_asymmetry,
+            commands::ai::ai_get_cliche_check,
             // タグ
             commands::tag::add_tag,
             commands::tag::remove_tag,

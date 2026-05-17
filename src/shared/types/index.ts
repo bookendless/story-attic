@@ -272,6 +272,22 @@ export interface ProofIssue {
   severity: 'error' | 'warning' | 'info';
 }
 
+/** AIクリシェ（常套句）校正の指摘1件 */
+export interface ClicheIssue {
+  /** 本文中のクリシェ表現（本文からの逐語引用） */
+  phrase: string;
+  /** phrase を含む周辺の一節（位置特定用） */
+  context: string;
+  /** 常套句と判断した理由 */
+  reason: string;
+  /** 世界観に沿った代替表現（1〜3個） */
+  suggestions: string[];
+  /** 平文ベースの開始位置（特定できなければ -1） */
+  offset: number;
+  /** 指摘範囲の文字数（特定できなければ 0） */
+  length: number;
+}
+
 // =========================================
 // AI連携（Rust側 src-tauri/src/models/ai.rs と対応）
 // =========================================

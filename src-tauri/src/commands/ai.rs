@@ -405,14 +405,14 @@ pub async fn ai_get_whisper(
 
     match provider.as_str() {
         "anthropic" => {
-            single_call_anthropic(&api_key, &model, WHISPER_SYSTEM, &user_msg, 80)
+            single_call_anthropic(&api_key, &model, WHISPER_SYSTEM, &user_msg, 1000)
                 .await
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
         _ => {
             let url_owned = resolve_base_url(&provider, base_url.as_deref())
                 .map_err(|e| mask_secrets(&api_key, &e))?;
-            single_call_openai_compatible(&api_key, &url_owned, &model, WHISPER_SYSTEM, &user_msg, 80)
+            single_call_openai_compatible(&api_key, &url_owned, &model, WHISPER_SYSTEM, &user_msg, 1000)
                 .await
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
@@ -422,16 +422,17 @@ pub async fn ai_get_whisper(
 /// ゴーストつぶやき用システムプロンプト
 const WHISPER_SYSTEM: &str = "\
 あなたは「ゴーストちゃん」という小さな執筆の妖精です。\
-執筆中のユーザーをそっと見守り、短い一言だけ声をかけます。\
-返答は必ず日本語で、30文字以内の短い一言にしてください。\
-励まし・共感・さりげない観察など、やさしく幻想的なトーンで。\
+執筆中のユーザーをそっと見守り、一言だけ声をかけます。\
+返答は必ず日本語で、30文字程度の一言にしてください。\
+励まし・共感・さりげない観察など、やさしく寄り添うようなトーンで。\
+「～ですね」など、語尾を少しぼかすとゴーストっぽさが増します。\
 絵文字は使わないこと。かぎ括弧も使わないこと。";
 
 /// 読者シミュレーター用システムプロンプト（一般読者）
 const READER_CASUAL: &str = "\
 あなたはこの物語を楽しんでいる一般読者です。\
 今読んだ場面を踏まえ、読者として感じたこと・気になったことを伝えます。\
-返答は必ず日本語で50文字以内。一人称で語ること。\
+返答は必ず日本語で50文字程度。一人称で語ること。\
 感情・疑問・次への期待のどれかを素直に伝えること。\
 書き方への批評・改善提案・続きの予測は禁止。絵文字は使わないこと。";
 
@@ -439,14 +440,14 @@ const READER_CASUAL: &str = "\
 const READER_GENRE: &str = "\
 あなたはこのジャンルに詳しい熱心な読者です。\
 今読んだ場面の中で、物語全体への期待や気になる展開・伏線について語ります。\
-返答は必ず日本語で50文字以内。感情より「この先どうなる？」という視点で。\
+返答は必ず日本語で50文字程度。感情より「この先どうなる？」という視点で。\
 書き方への批評・改善提案は禁止。絵文字は使わないこと。";
 
 /// 読者シミュレーター用システムプロンプト（批評的読者）
 const READER_CRITICAL: &str = "\
 あなたはこの物語を注意深く読んでいる読者です。\
 理解できた点・理解が追いついていない点を正直に伝えます。\
-返答は必ず日本語で50文字以内。「〜がわからなくなりました」「〜の理由が掴めていません」など。\
+返答は必ず日本語で50文字程度。「〜がわからなくなりました」「〜の理由が掴めていません」など。\
 書き方への批評・改善提案は禁止。読者体験の正直な報告のみ。絵文字は使わないこと。";
 
 /// 読者シミュレーター（AI生成・非ストリーミング）
@@ -522,13 +523,13 @@ pub async fn ai_get_reader_perspective(
     );
 
     match provider.as_str() {
-        "anthropic" => single_call_anthropic(&api_key, &model, system, &user_msg, 120)
+        "anthropic" => single_call_anthropic(&api_key, &model, system, &user_msg, 1000)
             .await
             .map_err(|e| mask_secrets(&api_key, &e)),
         _ => {
             let url_owned = resolve_base_url(&provider, base_url.as_deref())
                 .map_err(|e| mask_secrets(&api_key, &e))?;
-            single_call_openai_compatible(&api_key, &url_owned, &model, system, &user_msg, 120)
+            single_call_openai_compatible(&api_key, &url_owned, &model, system, &user_msg, 1000)
                 .await
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
@@ -593,6 +594,91 @@ pub async fn ai_get_resonance_score(
             let url_owned = resolve_base_url(&provider, base_url.as_deref())
                 .map_err(|e| mask_secrets(&api_key, &e))?;
             single_call_openai_compatible(&api_key, &url_owned, &model, RESONANCE_SYSTEM, &user_msg, 400)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
+        }
+    }
+}
+
+// =========================================
+// クリシェ（常套句）校正（非ストリーミング・JSON返却）
+// =========================================
+
+/// クリシェ校正用システムプロンプト
+const CLICHE_SYSTEM: &str = "\
+あなたは小説の文章校正の専門家です。最初に渡される【世界観】情報を必ず踏まえ、\
+続く【本文】から「クリシェ（常套句・手垢のついた決まり文句）」を抽出してください。\
+各クリシェについて、その作品の世界観・テーマに馴染む代替表現を1〜3個提案してください。\
+必ず以下のJSON形式のみで返してください（説明文・前置き・コードブロック記法は一切不要）。\
+{\"issues\":[{\"phrase\":\"...\",\"context\":\"...\",\"reason\":\"...\",\"suggestions\":[\"...\"]}]}\
+phrase=本文中のクリシェ表現。本文からの逐語引用とし、言い換え・要約・省略は禁止。\
+context=phraseを含む前後を含めた本文中の短い一節（20〜40文字程度、こちらも逐語引用）。\
+reason=なぜ常套句と判断したか（1文、日本語）。\
+suggestions=世界観・テーマに沿った代替表現を1〜3個（日本語）。\
+クリシェが見つからない場合は {\"issues\":[]} を返すこと。指摘は最大10件まで。\
+JSON以外の文字は絶対に出力しないこと。";
+
+/// 本文からクリシェ（常套句）を抽出し、世界観に沿った代替表現を提案する（AI生成・非ストリーミング）
+#[tauri::command]
+pub async fn ai_get_cliche_check(
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    content: String,
+    worldview: String,
+) -> Result<String, String> {
+    let (provider, model, base_url) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let result = db.query_row(
+            "SELECT provider, model, data FROM ai_settings WHERE project_id = ?1",
+            [&project_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        );
+        match result {
+            Ok((provider, model, data_str)) => {
+                let data: serde_json::Value =
+                    serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+                (provider, model, data["base_url"].as_str().map(String::from))
+            }
+            Err(_) => return Err("AI未設定".into()),
+        }
+    };
+
+    if provider.is_empty() || model.is_empty() {
+        return Err("AI未設定".into());
+    }
+    ensure_allowed(&provider)?;
+
+    let api_key = match get_api_key(&provider).await? {
+        Some(key) => key,
+        None => return Err("APIキー未設定".into()),
+    };
+
+    // 文字境界安全に切り詰め（バイト境界スライスによる多バイト文字パニックを回避）
+    let body: String = content.chars().take(6000).collect();
+    let worldview_trimmed: String = worldview.chars().take(2000).collect();
+    let wv: &str = if worldview_trimmed.trim().is_empty() {
+        "（特に指定なし）"
+    } else {
+        worldview_trimmed.as_str()
+    };
+
+    let user_msg = format!("【世界観】\n{}\n\n【本文】\n{}", wv, body);
+
+    // 推論（thinking）モデルは出力枠を内部推論にも消費するため枠を広めに確保する
+    match provider.as_str() {
+        "anthropic" => single_call_anthropic(&api_key, &model, CLICHE_SYSTEM, &user_msg, 8000)
+            .await
+            .map_err(|e| mask_secrets(&api_key, &e)),
+        _ => {
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, CLICHE_SYSTEM, &user_msg, 8000)
                 .await
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
@@ -714,13 +800,13 @@ pub async fn ai_get_info_asymmetry(
     );
 
     match provider.as_str() {
-        "anthropic" => single_call_anthropic(&api_key, &model, INFO_GAP_SYSTEM, &user_msg, 600)
+        "anthropic" => single_call_anthropic(&api_key, &model, INFO_GAP_SYSTEM, &user_msg, 2000)
             .await
             .map_err(|e| mask_secrets(&api_key, &e)),
         _ => {
             let url_owned = resolve_base_url(&provider, base_url.as_deref())
                 .map_err(|e| mask_secrets(&api_key, &e))?;
-            single_call_openai_compatible(&api_key, &url_owned, &model, INFO_GAP_SYSTEM, &user_msg, 600)
+            single_call_openai_compatible(&api_key, &url_owned, &model, INFO_GAP_SYSTEM, &user_msg, 2000)
                 .await
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
@@ -736,7 +822,7 @@ async fn single_call_openai_compatible(
     max_tokens: u32,
 ) -> Result<String, String> {
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(20))
+        .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -761,10 +847,14 @@ async fn single_call_openai_compatible(
     }
 
     let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    json["choices"][0]["message"]["content"]
-        .as_str()
-        .map(|s| s.trim().to_string())
-        .ok_or_else(|| "レスポンスの解析に失敗しました".into())
+    match json["choices"][0]["message"]["content"].as_str() {
+        Some(s) if !s.trim().is_empty() => Ok(s.trim().to_string()),
+        _ => {
+            // 解析失敗・空回答時は生レスポンスの一部を含めて返す（診断用）
+            let snippet: String = json.to_string().chars().take(2000).collect();
+            Err(format!("レスポンスの解析に失敗しました: {}", snippet))
+        }
+    }
 }
 
 async fn single_call_anthropic(
@@ -775,7 +865,7 @@ async fn single_call_anthropic(
     max_tokens: u32,
 ) -> Result<String, String> {
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(20))
+        .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -799,10 +889,20 @@ async fn single_call_anthropic(
     }
 
     let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-    json["content"][0]["text"]
-        .as_str()
-        .map(|s| s.trim().to_string())
-        .ok_or_else(|| "レスポンスの解析に失敗しました".into())
+    // content 配列から最初の text ブロックを探す（拡張思考モデルでは先頭が thinking ブロックになる）
+    let text = json["content"].as_array().and_then(|arr| {
+        arr.iter().find_map(|block| {
+            if block["type"] == "text" { block["text"].as_str() } else { None }
+        })
+    });
+    match text {
+        Some(s) if !s.trim().is_empty() => Ok(s.trim().to_string()),
+        _ => {
+            // 解析失敗・空回答時は生レスポンスの一部を含めて返す（診断用）
+            let snippet: String = json.to_string().chars().take(2000).collect();
+            Err(format!("レスポンスの解析に失敗しました: {}", snippet))
+        }
+    }
 }
 
 // =========================================

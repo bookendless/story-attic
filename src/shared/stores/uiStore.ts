@@ -271,6 +271,8 @@ interface UIState {
   analysisModalVisible: boolean;
   /** 設定モーダル表示 */
   settingsModalVisible: boolean;
+  /** 設定モーダルを開く際の初期タブ（適用後 null に戻す） */
+  settingsModalInitialTab: string | null;
 
   /** パーティクル演出 */
   ambienceEnabled: boolean;
@@ -292,6 +294,9 @@ interface UIState {
 
   /** 執筆支援モーダル表示 */
   writingSupportModalVisible: boolean;
+
+  /** AI マニュアルモーダル表示 */
+  aiManualVisible: boolean;
 
   /** 執筆タイマー状態 */
   timerRunning: boolean;
@@ -326,6 +331,10 @@ interface UIState {
   setEditorViewMode: (mode: EditorViewMode) => void;
   toggleAnalysisModal: () => void;
   toggleSettingsModal: () => void;
+  /** 指定タブで設定モーダルを開く */
+  openSettingsModal: (tab?: string) => void;
+  /** 設定モーダルの初期タブ指定をクリアする */
+  clearSettingsModalInitialTab: () => void;
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
   toggleAmbience: () => void;
@@ -336,6 +345,7 @@ interface UIState {
   toggleAiPanelMode: () => void;
   setRightPanelWidth: (width: number) => void;
   toggleWritingSupportModal: () => void;
+  toggleAiManual: () => void;
 
   /** タイマー操作 */
   startTimer: (minutes: number) => void;
@@ -375,6 +385,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   editorViewMode: 'editor',
   analysisModalVisible: false,
   settingsModalVisible: false,
+  settingsModalInitialTab: null,
   ambienceEnabled: initialAmbience.enabled,
   ambienceSettings: initialAmbience.settings,
   soundSettings: loadSoundSettings(),
@@ -383,6 +394,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   aiPanelMode: loadAiPanelMode(),
   rightPanelWidth: loadRightPanelWidth(),
   writingSupportModalVisible: false,
+  aiManualVisible: false,
   timerRunning: false,
   timerRemaining: 0,
   timerTotal: 0,
@@ -412,6 +424,10 @@ export const useUIStore = create<UIState>((set, get) => ({
     set((s) => ({ analysisModalVisible: !s.analysisModalVisible })),
   toggleSettingsModal: () =>
     set((s) => ({ settingsModalVisible: !s.settingsModalVisible })),
+  openSettingsModal: (tab) =>
+    set({ settingsModalVisible: true, settingsModalInitialTab: tab ?? null }),
+  clearSettingsModalInitialTab: () =>
+    set({ settingsModalInitialTab: null }),
   toggleTheme: () =>
     set((s) => {
       const next: ThemeMode = s.theme === 'dark' ? 'light' : 'dark';
@@ -456,6 +472,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   },
   toggleWritingSupportModal: () =>
     set((s) => ({ writingSupportModalVisible: !s.writingSupportModalVisible })),
+  toggleAiManual: () =>
+    set((s) => ({ aiManualVisible: !s.aiManualVisible })),
 
   startTimer: (minutes) => {
     const totalSec = minutes * 60;

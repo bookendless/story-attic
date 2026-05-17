@@ -35,7 +35,7 @@ function loadSidebarWidth(): number {
 
 export function AiPanel() {
   const chatRef = useRef<AiChatHandle | null>(null);
-  const { toggleAiPanel, aiPanelMode, toggleAiPanelMode } = useUIStore();
+  const { toggleAiPanel, aiPanelMode, toggleAiPanelMode, toggleAiManual } = useUIStore();
   const phase = useAiStore((s) => s.phase);
   const isWritePhase = phase === 'write';
   const phaseColor = PHASE_COLORS[phase];
@@ -176,6 +176,26 @@ export function AiPanel() {
         >
           {phase === 'explore' ? '探索' : phase === 'structure' ? '構造' : phase === 'write' ? '執筆' : '改稿'}
         </span>
+        {/* マニュアル */}
+        <button
+          className="text-xs"
+          style={{
+            color: 'var(--text-muted)',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '2px 5px',
+            borderRadius: '4px',
+            lineHeight: 1,
+            fontSize: '11px',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+          onClick={toggleAiManual}
+          title="AI マニュアルを開く"
+        >
+          ?
+        </button>
         {/* ピン留めトグル */}
         <button
           className="text-xs"
@@ -223,7 +243,7 @@ export function AiPanel() {
       <CreatorTypeSelector />
       <AiContextBar />
       <CreativeCoreEditor />
-      {!isWritePhase && <AiQuickActions chatRef={chatRef} />}
+      <AiQuickActions chatRef={chatRef} />
       <AiChat chatRef={chatRef} />
     </>
   );

@@ -68,7 +68,7 @@ const TYPING_OPTIONS: { key: TypingSoundType; label: string }[] = [
 ];
 
 export function SettingsModal() {
-  const { settingsModalVisible, toggleSettingsModal, settings, setSettings, proofreadSettings, setProofreadSettings, ambienceSettings, setAmbienceSettings, soundSettings, setSoundSettings } = useUIStore();
+  const { settingsModalVisible, toggleSettingsModal, settingsModalInitialTab, clearSettingsModalInitialTab, settings, setSettings, proofreadSettings, setProofreadSettings, ambienceSettings, setAmbienceSettings, soundSettings, setSoundSettings } = useUIStore();
   const currentProject = useProjectStore((s) => s.currentProject);
   const [tab, setTab] = useState<SettingsTab>('editor');
   const [local, setLocal] = useState<ProjectSettings>(settings);
@@ -104,6 +104,14 @@ export function SettingsModal() {
       }
     }
   }, [settingsModalVisible, settings, proofreadSettings, ambienceSettings, soundSettings, currentProject]);
+
+  // 初期タブ指定があれば適用（呼び出し元が openSettingsModal で指定）
+  useEffect(() => {
+    if (settingsModalVisible && settingsModalInitialTab) {
+      setTab(settingsModalInitialTab as SettingsTab);
+      clearSettingsModalInitialTab();
+    }
+  }, [settingsModalVisible, settingsModalInitialTab, clearSettingsModalInitialTab]);
 
   const updateLocal = (patch: Partial<ProjectSettings>) => {
     setLocal((prev) => ({ ...prev, ...patch }));
