@@ -15,13 +15,21 @@ function stripHtml(html: string): string {
   return (div.textContent ?? '').replace(/\n{3,}/g, '\n\n').replace(/^\n+|\n+$/g, '');
 }
 
-/** 原稿用紙モード: 20×20マスのグリッド表示（縦書き） */
-const MANUSCRIPT_COLS = 20;
-const MANUSCRIPT_ROWS = 20;
-const MANUSCRIPT_CHARS_PER_PAGE = MANUSCRIPT_COLS * MANUSCRIPT_ROWS;
 const MANUSCRIPT_MAX_PAGES = 10;
 
-function ManuscriptPreview({ text }: { text: string }) {
+interface ManuscriptPreviewProps {
+  text: string;
+  /** 1行の文字数（縦書きでは1列に並ぶ文字数 = 行の高さ） */
+  charsPerLine: number;
+  /** 1ページの行数（縦書きでは列数） */
+  linesPerPage: number;
+}
+
+function ManuscriptPreview({ text, charsPerLine, linesPerPage }: ManuscriptPreviewProps) {
+  const charsPerPage = charsPerLine * linesPerPage;
+  // 列数に応じてセルサイズを調整（最小14px・最大24px）
+  const cellSize = Math.min(24, Math.max(14, Math.floor(480 / linesPerPage)));
+
   const pages = useMemo(() => {
     const result: string[][] = [];
     let currentPage: string[] = [];
@@ -29,18 +37,18 @@ function ManuscriptPreview({ text }: { text: string }) {
 
     for (const ch of text) {
       if (result.length >= MANUSCRIPT_MAX_PAGES) break;
-      if (cellIndex >= MANUSCRIPT_CHARS_PER_PAGE) {
+      if (cellIndex >= charsPerPage) {
         result.push(currentPage);
         currentPage = [];
         cellIndex = 0;
       }
 
       if (ch === '\n') {
-        const currentRow = cellIndex % MANUSCRIPT_ROWS;
+        const currentRow = cellIndex % charsPerLine;
         if (currentRow !== 0) {
-          const padding = MANUSCRIPT_ROWS - currentRow;
+          const padding = charsPerLine - currentRow;
           for (let i = 0; i < padding; i++) {
-            if (cellIndex >= MANUSCRIPT_CHARS_PER_PAGE) {
+            if (cellIndex >= charsPerPage) {
               result.push(currentPage);
               currentPage = [];
               cellIndex = 0;
@@ -61,7 +69,7 @@ function ManuscriptPreview({ text }: { text: string }) {
     }
     if (result.length === 0) result.push([]);
     return result;
-  }, [text]);
+  }, [text, charsPerLine, charsPerPage]);
 
   return (
     <div className="manuscript-preview-container overflow-auto p-4">
@@ -79,8 +87,8 @@ function ManuscriptPreview({ text }: { text: string }) {
             className="manuscript-grid"
             style={{
               display: 'grid',
-              gridTemplateRows: `repeat(${MANUSCRIPT_ROWS}, 1fr)`,
-              gridTemplateColumns: `repeat(${MANUSCRIPT_COLS}, 1fr)`,
+              gridTemplateRows: `repeat(${charsPerLine}, 1fr)`,
+              gridTemplateColumns: `repeat(${linesPerPage}, 1fr)`,
               writingMode: 'vertical-rl',
               width: 'fit-content',
               margin: '0 auto',
@@ -88,20 +96,20 @@ function ManuscriptPreview({ text }: { text: string }) {
               background: 'var(--bg-surface)',
             }}
           >
-            {Array.from({ length: MANUSCRIPT_CHARS_PER_PAGE }, (_, i) => {
+            {Array.from({ length: charsPerPage }, (_, i) => {
               const ch = pageChars[i] ?? '';
               return (
                 <div
                   key={i}
                   className="manuscript-cell"
                   style={{
-                    width: '24px',
-                    height: '24px',
+                    width: `${cellSize}px`,
+                    height: `${cellSize}px`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     border: '0.5px solid var(--border)',
-                    fontSize: '14px',
+                    fontSize: `${Math.max(10, cellSize - 6)}px`,
                     fontFamily: 'var(--font-heading)',
                     color: 'var(--text)',
                   }}
@@ -113,7 +121,7 @@ function ManuscriptPreview({ text }: { text: string }) {
           </div>
         </div>
       ))}
-      {text.length > MANUSCRIPT_MAX_PAGES * MANUSCRIPT_CHARS_PER_PAGE && (
+      {text.length > MANUSCRIPT_MAX_PAGES * charsPerPage && (
         <div className="text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>
           ※ 表示は{MANUSCRIPT_MAX_PAGES}ページまでに制限されています
         </div>
@@ -185,7 +193,11 @@ function SmartphonePreview({ html }: { html: string }) {
 
 export function PreviewView() {
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
-  const { previewSubMode, setPreviewSubMode } = useUIStore();
+  const { previewSubMode, setPreviewSubMode, settings } = useUIStore();
+
+  const charsPerLine = settings.chars_per_line;
+  const linesPerPage = settings.lines_per_page;
+  const charsPerPage = charsPerLine * linesPerPage;
 
   const plainText = useMemo(
     () => stripHtml(currentEpisode?.body ?? ''),
@@ -194,8 +206,8 @@ export function PreviewView() {
 
   const totalManuscriptPages = useMemo(() => {
     const charCount = [...plainText].filter((ch) => ch !== '\n').length;
-    return charCount > 0 ? Math.ceil(charCount / MANUSCRIPT_CHARS_PER_PAGE) : 0;
-  }, [plainText]);
+    return charCount > 0 ? Math.ceil(charCount / charsPerPage) : 0;
+  }, [plainText, charsPerPage]);
 
   const modes: { key: PreviewSubMode; label: string }[] = [
     { key: 'manuscript', label: '原稿用紙' },
@@ -219,7 +231,7 @@ export function PreviewView() {
           <span
             className="text-xs"
             style={{ color: 'var(--text-muted)' }}
-            title="400字詰め原稿用紙換算の総枚数"
+            title={`${charsPerLine}字×${linesPerPage}行（${charsPerPage}字詰め）原稿用紙換算の総枚数`}
           >
             全 {totalManuscriptPages} 枚
           </span>
@@ -245,7 +257,7 @@ export function PreviewView() {
       {/* プレビュー本体 */}
       <div className="flex-1 overflow-auto">
         {previewSubMode === 'manuscript' ? (
-          <ManuscriptPreview text={plainText} />
+          <ManuscriptPreview text={plainText} charsPerLine={charsPerLine} linesPerPage={linesPerPage} />
         ) : (
           <SmartphonePreview html={currentEpisode?.body ?? ''} />
         )}
