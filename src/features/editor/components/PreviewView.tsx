@@ -17,70 +17,74 @@ function stripHtml(html: string): string {
 
 const MANUSCRIPT_MAX_PAGES = 10;
 
+/**
+ * テキストを原稿用紙のページ配列へ整形する。
+ * - 段落（\n 区切り）ごとに新しい列（行）から開始
+ * - 空段落は空の列 1 本として描画（場面区切りの空行を保持）
+ * 各ページは charsPerLine × linesPerPage のセルを列優先で埋めたフラット配列。
+ */
+function layoutManuscript(text: string, charsPerLine: number, linesPerPage: number): string[][] {
+  const charsPerPage = charsPerLine * linesPerPage;
+  const pages: string[][] = [];
+  let page: string[] = [];
+
+  const pushCell = (ch: string) => {
+    page.push(ch);
+    if (page.length >= charsPerPage) {
+      pages.push(page);
+      page = [];
+    }
+  };
+  // 現在の列の残りを空セルで埋め、次の列の先頭へ移動する
+  const endColumn = () => {
+    const rem = page.length % charsPerLine;
+    if (rem !== 0) {
+      for (let i = 0; i < charsPerLine - rem; i++) pushCell('');
+    }
+  };
+
+  const paragraphs = text.split('\n');
+  for (const para of paragraphs) {
+    if (para.length === 0) {
+      // 空段落 = 空の列を 1 本挿入
+      endColumn();
+      for (let i = 0; i < charsPerLine; i++) pushCell('');
+      continue;
+    }
+    for (const ch of para) pushCell(ch);
+    endColumn();
+  }
+
+  if (page.length > 0) pages.push(page);
+  if (pages.length === 0) pages.push([]);
+  return pages;
+}
+
 interface ManuscriptPreviewProps {
-  text: string;
+  pages: string[][];
   /** 1行の文字数（縦書きでは1列に並ぶ文字数 = 行の高さ） */
   charsPerLine: number;
   /** 1ページの行数（縦書きでは列数） */
   linesPerPage: number;
 }
 
-function ManuscriptPreview({ text, charsPerLine, linesPerPage }: ManuscriptPreviewProps) {
+function ManuscriptPreview({ pages, charsPerLine, linesPerPage }: ManuscriptPreviewProps) {
   const charsPerPage = charsPerLine * linesPerPage;
   // 列数に応じてセルサイズを調整（最小14px・最大24px）
   const cellSize = Math.min(24, Math.max(14, Math.floor(480 / linesPerPage)));
-
-  const pages = useMemo(() => {
-    const result: string[][] = [];
-    let currentPage: string[] = [];
-    let cellIndex = 0;
-
-    for (const ch of text) {
-      if (result.length >= MANUSCRIPT_MAX_PAGES) break;
-      if (cellIndex >= charsPerPage) {
-        result.push(currentPage);
-        currentPage = [];
-        cellIndex = 0;
-      }
-
-      if (ch === '\n') {
-        const currentRow = cellIndex % charsPerLine;
-        if (currentRow !== 0) {
-          const padding = charsPerLine - currentRow;
-          for (let i = 0; i < padding; i++) {
-            if (cellIndex >= charsPerPage) {
-              result.push(currentPage);
-              currentPage = [];
-              cellIndex = 0;
-              break;
-            }
-            currentPage.push('');
-            cellIndex++;
-          }
-        }
-      } else {
-        currentPage.push(ch);
-        cellIndex++;
-      }
-    }
-
-    if (currentPage.length > 0 && result.length < MANUSCRIPT_MAX_PAGES) {
-      result.push(currentPage);
-    }
-    if (result.length === 0) result.push([]);
-    return result;
-  }, [text, charsPerLine, charsPerPage]);
+  const totalPages = pages.length;
+  const visiblePages = pages.slice(0, MANUSCRIPT_MAX_PAGES);
 
   return (
     <div className="manuscript-preview-container overflow-auto p-4">
-      {pages.map((pageChars, pageIdx) => (
+      {visiblePages.map((pageChars, pageIdx) => (
         <div key={pageIdx} className="manuscript-page mb-6">
           {/* ページ番号 */}
           <div
             className="text-xs text-right mb-1 pr-2"
             style={{ color: 'var(--text-muted)' }}
           >
-            {pageIdx + 1} / {pages.length}ページ
+            {pageIdx + 1} / {totalPages}ページ
           </div>
           {/* 原稿用紙グリッド */}
           <div
@@ -121,9 +125,9 @@ function ManuscriptPreview({ text, charsPerLine, linesPerPage }: ManuscriptPrevi
           </div>
         </div>
       ))}
-      {text.length > MANUSCRIPT_MAX_PAGES * charsPerPage && (
+      {totalPages > MANUSCRIPT_MAX_PAGES && (
         <div className="text-xs text-center py-2" style={{ color: 'var(--text-muted)' }}>
-          ※ 表示は{MANUSCRIPT_MAX_PAGES}ページまでに制限されています
+          ※ 表示は{MANUSCRIPT_MAX_PAGES}ページまでに制限されています（全{totalPages}ページ）
         </div>
       )}
     </div>
@@ -204,10 +208,12 @@ export function PreviewView() {
     [currentEpisode?.body],
   );
 
-  const totalManuscriptPages = useMemo(() => {
-    const charCount = [...plainText].filter((ch) => ch !== '\n').length;
-    return charCount > 0 ? Math.ceil(charCount / charsPerPage) : 0;
-  }, [plainText, charsPerPage]);
+  // 段落整形済みのページ配列（ヘッダの総枚数と本文のページ番号で共有）
+  const manuscriptPages = useMemo(
+    () => layoutManuscript(plainText, charsPerLine, linesPerPage),
+    [plainText, charsPerLine, linesPerPage],
+  );
+  const totalManuscriptPages = plainText.length > 0 ? manuscriptPages.length : 0;
 
   const modes: { key: PreviewSubMode; label: string }[] = [
     { key: 'manuscript', label: '原稿用紙' },
@@ -257,7 +263,7 @@ export function PreviewView() {
       {/* プレビュー本体 */}
       <div className="flex-1 overflow-auto">
         {previewSubMode === 'manuscript' ? (
-          <ManuscriptPreview text={plainText} charsPerLine={charsPerLine} linesPerPage={linesPerPage} />
+          <ManuscriptPreview pages={manuscriptPages} charsPerLine={charsPerLine} linesPerPage={linesPerPage} />
         ) : (
           <SmartphonePreview html={currentEpisode?.body ?? ''} />
         )}
