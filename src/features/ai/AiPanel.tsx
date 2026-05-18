@@ -1,29 +1,35 @@
 /**
- * AIパネル — フローティングウィンドウ / サイドバー固定
+ * AIパネル — フェーズ駆動レイアウト（Plan B）
  *
- * aiPanelMode === 'float'   : 従来のドラッグ可能フローティングウィンドウ
+ * aiPanelMode === 'float'   : ドラッグ可能フローティングウィンドウ
  * aiPanelMode === 'sidebar' : ワークスペース右端に固定されたサイドバー
+ *
+ * シェル構成: PhaseRail（左端）+ [ PhaseHeader / PhaseBody / AiChat ]
  */
 
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, type ComponentType } from 'react';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useAiStore } from '@/shared/stores/aiStore';
 import { AiChat, type AiChatHandle } from './AiChat';
-import { AiQuickActions } from './AiQuickActions';
-import { CreatorTypeSelector } from './CreatorTypeSelector';
-import { CreativePhaseSelector } from './CreativePhaseSelector';
-import { CreativeCoreEditor } from './CreativeCoreEditor';
-import { AiContextBar } from './AiContextBar';
 import { useStagnationDetector } from './useStagnationDetector';
 import { PHASE_COLORS } from './phaseColors';
+import { PhaseHeader } from './PhaseHeader';
+import { PhaseRail } from './PhaseRail';
+import { ExplorePhase } from './phases/ExplorePhase';
+import { StructurePhase } from './phases/StructurePhase';
+import { WritePhase } from './phases/WritePhase';
+import { RevisePhase } from './phases/RevisePhase';
+import type { WriteLevel, PhaseBodyProps } from './types';
 
-const FLOAT_DEFAULT_W = 380;
+const FLOAT_DEFAULT_W = 420;
 const FLOAT_DEFAULT_H = 560;
-const FLOAT_MIN_W = 300;
+const FLOAT_MIN_W = 340;
 const FLOAT_MIN_H = 380;
-const SIDEBAR_DEFAULT_W = 360;
-const SIDEBAR_MIN_W = 280;
+const SIDEBAR_DEFAULT_W = 380;
+const SIDEBAR_MIN_W = 320;
 const SIDEBAR_MAX_W = 520;
+
+const WRITE_LEVEL_KEY = 'story-attic-ai-write-level';
 
 function loadSidebarWidth(): number {
   try {
@@ -33,15 +39,37 @@ function loadSidebarWidth(): number {
   return SIDEBAR_DEFAULT_W;
 }
 
+function loadWriteLevel(): WriteLevel {
+  try {
+    const v = localStorage.getItem(WRITE_LEVEL_KEY) as WriteLevel;
+    if (v === 'silent' || v === 'mini' || v === 'open') return v;
+  } catch { /* 無視 */ }
+  return 'silent'; // デフォルトは「静寂」
+}
+
+const PHASE_BODIES: Record<string, ComponentType<PhaseBodyProps>> = {
+  explore: ExplorePhase,
+  structure: StructurePhase,
+  write: WritePhase,
+  revise: RevisePhase,
+};
+
 export function AiPanel() {
   const chatRef = useRef<AiChatHandle | null>(null);
   const { toggleAiPanel, aiPanelMode, toggleAiPanelMode, toggleAiManual } = useUIStore();
   const phase = useAiStore((s) => s.phase);
-  const isWritePhase = phase === 'write';
+  const isStreaming = useAiStore((s) => s.isStreaming);
   const phaseColor = PHASE_COLORS[phase];
   const isSidebar = aiPanelMode === 'sidebar';
 
   useStagnationDetector();
+
+  // 執筆フェーズの呼び出しレベル（localStorage 永続化）
+  const [writeLevel, setWriteLevelState] = useState<WriteLevel>(loadWriteLevel);
+  const setWriteLevel = useCallback((lv: WriteLevel) => {
+    setWriteLevelState(lv);
+    try { localStorage.setItem(WRITE_LEVEL_KEY, lv); } catch { /* 無視 */ }
+  }, []);
 
   // ── Float モード: ドラッグ ──────────────────────────
   const [pos, setPos] = useState({ x: window.innerWidth - FLOAT_DEFAULT_W - 24, y: 56 });
@@ -137,115 +165,46 @@ export function AiPanel() {
     };
   }, [sidebarWidth]);
 
-  // ── 共通UI ────────────────────────────────────────
-  const titleBar = (
-    <div
-      onMouseDown={isSidebar ? undefined : onDragStart}
-      className="flex items-center justify-between px-3 py-1.5 flex-shrink-0"
-      style={{
-        borderBottom: `1px solid ${phaseColor.border}`,
-        cursor: isSidebar ? 'default' : 'grab',
-        userSelect: 'none',
-        background: phaseColor.bg,
-        transition: 'background 300ms, border-color 300ms',
-      }}
-    >
-      <span
-        className="text-xs font-medium"
+  // ── パネル本体（PhaseRail + フェーズ層）───────────
+  const PhaseBody = PHASE_BODIES[phase] ?? ExplorePhase;
+  const isSilent = phase === 'write' && writeLevel === 'silent';
+
+  const panelBody = (
+    <div style={{ display: 'flex', flexDirection: 'row', flex: 1, minWidth: 0, minHeight: 0 }}>
+      <PhaseRail />
+      <div
+        onMouseDown={isSidebar ? undefined : onDragStart}
         style={{
-          color: isWritePhase ? phaseColor.accent : 'var(--text)',
-          fontFamily: 'var(--font-heading)',
-          letterSpacing: '0.05em',
-          transition: 'color 300ms',
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          minWidth: 0,
+          cursor: isSidebar ? 'default' : 'grab',
         }}
       >
-        {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
-      </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-        <span
+        <PhaseHeader
+          phase={phase}
+          pinned={isSidebar}
+          writeLevel={writeLevel}
+          onTogglePin={toggleAiPanelMode}
+          onManual={toggleAiManual}
+          onClose={toggleAiPanel}
+          onCycleWriteLevel={setWriteLevel}
+        />
+        <div
           style={{
-            fontSize: '9px',
-            padding: '1px 6px',
-            borderRadius: '6px',
-            background: phaseColor.bg,
-            color: phaseColor.accent,
-            border: `1px solid ${phaseColor.border}`,
-            fontWeight: 600,
-            letterSpacing: '0.04em',
+            flex: isSilent ? 1 : '0 0 auto',
+            minHeight: 0,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
-          {phase === 'explore' ? '探索' : phase === 'structure' ? '構造' : phase === 'write' ? '執筆' : '改稿'}
-        </span>
-        {/* マニュアル */}
-        <button
-          className="text-xs"
-          style={{
-            color: 'var(--text-muted)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '2px 5px',
-            borderRadius: '4px',
-            lineHeight: 1,
-            fontSize: '11px',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-          onClick={toggleAiManual}
-          title="AI マニュアルを開く"
-        >
-          ?
-        </button>
-        {/* ピン留めトグル */}
-        <button
-          className="text-xs"
-          style={{
-            color: isSidebar ? phaseColor.accent : 'var(--text-muted)',
-            background: isSidebar ? phaseColor.bg : 'none',
-            border: isSidebar ? `1px solid ${phaseColor.border}` : 'none',
-            cursor: 'pointer',
-            padding: '2px 5px',
-            borderRadius: '4px',
-            lineHeight: 1,
-            fontSize: '11px',
-          }}
-          onClick={toggleAiPanelMode}
-          title={isSidebar ? 'フローティングに切替' : 'サイドバーに固定'}
-        >
-          {isSidebar ? '📌' : '⊞'}
-        </button>
-        <button
-          className="text-xs"
-          style={{
-            color: 'var(--text-muted)',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: '2px 5px',
-            borderRadius: '4px',
-            lineHeight: 1,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
-          onClick={toggleAiPanel}
-          title="閉じる"
-        >
-          ✕
-        </button>
+          <PhaseBody chatRef={chatRef} isStreaming={isStreaming} writeLevel={writeLevel} />
+        </div>
+        <AiChat chatRef={chatRef} writeLevel={writeLevel} />
       </div>
     </div>
-  );
-
-  const innerContent = (
-    <>
-      {titleBar}
-      <CreativePhaseSelector />
-      <CreatorTypeSelector />
-      <AiContextBar />
-      <CreativeCoreEditor />
-      <AiQuickActions chatRef={chatRef} />
-      <AiChat chatRef={chatRef} />
-    </>
   );
 
   // ── Sidebar レンダリング ──────────────────────────
@@ -261,7 +220,7 @@ export function AiPanel() {
           flexDirection: 'column',
           background: 'var(--bg-deep)',
           borderLeft: `1px solid ${phaseColor.border}`,
-          transition: 'border-color 300ms',
+          transition: 'border-color 320ms',
           overflow: 'hidden',
         }}
       >
@@ -278,7 +237,7 @@ export function AiPanel() {
             zIndex: 10,
           }}
         />
-        {innerContent}
+        {panelBody}
       </div>
     );
   }
@@ -300,10 +259,10 @@ export function AiPanel() {
         borderRadius: '10px',
         boxShadow: `0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px ${phaseColor.bg}`,
         overflow: 'hidden',
-        transition: 'border-color 300ms, box-shadow 300ms',
+        transition: 'border-color 320ms, box-shadow 320ms',
       }}
     >
-      {innerContent}
+      {panelBody}
       {/* リサイズハンドル（右下） */}
       <div
         data-resize="true"

@@ -184,6 +184,32 @@ body {
   50%      { opacity: 0.6; }
 }
 
+/* AIパネル（フェーズ駆動レイアウト）用アニメーション */
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.3); }
+}
+
+@keyframes caretBlink {
+  0%, 50%   { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+@keyframes lampRadial {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.85; }
+}
+
+@keyframes bannerSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes phaseEnter {
+  from { opacity: 0.2; transform: translateY(4px); }
+  to   { opacity: 1;   transform: translateY(0); }
+}
+
 /* =========================================
    共通コンポーネントスタイル
    ========================================= */

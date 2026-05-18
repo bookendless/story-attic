@@ -1,13 +1,13 @@
 /**
- * AIチャットUI
- * メッセージ一覧・入力・ストリーミング送受信を担当する。
+ * AiChat — AI 対話のロジック層
+ * メッセージ送信・ストリーミング送受信・コンテキスト構築を担当する。
+ * 表示は ChatArea に委譲する。
  * 送信時に catalystPromptBuilder でシステムプロンプトを動的構築する。
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import ReactMarkdown from 'react-markdown';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import {
@@ -17,8 +17,10 @@ import {
 import { useUIStore } from '@/shared/stores/uiStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import { buildCatalystPrompt } from './catalystPromptBuilder';
+import { ChatArea } from './ChatArea';
+import type { WriteLevel } from './types';
 import type {
-  AiChunkPayload, AiMessage, AiContextSource, BlockType,
+  AiChunkPayload, AiMessage, AiContextSource,
   Character, CharacterData,
   GlossaryItem, GlossaryData,
   Plot, PlotData,
@@ -35,6 +37,7 @@ export interface AiChatHandle {
 
 interface AiChatProps {
   chatRef?: React.RefObject<AiChatHandle | null>;
+  writeLevel: WriteLevel;
 }
 
 function truncate(text: string, max: number): string {
@@ -130,7 +133,7 @@ async function fetchContextData(
   return parts.join('\n\n');
 }
 
-export function AiChat({ chatRef }: AiChatProps) {
+export function AiChat({ chatRef, writeLevel }: AiChatProps) {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
   const {
@@ -264,401 +267,46 @@ export function AiChat({ chatRef }: AiChatProps) {
     }
   };
 
-  const isWritePhase = phase === 'write';
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0">
-      {/* ヘッダー */}
-      <div
-        className="flex items-center justify-between px-3 py-2 flex-shrink-0"
-        style={{ borderBottom: '1px solid var(--border)' }}
-      >
-        <div className="flex items-center gap-2">
-          <span
-            className="text-xs font-medium"
-            style={{ color: 'var(--text)', fontFamily: 'var(--font-heading)', letterSpacing: '0.05em' }}
-          >
-            {isWritePhase ? '静かに見守り中...' : 'AI 思考パートナー'}
-          </span>
-          {socratesMode ? (
-            <button
-              className="text-xs"
-              style={{
-                padding: '1px 8px',
-                borderRadius: '8px',
-                background: 'rgba(139,124,246,0.12)',
-                border: '1px solid rgba(139,124,246,0.4)',
-                color: '#8b7cf6',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-              onClick={resetSocrates}
-              title="深掘りモードを終了する"
-            >
-              深掘り {socratesDepth}/5 — 終了
-            </button>
-          ) : (
-            <button
-              className="text-xs"
-              style={{
-                padding: '1px 8px',
-                borderRadius: '8px',
-                background: 'none',
-                border: '1px solid var(--border)',
-                color: 'var(--text-muted)',
-                cursor: isStreaming ? 'not-allowed' : 'pointer',
-                opacity: isStreaming ? 0.4 : 1,
-              }}
-              onClick={() => setSocratesMode(true)}
-              disabled={isStreaming}
-              title="AIが一問ずつ深掘り質問を返すモード（最大5往復）"
-            >
-              深掘り
-            </button>
-          )}
-        </div>
-        <button
-          className="text-xs"
-          style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
-          onClick={clearHistory}
-          title="会話をクリア"
-        >
-          クリア
-        </button>
-      </div>
-
-      {/* メッセージ一覧 */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
-        {/* 空メッセージ時のヒント */}
-        {messages.length === 0 && !isStreaming && detectedBlock === 'none' && (
-          <p
-            className="text-xs text-center mt-8"
-            style={{ color: 'var(--text-muted)', lineHeight: '1.8' }}
-          >
-            {isWritePhase
-              ? '執筆に集中してください。\n必要なときだけ呼んでください。'
-              : '創作について何でも話しかけてください。\n問いで思考を深めます。'}
-          </p>
-        )}
-
-        {messages.map((msg, i) => (
-          <MessageBubble
-            key={i}
-            message={msg}
-            theme={theme}
-            onRetry={msg.role === 'error' && i === messages.length - 1 ? handleRetry : undefined}
-          />
-        ))}
-
-        {isStreaming && (
-          <MessageBubble
-            message={{ role: 'assistant', content: streamBuffer }}
-            theme={theme}
-            streaming
-          />
-        )}
-
-        {/* 停滞検知バナー — 会話中でも最下部に常時表示 */}
-        {!isStreaming && detectedBlock !== 'none' && (
-          <BlockNotificationBanner
-            block={detectedBlock}
-            onAsk={() => {
-              const blockPrompts: Record<string, string> = {
-                idea: 'アイデア停滞を感じています。創作を再起動する問いをください。',
-                structure: '構造的な停滞を感じています。このシーンについて問いをください。',
-                motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
-              };
-              doSend(blockPrompts[detectedBlock] ?? '');
-            }}
-            onDismiss={() => setDetectedBlock('none')}
-          />
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* 入力エリア */}
-      <div
-        className="flex-shrink-0 px-3 pb-3 pt-2"
-        style={{
-          borderTop: '1px solid var(--border)',
-          opacity: isWritePhase ? 0.7 : 1,
-          transition: 'opacity 300ms',
-        }}
-      >
-        <div className="flex flex-col gap-2">
-          <textarea
-            ref={textareaRef}
-            className="w-full text-xs resize-none"
-            rows={3}
-            placeholder={isWritePhase
-              ? '執筆中です。必要なときだけ入力してください…'
-              : 'メッセージを入力… (Enter で送信 / Shift+Enter で改行)'}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isStreaming}
-            style={{
-              background: 'var(--bg)',
-              color: 'var(--text)',
-              border: `1px solid ${isWritePhase ? 'rgba(var(--border-rgb, 100,100,100), 0.4)' : 'var(--border)'}`,
-              borderRadius: '6px',
-              padding: '8px',
-              outline: 'none',
-              fontFamily: 'inherit',
-              lineHeight: '1.6',
-              opacity: isStreaming ? 0.6 : 1,
-            }}
-          />
-          <button
-            className="btn btn-primary text-xs self-end"
-            style={{ padding: '4px 14px' }}
-            onClick={handleSend}
-            disabled={isStreaming || !input.trim()}
-          >
-            {isStreaming ? '応答中...' : '送信'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// =========================================
-// サブコンポーネント
-// =========================================
-
-function BlockNotificationBanner({
-  block,
-  onAsk,
-  onDismiss,
-}: {
-  block: Exclude<BlockType, 'none'>;
-  onAsk: () => void;
-  onDismiss: () => void;
-}) {
-  const labels: Record<Exclude<BlockType, 'none'>, { title: string; desc: string }> = {
-    idea: { title: 'アイデア停滞を検知', desc: 'しばらく入力が止まっています。思考を動かす問いを聞きますか？' },
-    structure: { title: '構造停滞を検知', desc: '同じ箇所の編集が繰り返されています。構造的な問いを聞きますか？' },
-    motivation: { title: '執筆リズムの乱れを検知', desc: '少し疲れているかもしれません。小さな一歩の問いを聞きますか？' },
+  const handleClear = () => {
+    if (messages.length === 0) return;
+    if (window.confirm('会話履歴を消去しますか？元に戻せません。')) {
+      clearHistory();
+    }
   };
-  const { title, desc } = labels[block];
+
+  const handleAskBlock = () => {
+    if (detectedBlock === 'none') return;
+    const blockPrompts: Record<string, string> = {
+      idea: 'アイデア停滞を感じています。創作を再起動する問いをください。',
+      structure: '構造的な停滞を感じています。このシーンについて問いをください。',
+      motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
+    };
+    doSend(blockPrompts[detectedBlock] ?? '');
+  };
 
   return (
-    <div
-      className="rounded-lg px-3 py-2.5 text-xs"
-      style={{
-        background: 'rgba(var(--accent-rgb, 120,120,200), 0.08)',
-        border: '1px solid rgba(var(--accent-rgb, 120,120,200), 0.2)',
-        color: 'var(--text)',
-      }}
-    >
-      <div className="font-medium mb-1" style={{ color: 'var(--accent)' }}>{title}</div>
-      <p style={{ color: 'var(--text-mid)', marginBottom: '8px', lineHeight: '1.6' }}>{desc}</p>
-      <div className="flex gap-2">
-        <button
-          className="text-xs"
-          style={{
-            padding: '3px 10px',
-            borderRadius: '6px',
-            background: 'var(--accent)',
-            color: 'var(--bg-deep)',
-            border: 'none',
-            cursor: 'pointer',
-          }}
-          onClick={onAsk}
-        >
-          問いを聞く
-        </button>
-        <button
-          className="text-xs"
-          style={{
-            padding: '3px 10px',
-            borderRadius: '6px',
-            background: 'transparent',
-            color: 'var(--text-muted)',
-            border: '1px solid var(--border)',
-            cursor: 'pointer',
-          }}
-          onClick={onDismiss}
-        >
-          無視する
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({
-  message,
-  theme,
-  streaming = false,
-  onRetry,
-}: {
-  message: ChatMessage;
-  theme: 'dark' | 'light';
-  streaming?: boolean;
-  onRetry?: () => void;
-}) {
-  const isUser = message.role === 'user';
-  const isAssistant = message.role === 'assistant';
-  const isError = message.role === 'error';
-
-  const bubbleBg = isUser
-    ? 'var(--accent)'
-    : isError
-    ? (theme === 'dark' ? 'rgba(200, 60, 60, 0.25)' : 'rgba(200, 60, 60, 0.15)')
-    : (theme === 'dark' ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)');
-
-  const textColor = isUser
-    ? (theme === 'dark' ? 'var(--bg-deep)' : '#fff')
-    : isError
-    ? (theme === 'dark' ? 'rgba(255,120,120,0.95)' : 'rgba(180,40,40,0.9)')
-    : 'var(--text)';
-
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        style={{
-          maxWidth: '88%',
-          background: bubbleBg,
-          color: textColor,
-          borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-          padding: '8px 12px',
-          fontSize: '12px',
-          lineHeight: '1.75',
-          whiteSpace: isAssistant ? 'normal' : 'pre-wrap',
-          wordBreak: 'break-word',
-        }}
-      >
-        {isAssistant ? (
-          <MarkdownContent content={message.content} theme={theme} />
-        ) : (
-          message.content
-        )}
-        {isError && onRetry && (
-          <button
-            onClick={onRetry}
-            style={{
-              display: 'block',
-              marginTop: '6px',
-              padding: '2px 10px',
-              borderRadius: '6px',
-              background: 'transparent',
-              color: theme === 'dark' ? 'rgba(255,120,120,0.85)' : 'rgba(180,40,40,0.8)',
-              border: `1px solid ${theme === 'dark' ? 'rgba(255,120,120,0.4)' : 'rgba(180,40,40,0.3)'}`,
-              cursor: 'pointer',
-              fontSize: '11px',
-            }}
-          >
-            ↺ 再試行
-          </button>
-        )}
-        {streaming && (
-          <span
-            style={{
-              display: 'inline-block',
-              width: '2px',
-              height: '12px',
-              background: 'var(--text-mid)',
-              marginLeft: '2px',
-              verticalAlign: 'middle',
-              animation: 'blink 1s step-end infinite',
-            }}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function MarkdownContent({ content, theme }: { content: string; theme: 'dark' | 'light' }) {
-  const codeBg = theme === 'dark' ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.06)';
-  const quoteBorder = theme === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.2)';
-
-  return (
-    <div className="ai-markdown">
-      <ReactMarkdown
-        components={{
-          p: ({ children }) => <p style={{ margin: '0 0 0.6em 0' }}>{children}</p>,
-          ul: ({ children }) => (
-            <ul style={{ margin: '0 0 0.6em 0', paddingLeft: '1.4em', listStyle: 'disc' }}>{children}</ul>
-          ),
-          ol: ({ children }) => (
-            <ol style={{ margin: '0 0 0.6em 0', paddingLeft: '1.4em', listStyle: 'decimal' }}>{children}</ol>
-          ),
-          li: ({ children }) => <li style={{ marginBottom: '0.2em' }}>{children}</li>,
-          h1: ({ children }) => (
-            <h1 style={{ fontSize: '14px', fontWeight: 600, margin: '0.2em 0 0.4em 0' }}>{children}</h1>
-          ),
-          h2: ({ children }) => (
-            <h2 style={{ fontSize: '13px', fontWeight: 600, margin: '0.2em 0 0.4em 0' }}>{children}</h2>
-          ),
-          h3: ({ children }) => (
-            <h3 style={{ fontSize: '12px', fontWeight: 600, margin: '0.2em 0 0.4em 0' }}>{children}</h3>
-          ),
-          code: ({ className, children }) => {
-            const isBlock = Boolean(className);
-            if (isBlock) {
-              return <code style={{ fontFamily: 'ui-monospace, monospace', fontSize: '11px' }}>{children}</code>;
-            }
-            return (
-              <code
-                style={{
-                  fontFamily: 'ui-monospace, monospace',
-                  fontSize: '11px',
-                  background: codeBg,
-                  padding: '1px 4px',
-                  borderRadius: '3px',
-                }}
-              >
-                {children}
-              </code>
-            );
-          },
-          pre: ({ children }) => (
-            <pre
-              style={{
-                background: codeBg,
-                padding: '8px 10px',
-                borderRadius: '4px',
-                margin: '0 0 0.6em 0',
-                overflowX: 'auto',
-                whiteSpace: 'pre',
-              }}
-            >
-              {children}
-            </pre>
-          ),
-          blockquote: ({ children }) => (
-            <blockquote
-              style={{
-                borderLeft: `2px solid ${quoteBorder}`,
-                paddingLeft: '8px',
-                margin: '0 0 0.6em 0',
-                opacity: 0.85,
-              }}
-            >
-              {children}
-            </blockquote>
-          ),
-          a: ({ href, children }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: 'var(--accent)', textDecoration: 'underline' }}
-            >
-              {children}
-            </a>
-          ),
-          hr: () => (
-            <hr style={{ border: 'none', borderTop: `1px solid ${quoteBorder}`, margin: '0.6em 0' }} />
-          ),
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
+    <ChatArea
+      phase={phase}
+      writeLevel={writeLevel}
+      isStreaming={isStreaming}
+      messages={messages}
+      streamBuffer={streamBuffer}
+      theme={theme}
+      input={input}
+      onInputChange={setInput}
+      onSend={handleSend}
+      onKeyDown={handleKeyDown}
+      onRetry={handleRetry}
+      onClear={handleClear}
+      socratesMode={socratesMode}
+      socratesDepth={socratesDepth}
+      onStartSocrates={() => setSocratesMode(true)}
+      onResetSocrates={resetSocrates}
+      detectedBlock={detectedBlock}
+      onAskBlock={handleAskBlock}
+      onDismissBlock={() => setDetectedBlock('none')}
+      textareaRef={textareaRef}
+      messagesEndRef={messagesEndRef}
+    />
   );
 }
