@@ -760,7 +760,12 @@ pub async fn ai_get_info_asymmetry(
             };
             combined.push_str(&format!("【{}】\n{}\n\n", title, stripped));
             if combined.len() >= 3000 {
-                combined.truncate(3000);
+                // 文字境界まで戻してから切る（日本語のUTF-8マルチバイトでのpanic回避）
+                let mut end = 3000;
+                while end > 0 && !combined.is_char_boundary(end) {
+                    end -= 1;
+                }
+                combined.truncate(end);
                 break;
             }
         }
