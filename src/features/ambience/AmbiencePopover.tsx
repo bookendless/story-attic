@@ -3,20 +3,12 @@
  * ヘッダーボタンから開き、演出タイプ切替・環境音・タイピング音を即時操作できる。
  */
 
-import { useUIStore, type EffectType, type AmbientType, type TypingSoundType } from '@/shared/stores/uiStore';
+import { useUIStore, type EffectType, type TypingSoundType } from '@/shared/stores/uiStore';
 
 const EFFECT_OPTIONS: { key: EffectType; label: string }[] = [
   { key: 'rain', label: '雨' },
   { key: 'snow', label: '雪' },
   { key: 'sakura', label: '桜' },
-];
-
-const AMBIENT_OPTIONS: { key: AmbientType; label: string }[] = [
-  { key: 'rain', label: '雨音' },
-  { key: 'fireplace', label: '焚き火' },
-  { key: 'forest', label: '森・鳥の声' },
-  { key: 'cafe', label: 'カフェ' },
-  { key: 'waves', label: '波の音' },
 ];
 
 const TYPING_OPTIONS: { key: TypingSoundType; label: string }[] = [
@@ -33,13 +25,6 @@ export function AmbiencePopover() {
   } = useUIStore();
   const updateSound = (patch: Partial<typeof soundSettings>) => {
     setSoundSettings({ ...soundSettings, ...patch });
-  };
-
-  const toggleAmbientType = (type: AmbientType) => {
-    const active = soundSettings.activeAmbients.includes(type)
-      ? soundSettings.activeAmbients.filter((t) => t !== type)
-      : [...soundSettings.activeAmbients, type];
-    updateSound({ activeAmbients: active });
   };
 
   return (
@@ -93,30 +78,6 @@ export function AmbiencePopover() {
           disabled={!soundSettings.enabled}
         />
       </div>
-
-      {/* 環境音 */}
-      <div className="mb-1">
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>環境音</span>
-      </div>
-      <div className="space-y-1 mb-2">
-        {AMBIENT_OPTIONS.map((opt) => (
-          <div key={opt.key} className="flex items-center gap-2">
-            <MiniToggle
-              checked={soundSettings.activeAmbients.includes(opt.key)}
-              onChange={() => toggleAmbientType(opt.key)}
-              disabled={!soundSettings.enabled}
-            />
-            <span className="text-xs flex-1" style={{ color: 'var(--text-mid)' }}>{opt.label}</span>
-          </div>
-        ))}
-      </div>
-
-      <SliderRow
-        label="環境音量"
-        value={soundSettings.ambientVolume}
-        onChange={(v) => updateSound({ ambientVolume: v })}
-        disabled={!soundSettings.enabled}
-      />
 
       <Divider />
 

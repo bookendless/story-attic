@@ -56,8 +56,6 @@ function flattenDrafts(
     // SoundSettings
     sound_enabled:  sound.enabled,
     masterVolume:   sound.masterVolume,
-    ambientVolume:  sound.ambientVolume,
-    activeAmbients: sound.activeAmbients,
     typingType:     sound.typingType,
     typingVolume:   sound.typingVolume,
     // AiSettings (api_key は Keyring 管理のため除外)

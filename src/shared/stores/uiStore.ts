@@ -35,27 +35,20 @@ export const DEFAULT_AMBIENCE_SETTINGS: AmbienceSettings = {
   opacity: 0.3,
 };
 
-/** 環境音の種類 */
-export type AmbientType = 'rain' | 'fireplace' | 'forest' | 'cafe' | 'waves';
-
 /** タイピング音の種類 */
 export type TypingSoundType = 'mechanical' | 'wooden' | 'soft' | 'none';
 
 /** サウンド設定 */
 export interface SoundSettings {
   enabled: boolean;
-  masterVolume: number;          // 0 ~ 1
-  ambientVolume: number;         // 0 ~ 1
-  activeAmbients: AmbientType[]; // 同時再生する環境音
+  masterVolume: number;    // 0 ~ 1
   typingType: TypingSoundType;
-  typingVolume: number;          // 0 ~ 1
+  typingVolume: number;    // 0 ~ 1
 }
 
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   enabled: false,
   masterVolume: 0.5,
-  ambientVolume: 0.5,
-  activeAmbients: [],
   typingType: 'none',
   typingVolume: 0.3,
 };

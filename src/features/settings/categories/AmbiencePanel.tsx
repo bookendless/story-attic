@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { AmbienceSettings, SoundSettings, AmbientType, EffectType, ParticleDensity, TypingSoundType } from '@/shared/stores/uiStore';
+import type { AmbienceSettings, SoundSettings, EffectType, ParticleDensity, TypingSoundType } from '@/shared/stores/uiStore';
 import { Row, Section, Toggle, Slider, Chips } from '../atoms';
 
 interface AmbiencePanelProps {
@@ -19,14 +19,6 @@ const DENSITY_OPTIONS: { value: ParticleDensity; label: string }[] = [
   { value: 'sparse', label: '疎' },
   { value: 'normal', label: '普通' },
   { value: 'dense',  label: '密' },
-];
-
-const AMBIENT_OPTIONS: { key: AmbientType; label: string; icon: string }[] = [
-  { key: 'rain',      label: '雨音',   icon: '☂' },
-  { key: 'fireplace', label: '焚き火', icon: '🔥' },
-  { key: 'forest',    label: '森・鳥', icon: '🌲' },
-  { key: 'cafe',      label: 'カフェ', icon: '☕' },
-  { key: 'waves',     label: '波の音', icon: '🌊' },
 ];
 
 const TYPING_OPTIONS: { value: TypingSoundType; label: string }[] = [
@@ -120,13 +112,6 @@ function AmbiencePreview({ effectType, density, speed, angle, opacity }: Preview
 export function AmbiencePanel({ draftAmbience, onAmbienceChange, draftSound, onSoundChange }: AmbiencePanelProps) {
   const soundEnabled = draftSound.enabled;
 
-  const toggleAmbient = (type: AmbientType) => {
-    const active = draftSound.activeAmbients.includes(type)
-      ? draftSound.activeAmbients.filter((t) => t !== type)
-      : [...draftSound.activeAmbients, type];
-    onSoundChange({ activeAmbients: active });
-  };
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* 演出（ビジュアル） */}
@@ -173,45 +158,6 @@ export function AmbiencePanel({ draftAmbience, onAmbienceChange, draftSound, onS
             disabled={!soundEnabled}
           />
         </Row>
-      </Section>
-
-      {/* 環境音 */}
-      <Section title="環境音" collapsed={!soundEnabled}>
-        <Row label="音量">
-          <Slider
-            value={draftSound.ambientVolume}
-            onChange={(v) => onSoundChange({ ambientVolume: v })}
-            min={0} max={1} step={0.05}
-            format={(v) => `${Math.round(v * 100)}%`}
-          />
-        </Row>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {AMBIENT_OPTIONS.map((opt) => {
-            const active = draftSound.activeAmbients.includes(opt.key);
-            return (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => toggleAmbient(opt.key)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '8px 12px',
-                  borderRadius: '8px',
-                  border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
-                  background: active ? 'var(--bg-elevated)' : 'var(--bg-deep)',
-                  cursor: 'pointer',
-                  transition: 'border-color 150ms, background 150ms',
-                }}
-              >
-                <span style={{ fontSize: '20px' }}>{opt.icon}</span>
-                <span style={{ fontSize: '11px', color: 'var(--text-mid)' }}>{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
       </Section>
 
       {/* タイピング音 */}
