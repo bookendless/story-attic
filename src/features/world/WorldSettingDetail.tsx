@@ -92,7 +92,7 @@ export function WorldSettingDetail({ item, onBack, onUpdate }: Props) {
 
         <Field label="カテゴリ">
           <select
-            className="w-full text-sm px-2 py-1 rounded outline-none"
+            className="w-full text-sm px-2 py-1 rounded outline-none input"
             style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
             value={category}
             onChange={(e) => { setCategory(e.target.value); setDirty(true); }}

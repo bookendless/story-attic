@@ -19,17 +19,17 @@ const AI_PROVIDERS = [
 ];
 
 const DEFAULT_MODELS: Record<string, string> = {
-  openai: 'gpt-4o',
+  openai: 'gpt-5.4-mini',
   anthropic: 'claude-sonnet-4-6',
-  google: 'gemini-2.5-flash',
-  xai: 'grok-4',
+  google: 'gemini-3.1-flash-lite',
+  xai: 'grok-4-1-fast-reasoning',
   local: 'llama3.2',
 };
 
 const MODEL_PLACEHOLDER: Record<string, string> = {
   openai: 'gpt-5.4-mini',
   anthropic: 'claude-sonnet-4-6',
-  google: 'gemini-3.1-flash-lite-preview',
+  google: 'gemini-3.1-flash-lite',
   xai: 'grok-4-1-fast-reasoning',
   local: 'llama3.2',
 };
@@ -37,7 +37,7 @@ const MODEL_PLACEHOLDER: Record<string, string> = {
 const SUGGESTED_MODELS: Record<string, string[]> = {
   openai:    ['gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano', 'gpt-4o', 'o4-mini'],
   anthropic: ['claude-opus-4-7', 'claude-opus-4-6','claude-sonnet-4-6', 'claude-haiku-4-5-20251001'],
-  google:    ['gemini-3.1-pro-preview', 'gemini-3-flash-preview','gemini-3.1-flash-lite-preview', 'gemini-2.5-pro'],
+  google:    ['gemini-3.1-pro-preview', 'gemini-3-flash-preview','gemini-3.1-flash-lite', 'gemini-2.5-pro'],
   xai:       ['grok-4.20-0309-reasoning', 'grok-4.20-0309-non-reasoning', 'grok-4-1-fast-reasoning', 'grok-4-1-fast-non-reasoning'],
   local:     ['llama3.2', 'llama3.1', 'mistral', 'phi4', 'qwen2.5'],
 };

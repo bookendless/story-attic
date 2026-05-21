@@ -104,7 +104,7 @@ export function PlotThreadDetail({ item, onBack, onUpdate }: Props) {
         <div className="flex gap-2">
           <Field label="カテゴリ" className="flex-1">
             <select
-              className="w-full text-sm px-2 py-1 rounded outline-none"
+              className="w-full text-sm px-2 py-1 rounded outline-none input"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={category}
               onChange={(e) => { setCategory(e.target.value); setDirty(true); }}
@@ -120,7 +120,7 @@ export function PlotThreadDetail({ item, onBack, onUpdate }: Props) {
           </Field>
           <Field label="ステータス" className="flex-1">
             <select
-              className="w-full text-sm px-2 py-1 rounded outline-none"
+              className="w-full text-sm px-2 py-1 rounded outline-none input"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={data.status ?? ''}
               onChange={(e) => updateData('status', e.target.value)}
@@ -136,7 +136,7 @@ export function PlotThreadDetail({ item, onBack, onUpdate }: Props) {
           </Field>
           <Field label="重要度" className="flex-1">
             <select
-              className="w-full text-sm px-2 py-1 rounded outline-none"
+              className="w-full text-sm px-2 py-1 rounded outline-none input"
               style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
               value={data.importance ?? ''}
               onChange={(e) => updateData('importance', e.target.value)}
