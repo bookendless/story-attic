@@ -34,11 +34,106 @@ pub fn parse(content: &str) -> ParsedStoryProject {
             "キャラクター相関図" => project.relationships = parse_relationships_txt(body),
             "世界観設定" => project.world_settings = parse_world_settings_txt(body),
             "伏線トラッカー" => project.plot_threads = parse_plot_threads_txt(body),
+            "タイムライン" => project.timeline = parse_timeline_txt(body),
             _ => {}
         }
     }
 
     project
+}
+
+/// TXTタイムラインパース
+/// エントリは `N. タイトル [カテゴリ]` で始まり、空行で区切られる。
+/// 配下に `日付:`, `説明:`, `関連キャラクター:` フィールド。
+fn parse_timeline_txt(lines: &[String]) -> Vec<ParsedTimelineEvent> {
+    let mut events = Vec::new();
+    let mut current: Option<ParsedTimelineEvent> = None;
+    let mut current_field = "";
+
+    for line in lines {
+        let t = line.trim();
+
+        if t.is_empty() {
+            if let Some(e) = current.take() {
+                if !e.title.is_empty() {
+                    events.push(e);
+                }
+            }
+            current_field = "";
+            continue;
+        }
+
+        // ヘッダ行: `N. タイトル [カテゴリ]`
+        let is_header = t
+            .find('.')
+            .map(|p| t[..p].trim().parse::<i32>().is_ok())
+            .unwrap_or(false);
+
+        if is_header && current.is_none() {
+            let (number, title, category) = parse_timeline_header_txt(t);
+            current = Some(ParsedTimelineEvent {
+                number,
+                title,
+                category,
+                ..Default::default()
+            });
+            current_field = "";
+            continue;
+        }
+
+        if let Some(ref mut e) = current {
+            if let Some(v) = t.strip_prefix("日付:") {
+                e.date = v.trim().to_string();
+                current_field = "date";
+            } else if let Some(v) = t.strip_prefix("説明:") {
+                e.description = v.trim().to_string();
+                current_field = "description";
+            } else if let Some(v) = t.strip_prefix("関連キャラクター:") {
+                e.related_characters = v
+                    .split(['、', ','])
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect();
+                current_field = "";
+            } else if current_field == "description" {
+                e.description.push('\n');
+                e.description.push_str(t);
+            }
+        }
+    }
+
+    if let Some(e) = current {
+        if !e.title.is_empty() {
+            events.push(e);
+        }
+    }
+
+    events
+}
+
+fn parse_timeline_header_txt(s: &str) -> (i32, String, String) {
+    let mut rest = s.trim().to_string();
+
+    let mut number = 0i32;
+    if let Some(dot_pos) = rest.find('.') {
+        let head = rest[..dot_pos].trim();
+        if let Ok(n) = head.parse::<i32>() {
+            number = n;
+            rest = rest[dot_pos + 1..].trim().to_string();
+        }
+    }
+
+    let mut category = String::new();
+    if let Some(b_start) = rest.rfind('[') {
+        if let Some(b_end) = rest.rfind(']') {
+            if b_start < b_end {
+                category = rest[b_start + 1..b_end].trim().to_string();
+                rest = rest[..b_start].trim().to_string();
+            }
+        }
+    }
+
+    (number, rest, category)
 }
 
 /// セクションを分割する。`ヘッダ名\n----...` パターンで区切る
@@ -756,6 +851,11 @@ fn parse_plot_threads_txt(lines: &[String]) -> Vec<ParsedPlotThread> {
             in_points = false;
             continue;
         }
+        if let Some(v) = t.strip_prefix("回収予定章:") {
+            current.recovery_chapter = v.trim().to_string();
+            in_points = false;
+            continue;
+        }
         if let Some(v) = t.strip_prefix("メモ:") {
             current.notes = v.trim().to_string();
             in_points = false;
@@ -840,6 +940,7 @@ fn new_plot_thread() -> ParsedPlotThread {
         notes: String::new(),
         recommended_placement: String::new(),
         expected_effect: String::new(),
+        recovery_chapter: String::new(),
     }
 }
 
@@ -926,6 +1027,33 @@ mod tests {
         assert_eq!(drafts.len(), 2);
         assert_eq!(drafts[0].chapter_ref.as_deref(), Some("第1章: 導入"));
         assert_eq!(drafts[1].chapter_ref.as_deref(), Some("第2章: 展開"));
+    }
+
+    #[test]
+    fn timeline_txt_parses_entries() {
+        let lines: Vec<String> = [
+            "0. 出会い [plot]",
+            "日付: 第1章",
+            "説明: ルナとロイが路地裏で出会う。",
+            "関連キャラクター: ルナ, ロイ",
+            "",
+            "1. 包囲網 [plot]",
+            "日付: 第2章",
+            "説明: シリウスの部隊が屋敷を包囲する。",
+            "関連キャラクター: ロイ、シリウス",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let events = parse_timeline_txt(&lines);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].number, 0);
+        assert_eq!(events[0].title, "出会い");
+        assert_eq!(events[0].category, "plot");
+        assert_eq!(events[0].date, "第1章");
+        assert_eq!(events[0].related_characters.len(), 2);
+        assert!(events[1].description.contains("包囲"));
+        assert_eq!(events[1].related_characters, vec!["ロイ", "シリウス"]);
     }
 
     #[test]

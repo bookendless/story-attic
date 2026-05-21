@@ -702,6 +702,7 @@ export interface PlotThreadData {
   notes: string;
   recommendedPlacement: string;
   expectedEffect: string;
+  recoveryChapter: string;
 }
 
 export const DEFAULT_PLOT_THREAD_DATA: PlotThreadData = {
@@ -714,6 +715,7 @@ export const DEFAULT_PLOT_THREAD_DATA: PlotThreadData = {
   notes: '',
   recommendedPlacement: '',
   expectedEffect: '',
+  recoveryChapter: '',
 };
 
 // =========================================
@@ -837,6 +839,7 @@ export interface ParsedPlotThread {
   notes: string;
   recommendedPlacement: string;
   expectedEffect: string;
+  recoveryChapter: string;
 }
 
 export interface ParsedStoryProject {
@@ -852,6 +855,16 @@ export interface ParsedStoryProject {
   relationships: ParsedRelationship[];
   worldSettings: ParsedWorldSetting[];
   plotThreads: ParsedPlotThread[];
+  timeline: ParsedTimelineEvent[];
+}
+
+export interface ParsedTimelineEvent {
+  number: number;
+  title: string;
+  category: string;
+  date: string;
+  description: string;
+  relatedCharacters: string[];
 }
 
 export interface ImportSections {
@@ -864,6 +877,7 @@ export interface ImportSections {
   relationships: boolean;
   worldSettings: boolean;
   plotThreads: boolean;
+  timeline: boolean;
 }
 
 export interface ImportOptions {
@@ -881,6 +895,7 @@ export interface ImportCounts {
   plotThreads: number;
   synopsis: number;
   plotPhases: number;
+  timelineEvents: number;
 }
 
 export interface ImportResult {

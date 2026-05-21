@@ -31,6 +31,7 @@ pub struct ImportSections {
     pub relationships: bool,
     pub world_settings: bool,
     pub plot_threads: bool,
+    pub timeline: bool,
 }
 
 impl Default for ImportSections {
@@ -45,6 +46,7 @@ impl Default for ImportSections {
             relationships: true,
             world_settings: true,
             plot_threads: true,
+            timeline: true,
         }
     }
 }
@@ -66,6 +68,7 @@ pub struct ImportCounts {
     pub plot_threads: usize,
     pub synopsis: usize,
     pub plot_phases: usize,
+    pub timeline_events: usize,
 }
 
 /// AI Story Builder ファイルをパースしてプレビュー用データを返す（DB書き込みなし）
@@ -73,10 +76,10 @@ pub struct ImportCounts {
 pub fn parse_ai_story_builder_file(path: String) -> CmdResult<ParsedStoryProject> {
     let p = std::path::Path::new(&path);
 
-    // .txt のみ許可
+    // .txt / .md を許可
     match p.extension().and_then(|s| s.to_str()) {
-        Some("txt") => {}
-        _ => return Err("テキストファイル（.txt）のみインポート可能です".into()),
+        Some("txt") | Some("md") => {}
+        _ => return Err("テキストファイル（.txt / .md）のみインポート可能です".into()),
     }
 
     // 10MB 以下に制限
@@ -321,7 +324,8 @@ pub fn import_ai_story_builder(
                 "resolution": pt.resolution,
                 "notes": pt.notes,
                 "recommendedPlacement": pt.recommended_placement,
-                "expectedEffect": pt.expected_effect
+                "expectedEffect": pt.expected_effect,
+                "recoveryChapter": pt.recovery_chapter
             }))
             .map_err(err)?;
 
@@ -334,6 +338,44 @@ pub fn import_ai_story_builder(
 
             counts.plot_threads += 1;
         }
+    }
+
+    // タイムライン
+    if options.sections.timeline && !parsed.timeline.is_empty() {
+        let tl_id = Uuid::new_v4().to_string();
+        let headers = vec!["#", "日付", "タイトル", "カテゴリ", "関連キャラクター", "説明"];
+        let rows: Vec<Vec<serde_json::Value>> = parsed
+            .timeline
+            .iter()
+            .map(|ev| {
+                let cells = vec![
+                    ev.number.to_string(),
+                    ev.date.clone(),
+                    ev.title.clone(),
+                    ev.category.clone(),
+                    ev.related_characters.join("、"),
+                    ev.description.clone(),
+                ];
+                cells
+                    .into_iter()
+                    .map(|v| serde_json::json!({ "value": v }))
+                    .collect()
+            })
+            .collect();
+
+        let data_json = serde_json::json!({
+            "headers": headers,
+            "rows": rows,
+        })
+        .to_string();
+
+        conn.execute(
+            "INSERT INTO timelines (id, project_id, chapter_id, title, data) VALUES (?1, ?2, NULL, ?3, ?4)",
+            rusqlite::params![tl_id, project_id, "タイムライン", data_json],
+        )
+        .map_err(err)?;
+
+        counts.timeline_events = parsed.timeline.len();
     }
 
     Ok(ImportResult { project_id, counts })

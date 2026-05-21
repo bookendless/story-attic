@@ -33,6 +33,7 @@ pub fn parse(content: &str) -> ParsedStoryProject {
             "キャラクター相関図" => project.relationships = parse_correlations_md(body),
             "世界観設定" => project.world_settings = parse_world_settings_md(body),
             "伏線トラッカー" => project.plot_threads = parse_plot_threads_md(body),
+            "タイムライン" => project.timeline = parse_timeline_md(body),
             _ => {}
         }
     }
@@ -55,6 +56,7 @@ const TOP_LEVEL_SECTIONS: &[&str] = &[
     "キャラクター相関図",
     "世界観設定",
     "伏線トラッカー",
+    "タイムライン",
 ];
 
 /// `## ヘッダ` でセクション分割する（既知ヘッダ名のみを境界とする）
@@ -220,13 +222,11 @@ fn parse_plot_md(lines: &[String]) -> ParsedPlot {
                 "物語の結末" => plot.ending = val,
                 "プロット構成形式" => plot.structure_type = val,
                 _ => {
-                    // フェーズ: `第N幕（...）` など
-                    if field.starts_with('第') || field.contains('幕') {
-                        plot.phases.push(ParsedPlotPhase {
-                            label: field,
-                            content: val,
-                        });
-                    }
+                    // 既知フィールド以外はフェーズ扱い（ヒーローズ・ジャーニーの「日常の世界」「冒険への誘い」等）
+                    plot.phases.push(ParsedPlotPhase {
+                        label: field,
+                        content: val,
+                    });
                 }
             }
         }
@@ -524,6 +524,8 @@ fn parse_world_settings_md(lines: &[String]) -> Vec<ParsedWorldSetting> {
 }
 
 /// 伏線トラッカーパース
+/// `### タイトル` で分割。配下に bold-field（`**カテゴリ**:` 等）、`#### ポイント` のリスト、
+/// bold無しの `設置推奨:`/`期待効果:` などが混在する。
 fn parse_plot_threads_md(lines: &[String]) -> Vec<ParsedPlotThread> {
     let entries = split_by_h3(lines);
     let mut threads = Vec::new();
@@ -538,34 +540,235 @@ fn parse_plot_threads_md(lines: &[String]) -> Vec<ParsedPlotThread> {
             ..Default::default()
         };
 
+        let mut in_points = false;
+        let mut description_lines: Vec<String> = Vec::new();
+        let mut description_set_via_field = false;
+
         for line in &body {
             let t = line.trim();
+
+            // サマリー以降は無視
+            if t.contains("伏線サマリー") {
+                break;
+            }
+            if t.is_empty() {
+                continue;
+            }
+
+            // `#### ポイント` セクションマーカー
+            if let Some(v) = t.strip_prefix("#### ") {
+                in_points = v.trim() == "ポイント" || v.trim().starts_with("ポイント");
+                continue;
+            }
+            if t.starts_with('#') {
+                // 想定外の見出しは無視
+                in_points = false;
+                continue;
+            }
+
+            // ポイントモード中のリスト行: `- **📍設置**: 本文 (章タイトル)`
+            if in_points && t.starts_with('-') {
+                let cleaned = t.trim_start_matches('-').trim();
+                if let Some(point) = parse_md_point_line(cleaned) {
+                    pt.points.push(point);
+                }
+                continue;
+            }
+
+            // bold-field 行: `**フィールド**: 値`
             if let Some((field, value)) = parse_bold_field(t) {
+                in_points = false;
                 let val = value.trim().trim_matches('*').trim().to_string();
                 match field.as_str() {
+                    "カテゴリ" => {
+                        if pt.category.is_empty() {
+                            pt.category = val;
+                        }
+                    }
                     "ステータス" => pt.status = val,
                     "重要度" => pt.importance = val,
-                    "説明" => pt.description = val,
+                    "説明" => {
+                        pt.description = val;
+                        description_set_via_field = true;
+                    }
                     "関連キャラクター" => {
-                        pt.related_characters = val.split('、')
-                            .chain(val.split(','))
+                        pt.related_characters = val
+                            .split(['、', ','])
                             .map(|s| s.trim().to_string())
                             .filter(|s| !s.is_empty())
                             .collect();
                     }
                     "回収予定方法" | "解決方法" => pt.resolution = val,
+                    "回収予定章" => pt.recovery_chapter = val,
                     "設置推奨" => pt.recommended_placement = val,
                     "期待効果" => pt.expected_effect = val,
                     "メモ" | "備考" => pt.notes = val,
                     _ => {}
                 }
+                continue;
             }
+
+            // bold 無し prefix 行（`**メモ**: …` の直後に続く `設置推奨:` `期待効果:` など）
+            if let Some(v) = t.strip_prefix("設置推奨:") {
+                pt.recommended_placement = v.trim().to_string();
+                continue;
+            }
+            if let Some(v) = t.strip_prefix("期待効果:") {
+                pt.expected_effect = v.trim().to_string();
+                continue;
+            }
+            if let Some(v) = t.strip_prefix("メモ:") {
+                if pt.notes.is_empty() {
+                    pt.notes = v.trim().to_string();
+                }
+                continue;
+            }
+
+            // 上記いずれでもない非空行は description 段落として収集
+            if !description_set_via_field {
+                description_lines.push(strip_md_formatting(t));
+            }
+        }
+
+        if !description_set_via_field && !description_lines.is_empty() {
+            pt.description = description_lines.join("\n").trim().to_string();
         }
 
         threads.push(pt);
     }
 
     threads
+}
+
+/// `**📍設置**: 本文 (章タイトル)` 形式のリスト行を解析する。
+/// 末尾が `(…)` で閉じている場合のみ chapter として切り出す。
+fn parse_md_point_line(s: &str) -> Option<ParsedPlotThreadPoint> {
+    let s = s.trim();
+
+    // `**フィールド**: 値` の形を前提に bold を剥がす
+    let stripped = strip_md_bold(s);
+    let stripped = stripped.trim().trim_start_matches('📍').trim();
+
+    let colon_pos = stripped.find(':').or_else(|| stripped.find('：'))?;
+    let point_type = stripped[..colon_pos]
+        .trim()
+        .trim_start_matches('📍')
+        .trim()
+        .to_string();
+    let rest = stripped[colon_pos + ':'.len_utf8()..].trim();
+
+    // 末尾の `(章タイトル)` を抽出
+    let (content, chapter) = if rest.ends_with(')') || rest.ends_with('）') {
+        let close = rest.chars().count() - 1;
+        let close_byte = rest
+            .char_indices()
+            .nth(close)
+            .map(|(i, _)| i)
+            .unwrap_or(rest.len());
+        let open_byte = rest.rfind('(').or_else(|| rest.rfind('（'));
+        if let Some(open) = open_byte {
+            if open < close_byte {
+                let chapter = rest[open + 1..close_byte].trim().to_string();
+                let content = rest[..open].trim().to_string();
+                (content, chapter)
+            } else {
+                (rest.to_string(), String::new())
+            }
+        } else {
+            (rest.to_string(), String::new())
+        }
+    } else {
+        (rest.to_string(), String::new())
+    };
+
+    if point_type.is_empty() && content.is_empty() {
+        return None;
+    }
+
+    Some(ParsedPlotThreadPoint {
+        point_type,
+        chapter,
+        content,
+    })
+}
+
+/// タイムラインパース
+/// `### N. タイトル [カテゴリ]` で分割、配下に `**日付**:` `**関連キャラクター**:` フィールド、
+/// その他の段落はすべて description として集約する。
+fn parse_timeline_md(lines: &[String]) -> Vec<ParsedTimelineEvent> {
+    let entries = split_by_h3(lines);
+    let mut events = Vec::new();
+
+    for (header, body) in entries {
+        let clean = strip_md_formatting(&header);
+        let (number, title, category) = parse_timeline_header(&clean);
+
+        let mut event = ParsedTimelineEvent {
+            number,
+            title,
+            category,
+            ..Default::default()
+        };
+
+        let mut description_lines: Vec<String> = Vec::new();
+
+        for line in &body {
+            let t = line.trim();
+            if t.is_empty() {
+                continue;
+            }
+            if let Some((field, value)) = parse_bold_field(t) {
+                let val = value.trim().trim_matches('*').trim().to_string();
+                match field.as_str() {
+                    "日付" => event.date = val,
+                    "関連キャラクター" => {
+                        event.related_characters = val
+                            .split(['、', ','])
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                    }
+                    "説明" => description_lines.push(val),
+                    _ => {}
+                }
+            } else if !t.starts_with('#') {
+                description_lines.push(strip_md_formatting(t));
+            }
+        }
+
+        event.description = description_lines.join("\n").trim().to_string();
+        events.push(event);
+    }
+
+    events
+}
+
+/// `0. タイトル [カテゴリ]` または `タイトル [カテゴリ]` をパース
+fn parse_timeline_header(s: &str) -> (i32, String, String) {
+    let mut rest = s.trim().to_string();
+
+    // 先頭の `N.` を抽出
+    let mut number = 0i32;
+    if let Some(dot_pos) = rest.find('.') {
+        let head = rest[..dot_pos].trim();
+        if let Ok(n) = head.parse::<i32>() {
+            number = n;
+            rest = rest[dot_pos + 1..].trim().to_string();
+        }
+    }
+
+    // 末尾の `[カテゴリ]` を抽出
+    let mut category = String::new();
+    if let Some(b_start) = rest.rfind('[') {
+        if let Some(b_end) = rest.rfind(']') {
+            if b_start < b_end {
+                category = rest[b_start + 1..b_end].trim().to_string();
+                rest = rest[..b_start].trim().to_string();
+            }
+        }
+    }
+
+    (number, rest, category)
 }
 
 // ============================================================
@@ -796,6 +999,110 @@ mod tests {
         assert!(drafts[0].body.contains("本文1"));
         assert!(drafts[0].body.contains("追記1"));
         assert_eq!(drafts[1].chapter_ref.as_deref(), Some("第2章: 展開"));
+    }
+
+    #[test]
+    fn timeline_md_parses_entries() {
+        let lines: Vec<String> = [
+            "### 0. 出会い [plot]",
+            "",
+            "**日付**: 第1章",
+            "",
+            "ルナとロイが路地裏で出会う。",
+            "",
+            "**関連キャラクター**: ルナ, ロイ",
+            "",
+            "### 1. 包囲網 [plot]",
+            "",
+            "**日付**: 第2章",
+            "",
+            "シリウスの部隊が屋敷を包囲する。",
+            "",
+            "**関連キャラクター**: ロイ、シリウス",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let events = parse_timeline_md(&lines);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].number, 0);
+        assert_eq!(events[0].title, "出会い");
+        assert_eq!(events[0].category, "plot");
+        assert_eq!(events[0].date, "第1章");
+        assert!(events[0].description.contains("出会う"));
+        assert_eq!(events[0].related_characters.len(), 2);
+        assert_eq!(events[1].related_characters, vec!["ロイ", "シリウス"]);
+    }
+
+    #[test]
+    fn plot_md_collects_non_canonical_phases() {
+        let lines: Vec<String> = [
+            "**テーマ**: テスト",
+            "**プロット構成形式**: ヒーローズ・ジャーニー",
+            "**日常の世界**: 平穏",
+            "**冒険への誘い**: 招集",
+            "**境界越え**: 旅立ち",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let plot = parse_plot_md(&lines);
+        assert_eq!(plot.phases.len(), 3);
+        assert_eq!(plot.phases[0].label, "日常の世界");
+        assert_eq!(plot.phases[1].label, "冒険への誘い");
+        assert_eq!(plot.phases[2].label, "境界越え");
+    }
+
+    #[test]
+    fn plot_threads_md_parses_full_entry() {
+        let lines: Vec<String> = [
+            "### 転生者の鼻歌と失われた子守唄",
+            "",
+            "**カテゴリ**: キャラクター",
+            "",
+            "**ステータス**: 設置済み",
+            "",
+            "**重要度**: ★★★高",
+            "",
+            "ロイが転生前の地球のポップスを鼻歌で歌う伏線。",
+            "",
+            "#### ポイント",
+            "",
+            "- **📍設置**: ロイが「最新ヒット曲」を口ずさむ。",
+            "",
+            "**関連キャラクター**: ロイ",
+            "",
+            "**回収予定章**: 心という名の存在証明",
+            "",
+            "**回収予定方法**: ルナがその歌を歌うトリガー。",
+            "",
+            "**メモ**: AI提案から作成",
+            "設置推奨: 第1章 - ロイが口ずさむ。",
+            "期待効果: エモーショナルな展開を生む。",
+            "",
+            "> **伏線サマリー**: 全1件 / 回収済み0件",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let threads = parse_plot_threads_md(&lines);
+        assert_eq!(threads.len(), 1);
+        let t = &threads[0];
+        assert_eq!(t.title, "転生者の鼻歌と失われた子守唄");
+        assert_eq!(t.category, "キャラクター");
+        assert_eq!(t.status, "設置済み");
+        assert_eq!(t.importance, "★★★高");
+        assert!(t.description.contains("鼻歌で歌う伏線"));
+        assert_eq!(t.points.len(), 1);
+        assert_eq!(t.points[0].point_type, "設置");
+        assert_eq!(t.points[0].chapter, "路地裏の自称・人間と、逃亡癖の王女様");
+        assert!(t.points[0].content.contains("ヒット曲"));
+        assert_eq!(t.related_characters, vec!["ロイ"]);
+        assert_eq!(t.recovery_chapter, "心という名の存在証明");
+        assert!(t.resolution.contains("ルナ"));
+        assert_eq!(t.notes, "AI提案から作成");
+        assert!(t.recommended_placement.contains("第1章"));
+        assert!(t.expected_effect.contains("エモーショナル"));
     }
 
     #[test]

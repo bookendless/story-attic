@@ -28,6 +28,7 @@ const DEFAULT_SECTIONS: ImportSections = {
   relationships: true,
   worldSettings: true,
   plotThreads: true,
+  timeline: true,
 };
 
 const SECTION_LABELS: Record<keyof ImportSections, string> = {
@@ -40,6 +41,7 @@ const SECTION_LABELS: Record<keyof ImportSections, string> = {
   relationships: 'キャラクター相関図',
   worldSettings: '世界観設定',
   plotThreads: '伏線トラッカー',
+  timeline: 'タイムライン',
 };
 
 type Step = 'select' | 'preview' | 'importing' | 'done' | 'error';
@@ -210,6 +212,7 @@ export function ImportAiStoryBuilderDialog({ onClose, onImported }: Props) {
                     plotThreads: '伏線',
                     synopsis: 'あらすじ',
                     plotPhases: 'プロット幕数',
+                    timelineEvents: 'タイムライン',
                   };
                   if (!count) return null;
                   return (
@@ -286,6 +289,7 @@ function getSectionCount(parsed: ParsedStoryProject, key: keyof ImportSections):
     case 'relationships': return parsed.relationships.length;
     case 'worldSettings': return parsed.worldSettings.length;
     case 'plotThreads': return parsed.plotThreads.length;
+    case 'timeline': return parsed.timeline.length;
     default: return 0;
   }
 }

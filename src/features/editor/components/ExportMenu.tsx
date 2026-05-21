@@ -145,7 +145,7 @@ export function ExportMenu() {
             }}
           >
             {[
-              { label: 'JSONエクスポート', action: handleExportJson },
+              { label: '全データJSONエクスポート', action: handleExportJson },
               { label: 'テキスト出力', action: handleExportTxt },
               { label: 'ZIPで一括出力', action: handleExportZip },
               { label: 'テキスト取込', action: handleImportTxt },

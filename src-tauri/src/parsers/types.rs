@@ -17,6 +17,18 @@ pub struct ParsedStoryProject {
     pub relationships: Vec<ParsedRelationship>,
     pub world_settings: Vec<ParsedWorldSetting>,
     pub plot_threads: Vec<ParsedPlotThread>,
+    pub timeline: Vec<ParsedTimelineEvent>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ParsedTimelineEvent {
+    pub number: i32,
+    pub title: String,
+    pub category: String,
+    pub date: String,
+    pub description: String,
+    pub related_characters: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -120,6 +132,7 @@ pub struct ParsedPlotThread {
     pub notes: String,
     pub recommended_placement: String,
     pub expected_effect: String,
+    pub recovery_chapter: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
