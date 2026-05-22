@@ -668,7 +668,8 @@ fn parse_md_point_line(s: &str) -> Option<ParsedPlotThreadPoint> {
         let open_byte = rest.rfind('(').or_else(|| rest.rfind('（'));
         if let Some(open) = open_byte {
             if open < close_byte {
-                let chapter = rest[open + 1..close_byte].trim().to_string();
+                let skip = if rest[open..].starts_with('（') { '（'.len_utf8() } else { 1 };
+                let chapter = rest[open + skip..close_byte].trim().to_string();
                 let content = rest[..open].trim().to_string();
                 (content, chapter)
             } else {

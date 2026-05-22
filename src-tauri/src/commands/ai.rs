@@ -584,7 +584,8 @@ pub async fn ai_get_resonance_score(
         None => return Err("APIキー未設定".into()),
     };
 
-    let user_msg = format!("以下の文章を評価してください:\n\n{}", &content[..content.len().min(3000)]);
+    let body: String = content.chars().take(3000).collect();
+    let user_msg = format!("以下の文章を評価してください:\n\n{}", body);
 
     match provider.as_str() {
         "anthropic" => single_call_anthropic(&api_key, &model, RESONANCE_SYSTEM, &user_msg, 400)
@@ -1018,12 +1019,13 @@ async fn stream_openai_compatible(
         return Ok(());
     }
 
-    let mut buf = String::new();
+    let mut byte_buf: Vec<u8> = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-        buf.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(pos) = buf.find('\n') {
-            let line = buf[..pos].trim().to_string();
-            buf = buf[pos + 1..].to_string();
+        byte_buf.extend_from_slice(&chunk);
+        while let Some(pos) = byte_buf.iter().position(|&b| b == b'\n') {
+            let line_bytes = byte_buf[..pos].to_vec();
+            byte_buf.drain(..=pos);
+            let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
 
             if let Some(data) = line.strip_prefix("data: ") {
                 if data == "[DONE]" {
@@ -1087,12 +1089,13 @@ async fn stream_anthropic(
         return Ok(());
     }
 
-    let mut buf = String::new();
+    let mut byte_buf: Vec<u8> = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-        buf.push_str(&String::from_utf8_lossy(&chunk));
-        while let Some(pos) = buf.find('\n') {
-            let line = buf[..pos].trim().to_string();
-            buf = buf[pos + 1..].to_string();
+        byte_buf.extend_from_slice(&chunk);
+        while let Some(pos) = byte_buf.iter().position(|&b| b == b'\n') {
+            let line_bytes = byte_buf[..pos].to_vec();
+            byte_buf.drain(..=pos);
+            let line = String::from_utf8_lossy(&line_bytes).trim().to_string();
 
             if let Some(data) = line.strip_prefix("data: ") {
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {

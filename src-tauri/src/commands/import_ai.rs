@@ -102,6 +102,8 @@ pub fn import_ai_story_builder(
     state: State<AppState>,
 ) -> CmdResult<ImportResult> {
     let conn = state.db.lock().map_err(err)?;
+    conn.execute_batch("BEGIN").map_err(err)?;
+    let result = (|| -> CmdResult<ImportResult> {
     let mut counts = ImportCounts::default();
 
     // プロジェクトID決定（新規 or 既存）
@@ -379,6 +381,11 @@ pub fn import_ai_story_builder(
     }
 
     Ok(ImportResult { project_id, counts })
+    })();
+    match result {
+        Ok(r) => { conn.execute_batch("COMMIT").map_err(err)?; Ok(r) }
+        Err(e) => { let _ = conn.execute_batch("ROLLBACK"); Err(e) }
+    }
 }
 
 /** ASB の日本語構造名を PlotStructureType キーへ正規化 */
