@@ -84,22 +84,25 @@ fn mask_secrets(api_key: &str, body: &str) -> String {
         out = out.replace(api_key, "***");
     }
     for prefix in ["sk-", "xai-", "AIza"] {
+        let mut ranges: Vec<(usize, usize)> = Vec::new();
         let mut idx = 0;
         while let Some(rel) = out[idx..].find(prefix) {
             let start = idx + rel;
-            let tail_len = out[start + prefix.len()..]
+            let tail_len: usize = out[start + prefix.len()..]
                 .chars()
                 .take_while(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
                 .map(|c| c.len_utf8())
-                .sum::<usize>();
+                .sum();
+            let end = start + prefix.len() + tail_len;
             if tail_len < 8 {
-                // 誤検知防止: prefix を超えて次の探索位置へ進める
                 idx = start + prefix.len();
                 continue;
             }
-            let end = start + prefix.len() + tail_len;
+            ranges.push((start, end));
+            idx = end;
+        }
+        for (start, end) in ranges.into_iter().rev() {
             out.replace_range(start..end, "***");
-            idx = start + 3; // "***" の長さ
         }
     }
     out

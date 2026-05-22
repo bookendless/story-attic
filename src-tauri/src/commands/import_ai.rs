@@ -170,7 +170,7 @@ pub fn import_ai_story_builder(
             )
             .map_err(err)?;
 
-            char_name_to_id.insert(ch.name.clone(), id);
+            char_name_to_id.entry(ch.name.clone()).or_insert(id);
             counts.characters += 1;
         }
     }

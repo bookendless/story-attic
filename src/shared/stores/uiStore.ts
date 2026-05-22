@@ -159,9 +159,18 @@ function loadAmbienceSettings(): { enabled: boolean; settings: AmbienceSettings 
     const stored = localStorage.getItem('story-attic-ambience');
     if (stored) {
       const parsed = JSON.parse(stored);
+      const EFFECT_TYPES: EffectType[] = ['rain', 'snow', 'sakura'];
+      const DENSITIES: ParticleDensity[] = ['sparse', 'normal', 'dense'];
+      const s = parsed.settings ?? {};
       return {
         enabled: !!parsed.enabled,
-        settings: { ...DEFAULT_AMBIENCE_SETTINGS, ...parsed.settings },
+        settings: {
+          effectType: EFFECT_TYPES.includes(s.effectType) ? s.effectType as EffectType : DEFAULT_AMBIENCE_SETTINGS.effectType,
+          density: DENSITIES.includes(s.density) ? s.density as ParticleDensity : DEFAULT_AMBIENCE_SETTINGS.density,
+          speed: typeof s.speed === 'number' && Number.isFinite(s.speed) ? Math.max(1, Math.min(10, s.speed)) : DEFAULT_AMBIENCE_SETTINGS.speed,
+          angle: typeof s.angle === 'number' && Number.isFinite(s.angle) ? Math.max(-30, Math.min(30, s.angle)) : DEFAULT_AMBIENCE_SETTINGS.angle,
+          opacity: typeof s.opacity === 'number' && Number.isFinite(s.opacity) ? Math.max(0.1, Math.min(0.8, s.opacity)) : DEFAULT_AMBIENCE_SETTINGS.opacity,
+        },
       };
     }
     // 旧形式（story-attic-rain）からのマイグレーション
@@ -183,7 +192,13 @@ function loadCharacterSettings(): CharacterSettings {
   try {
     const stored = localStorage.getItem('story-attic-character');
     if (stored) {
-      return { ...DEFAULT_CHARACTER_SETTINGS, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      const PERSONAS: ReaderPersona[] = ['casual', 'genre', 'critical'];
+      return {
+        enabled: !!parsed.enabled,
+        readerMode: !!parsed.readerMode,
+        readerPersona: PERSONAS.includes(parsed.readerPersona) ? parsed.readerPersona as ReaderPersona : DEFAULT_CHARACTER_SETTINGS.readerPersona,
+      };
     }
   } catch {
     /* 無視 */
@@ -205,7 +220,18 @@ function loadSoundSettings(): SoundSettings {
   try {
     const stored = localStorage.getItem('story-attic-sound');
     if (stored) {
-      return { ...DEFAULT_SOUND_SETTINGS, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      const TYPING_TYPES: TypingSoundType[] = ['mechanical', 'wooden', 'soft', 'none'];
+      return {
+        enabled: !!parsed.enabled,
+        masterVolume: typeof parsed.masterVolume === 'number' && Number.isFinite(parsed.masterVolume)
+          ? Math.max(0, Math.min(1, parsed.masterVolume))
+          : DEFAULT_SOUND_SETTINGS.masterVolume,
+        typingType: TYPING_TYPES.includes(parsed.typingType) ? parsed.typingType as TypingSoundType : DEFAULT_SOUND_SETTINGS.typingType,
+        typingVolume: typeof parsed.typingVolume === 'number' && Number.isFinite(parsed.typingVolume)
+          ? Math.max(0, Math.min(1, parsed.typingVolume))
+          : DEFAULT_SOUND_SETTINGS.typingVolume,
+      };
     }
   } catch {
     /* 無視 */

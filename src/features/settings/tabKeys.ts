@@ -11,7 +11,7 @@ export const TAB_KEYS: Record<SettingsCategoryKey, string[]> = {
   proofread: ['proofread_enabled', 'proofread_categories', 'proofread_popup'],
   ambience:  [
     'effectType', 'density', 'speed', 'angle', 'opacity',
-    'sound_enabled', 'masterVolume', 'ambientVolume', 'activeAmbients',
+    'sound_enabled', 'masterVolume',
     'typingType', 'typingVolume',
   ],
   ai:        ['provider', 'model', 'system_prompt', 'base_url'],
