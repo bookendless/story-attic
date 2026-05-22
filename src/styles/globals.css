@@ -4,13 +4,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: 'Xim Sans Conlang';
-  src: url('/fonts/Xim-Sans-Conlang.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-}
-
 /* =========================================
    CSS変数（設計書 §4 カラーパレット）
    ========================================= */
@@ -49,7 +42,7 @@
   --font-heading: 'Shippori Mincho', serif;
   --font-ui:      'Noto Sans JP', sans-serif;
   --font-editor:  '游明朝', 'Yu Mincho', 'Noto Serif JP', serif;
-  --font-app-title: 'Xim Sans Conlang', var(--font-heading);
+  --font-app-title: 'Klee One', var(--font-heading);
 }
 
 /* =========================================
