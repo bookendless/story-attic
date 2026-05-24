@@ -64,7 +64,7 @@ export function AiSettingsTab({ value, onChange, SettingRow }: AiSettingsTabProp
     setKeyError(null);
     setKeySaved(false);
     setTestResult(null);
-    if (!value.provider) return;
+    if (!value.provider || value.provider === 'local') return;
     invoke<boolean>('has_api_key', { service: value.provider })
       .then((exists) => {
         if (!cancelled && exists) setKeySaved(true);
@@ -136,44 +136,53 @@ export function AiSettingsTab({ value, onChange, SettingRow }: AiSettingsTabProp
 
       {value.provider && (
         <>
-          <SettingRow label="APIキー">
-            <div className="flex flex-col gap-1" style={{ alignItems: 'flex-end' }}>
-              <div className="flex items-center gap-2">
-                <input
-                  type="password"
-                  className="input text-sm"
-                  style={{ width: '140px', padding: '4px 8px' }}
-                  placeholder={keySaved ? '保存済み ✓' : '入力して保存'}
-                  value={apiKey}
-                  onChange={(e) => { setApiKey(e.target.value); setKeyError(null); }}
-                />
-                <button
-                  className="btn btn-ghost text-xs"
-                  style={{ padding: '3px 10px' }}
-                  onClick={handleSaveApiKey}
-                  disabled={!apiKey.trim() || keySaving}
-                >
-                  {keySaving ? '保存中...' : keySaved && !apiKey ? '保存済み' : '保存'}
-                </button>
+          {value.provider !== 'local' && (
+            <SettingRow label="APIキー">
+              <div className="flex flex-col gap-1" style={{ alignItems: 'flex-end' }}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    className="input text-sm"
+                    style={{ width: '140px', padding: '4px 8px' }}
+                    placeholder={keySaved ? '保存済み ✓' : '入力して保存'}
+                    value={apiKey}
+                    onChange={(e) => { setApiKey(e.target.value); setKeyError(null); }}
+                  />
+                  <button
+                    className="btn btn-ghost text-xs"
+                    style={{ padding: '3px 10px' }}
+                    onClick={handleSaveApiKey}
+                    disabled={!apiKey.trim() || keySaving}
+                  >
+                    {keySaving ? '保存中...' : keySaved && !apiKey ? '保存済み' : '保存'}
+                  </button>
+                </div>
+                {keyError && (
+                  <span className="text-xs" style={{ color: 'var(--warning, #c66)' }}>
+                    {keyError}
+                  </span>
+                )}
               </div>
-              {keyError && (
-                <span className="text-xs" style={{ color: 'var(--warning, #c66)' }}>
-                  {keyError}
+            </SettingRow>
+          )}
+
+          <SettingRow label={value.provider === 'local' ? 'モデル (任意)' : 'モデル'}>
+            <div className="flex flex-col gap-1" style={{ alignItems: 'flex-end' }}>
+              <input
+                type="text"
+                list={`model-list-${value.provider}`}
+                className="input text-sm"
+                style={{ width: '200px', padding: '4px 8px' }}
+                placeholder={value.provider === 'local' ? 'LMStudio省略可 / Ollama必須' : (MODEL_PLACEHOLDER[value.provider] ?? '')}
+                value={value.model}
+                onChange={(e) => update({ model: e.target.value })}
+              />
+              {value.provider === 'local' && (
+                <span className="text-xs" style={{ color: 'var(--text-mid)' }}>
+                  LMStudioは起動中モデルを自動使用。Ollamaはモデル名必須。
                 </span>
               )}
             </div>
-          </SettingRow>
-
-          <SettingRow label="モデル">
-            <input
-              type="text"
-              list={`model-list-${value.provider}`}
-              className="input text-sm"
-              style={{ width: '200px', padding: '4px 8px' }}
-              placeholder={MODEL_PLACEHOLDER[value.provider] ?? ''}
-              value={value.model}
-              onChange={(e) => update({ model: e.target.value })}
-            />
             <datalist id={`model-list-${value.provider}`}>
               {(SUGGESTED_MODELS[value.provider] ?? []).map((m) => (
                 <option key={m} value={m} />

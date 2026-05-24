@@ -59,7 +59,20 @@ fn validate_local_base_url(raw: &str) -> Result<String, String> {
         );
     }
 
-    Ok(raw.trim_end_matches('/').to_string())
+    // OpenAI 互換ルートは {base_url}/chat/completions・{base_url}/models を叩くため
+    // パス部が無い（host:port のみ）場合は /v1 を補完する。
+    // 例: http://localhost:1234 → http://localhost:1234/v1
+    //     http://localhost:11434/v1 → そのまま
+    let trimmed = raw.trim_end_matches('/');
+    let after_scheme = trimmed
+        .strip_prefix("http://")
+        .or_else(|| trimmed.strip_prefix("https://"))
+        .unwrap_or(trimmed);
+    if after_scheme.contains('/') {
+        Ok(trimmed.to_string())
+    } else {
+        Ok(format!("{}/v1", trimmed))
+    }
 }
 
 /// プロバイダーと設定から有効な base_url を解決する。
@@ -68,7 +81,8 @@ fn resolve_base_url(provider: &str, base_url: Option<&str>) -> Result<String, St
     if provider == "local" {
         match base_url {
             Some(url) if !url.is_empty() => validate_local_base_url(url),
-            _ => Ok(default_base_url(provider).to_string()),
+            // base_url 未設定時は Ollama 既定エンドポイントへフォールバック
+            _ => Ok("http://localhost:11434/v1".to_string()),
         }
     } else {
         Ok(default_base_url(provider).to_string())
@@ -241,8 +255,13 @@ pub async fn ai_send_message(
         }
     };
 
-    if settings.provider.is_empty() || settings.model.is_empty() {
-        emit_error(&app, "プロバイダーまたはモデルが未設定です。".into());
+    if settings.provider.is_empty() {
+        emit_error(&app, "プロバイダーが未設定です。".into());
+        return Ok(());
+    }
+    // local はモデル未指定でも続行（LMStudio は無視、Ollama はサーバー側エラーになる）
+    if settings.model.is_empty() && settings.provider != "local" {
+        emit_error(&app, "モデルが未設定です。".into());
         return Ok(());
     }
 
@@ -251,15 +270,11 @@ pub async fn ai_send_message(
         return Ok(());
     }
 
-    // キーリングから API キーを取得
-    let api_key = match get_api_key(&settings.provider).await {
-        Ok(Some(key)) => key,
-        Ok(None) => {
-            emit_error(&app, format!("{}のAPIキーが設定されていません。設定画面で登録してください。", settings.provider));
-            return Ok(());
-        }
+    // キーリングから API キーを取得（local は未設定でも空文字で続行）
+    let api_key = match resolve_api_key(&settings.provider).await {
+        Ok(key) => key,
         Err(e) => {
-            emit_error(&app, format!("APIキーの取得に失敗しました: {}", e));
+            emit_error(&app, e);
             return Ok(());
         }
     };
@@ -297,10 +312,7 @@ pub async fn ai_test_connection(
 ) -> Result<String, String> {
     ensure_allowed(&service)?;
 
-    let api_key = match get_api_key(&service).await? {
-        Some(key) => key,
-        None => return Err("APIキーが設定されていません".into()),
-    };
+    let api_key = resolve_api_key(&service).await?;
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -390,15 +402,12 @@ pub async fn ai_get_whisper(
     };
 
     let (provider, model, base_url) = settings;
-    if provider.is_empty() || model.is_empty() {
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
         return Err("AI未設定".into());
     }
     ensure_allowed(&provider)?;
 
-    let api_key = match get_api_key(&provider).await? {
-        Some(key) => key,
-        None => return Err("APIキー未設定".into()),
-    };
+    let api_key = resolve_api_key(&provider).await?;
 
     let user_msg = if context.is_empty() {
         "執筆の準備をしているようです。一言声をかけてください。".to_string()
@@ -499,15 +508,12 @@ pub async fn ai_get_reader_perspective(
         (provider, model, base_url, names)
     };
 
-    if provider.is_empty() || model.is_empty() {
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
         return Err("AI未設定".into());
     }
     ensure_allowed(&provider)?;
 
-    let api_key = match get_api_key(&provider).await? {
-        Some(key) => key,
-        None => return Err("APIキー未設定".into()),
-    };
+    let api_key = resolve_api_key(&provider).await?;
 
     let system = match persona.as_str() {
         "genre" => READER_GENRE,
@@ -577,15 +583,12 @@ pub async fn ai_get_resonance_score(
         }
     };
 
-    if provider.is_empty() || model.is_empty() {
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
         return Err("AI未設定".into());
     }
     ensure_allowed(&provider)?;
 
-    let api_key = match get_api_key(&provider).await? {
-        Some(key) => key,
-        None => return Err("APIキー未設定".into()),
-    };
+    let api_key = resolve_api_key(&provider).await?;
 
     let body: String = content.chars().take(3000).collect();
     let user_msg = format!("以下の文章を評価してください:\n\n{}", body);
@@ -653,15 +656,12 @@ pub async fn ai_get_cliche_check(
         }
     };
 
-    if provider.is_empty() || model.is_empty() {
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
         return Err("AI未設定".into());
     }
     ensure_allowed(&provider)?;
 
-    let api_key = match get_api_key(&provider).await? {
-        Some(key) => key,
-        None => return Err("APIキー未設定".into()),
-    };
+    let api_key = resolve_api_key(&provider).await?;
 
     // 文字境界安全に切り詰め（バイト境界スライスによる多バイト文字パニックを回避）
     let body: String = content.chars().take(6000).collect();
@@ -793,15 +793,12 @@ pub async fn ai_get_info_asymmetry(
         (provider, model, base_url, combined, char_context)
     };
 
-    if provider.is_empty() || model.is_empty() {
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
         return Err("AI未設定".into());
     }
     ensure_allowed(&provider)?;
 
-    let api_key = match get_api_key(&provider).await? {
-        Some(key) => key,
-        None => return Err("APIキー未設定".into()),
-    };
+    let api_key = resolve_api_key(&provider).await?;
 
     let user_msg = format!(
         "以下の小説本文を分析してください。{}\n\n本文:\n{}",
@@ -917,6 +914,20 @@ async fn single_call_anthropic(
 // =========================================
 // プライベートヘルパー
 // =========================================
+
+/// プロバイダー別にAPIキーを解決する。
+/// `local` プロバイダーはキー未設定でも空文字で続行（Ollama/LMStudio は認証不要）。
+/// それ以外はキー未設定をエラーとして返す。
+async fn resolve_api_key(provider: &str) -> Result<String, String> {
+    match get_api_key(provider).await? {
+        Some(key) => Ok(key),
+        None if provider == "local" => Ok(String::new()),
+        None => Err(format!(
+            "{}のAPIキーが設定されていません。設定画面で登録してください。",
+            provider
+        )),
+    }
+}
 
 /// API キーを取得する（非同期版）
 ///

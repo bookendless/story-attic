@@ -271,8 +271,15 @@ export function ProofreadPanel({ editor }: { editor?: Editor | null }) {
     (async () => {
       try {
         const settings = await invoke<{ provider: string; model: string }>('ai_get_settings', { projectId });
-        if (!settings.provider || !settings.model) {
+        // local はモデル未指定でも可（LMStudio が起動中モデルを使用）
+        const modelOk = !!settings.model || settings.provider === 'local';
+        if (!settings.provider || !modelOk) {
           if (!cancelled) setApiConfigured(false);
+          return;
+        }
+        // local は APIキー不要（Ollama/LMStudio は認証なし）
+        if (settings.provider === 'local') {
+          if (!cancelled) setApiConfigured(true);
           return;
         }
         const hasKey = await invoke<boolean>('has_api_key', { service: settings.provider });

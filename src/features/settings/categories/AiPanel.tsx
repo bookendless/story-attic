@@ -55,7 +55,7 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
     setKeyError(null);
     setKeySaved(false);
     setTestResult(null);
-    if (!draftAi.provider) return;
+    if (!draftAi.provider || draftAi.provider === 'local') return;
     invoke<boolean>('has_api_key', { service: draftAi.provider })
       .then((exists) => { if (!cancelled && exists) setKeySaved(true); })
       .catch(() => {});
@@ -122,43 +122,50 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
 
         {draftAi.provider && (
           <>
-            {/* APIキー */}
-            <Row label="APIキー" desc="OS のキーリングに暗号化保存されます">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {keySaved && !apiKey && <Badge color="success">保存済み ✓</Badge>}
-                  <input
-                    type="password"
-                    className="input text-sm"
-                    style={{ width: '160px', padding: '4px 8px' }}
-                    placeholder={keySaved ? '変更する場合は入力' : '入力して保存'}
-                    value={apiKey}
-                    onChange={(e) => { setApiKey(e.target.value); setKeyError(null); }}
-                  />
-                  <button
-                    className="btn btn-ghost text-xs"
-                    style={{ padding: '3px 10px' }}
-                    onClick={handleSaveApiKey}
-                    disabled={!apiKey.trim() || keySaving}
-                  >
-                    {keySaving ? '保存中...' : '保存'}
-                  </button>
+            {/* APIキー（local は認証不要のため非表示） */}
+            {draftAi.provider !== 'local' && (
+              <Row label="APIキー" desc="OS のキーリングに暗号化保存されます">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {keySaved && !apiKey && <Badge color="success">保存済み ✓</Badge>}
+                    <input
+                      type="password"
+                      className="input text-sm"
+                      style={{ width: '160px', padding: '4px 8px' }}
+                      placeholder={keySaved ? '変更する場合は入力' : '入力して保存'}
+                      value={apiKey}
+                      onChange={(e) => { setApiKey(e.target.value); setKeyError(null); }}
+                    />
+                    <button
+                      className="btn btn-ghost text-xs"
+                      style={{ padding: '3px 10px' }}
+                      onClick={handleSaveApiKey}
+                      disabled={!apiKey.trim() || keySaving}
+                    >
+                      {keySaving ? '保存中...' : '保存'}
+                    </button>
+                  </div>
+                  {keyError && (
+                    <span style={{ fontSize: '11px', color: 'var(--warning)' }}>{keyError}</span>
+                  )}
                 </div>
-                {keyError && (
-                  <span style={{ fontSize: '11px', color: 'var(--warning)' }}>{keyError}</span>
-                )}
-              </div>
-            </Row>
+              </Row>
+            )}
 
-            {/* モデル */}
-            <Row label="モデル" desc={`推奨: ${MODEL_PLACEHOLDER[draftAi.provider] ?? ''}`}>
+            {/* モデル（local は起動中モデルを使用するため任意） */}
+            <Row
+              label={draftAi.provider === 'local' ? 'モデル (任意)' : 'モデル'}
+              desc={draftAi.provider === 'local'
+                ? 'LMStudioは起動中モデルを自動使用 / Ollamaはモデル名必須'
+                : `推奨: ${MODEL_PLACEHOLDER[draftAi.provider] ?? ''}`}
+            >
               <div>
                 <input
                   type="text"
                   list={`model-list-${draftAi.provider}`}
                   className="input text-sm"
                   style={{ width: '200px', padding: '4px 8px' }}
-                  placeholder={MODEL_PLACEHOLDER[draftAi.provider] ?? ''}
+                  placeholder={draftAi.provider === 'local' ? 'LMStudio省略可 / Ollama必須' : (MODEL_PLACEHOLDER[draftAi.provider] ?? '')}
                   value={draftAi.model}
                   onChange={(e) => update({ model: e.target.value })}
                 />
