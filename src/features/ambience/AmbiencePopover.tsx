@@ -4,6 +4,8 @@
  */
 
 import { useUIStore, type EffectType, type TypingSoundType } from '@/shared/stores/uiStore';
+import { BGM_TRACKS } from './generators/bgmTracks';
+import { soundManager } from './SoundManager';
 
 const EFFECT_OPTIONS: { key: EffectType; label: string }[] = [
   { key: 'rain', label: '雨' },
@@ -25,6 +27,13 @@ export function AmbiencePopover() {
   } = useUIStore();
   const updateSound = (patch: Partial<typeof soundSettings>) => {
     setSoundSettings({ ...soundSettings, ...patch });
+  };
+  // BGMトラック変更はユーザー操作のコールスタック内で直接再生開始（autoplay対策）
+  const selectBgm = (trackId: string | null) => {
+    if (soundSettings.enabled) {
+      soundManager.setBgmTrack(trackId);
+    }
+    updateSound({ bgmTrack: trackId });
   };
 
   return (
@@ -78,6 +87,41 @@ export function AmbiencePopover() {
           disabled={!soundSettings.enabled}
         />
       </div>
+
+      <Divider />
+
+      {/* 環境音(BGM) */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs" style={{ color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>環境音</span>
+        <select
+          className="text-xs flex-1"
+          style={{
+            background: 'var(--bg-deep)',
+            color: 'var(--text-mid)',
+            border: '1px solid var(--border)',
+            borderRadius: '4px',
+            padding: '2px 4px',
+          }}
+          value={soundSettings.bgmTrack ?? ''}
+          onChange={(e) => selectBgm(e.target.value === '' ? null : e.target.value)}
+          disabled={!soundSettings.enabled}
+        >
+          <option value="">なし</option>
+          {BGM_TRACKS.map((t) => (
+            <option key={t.id} value={t.id}>{t.label}</option>
+          ))}
+        </select>
+      </div>
+      {soundSettings.bgmTrack !== null && (
+        <div className="mt-1">
+          <SliderRow
+            label="BGM音量"
+            value={soundSettings.bgmVolume}
+            onChange={(v) => updateSound({ bgmVolume: v })}
+            disabled={!soundSettings.enabled}
+          />
+        </div>
+      )}
 
       <Divider />
 

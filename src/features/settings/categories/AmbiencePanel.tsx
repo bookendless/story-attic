@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { AmbienceSettings, SoundSettings, EffectType, ParticleDensity, TypingSoundType } from '@/shared/stores/uiStore';
+import { BGM_TRACKS } from '@/features/ambience/generators/bgmTracks';
 import { Row, Section, Toggle, Slider, Chips } from '../atoms';
 
 interface AmbiencePanelProps {
@@ -26,6 +27,12 @@ const TYPING_OPTIONS: { value: TypingSoundType; label: string }[] = [
   { value: 'mechanical', label: '機械式' },
   { value: 'wooden',     label: '木製' },
   { value: 'soft',       label: '静音' },
+];
+
+// 環境音(BGM)選択肢。'' = なし。Chips の値は string で扱い、保存時に null へ変換する
+const BGM_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'なし' },
+  ...BGM_TRACKS.map((t) => ({ value: t.id, label: t.label })),
 ];
 
 // ========== AmbiencePreview ==========
@@ -156,6 +163,26 @@ export function AmbiencePanel({ draftAmbience, onAmbienceChange, draftSound, onS
             min={0} max={1} step={0.05}
             format={(v) => `${Math.round(v * 100)}%`}
             disabled={!soundEnabled}
+          />
+        </Row>
+      </Section>
+
+      {/* 環境音(BGM) */}
+      <Section title="環境音(BGM)" collapsed={!soundEnabled}>
+        <Row label="曲">
+          <Chips
+            options={BGM_OPTIONS}
+            value={draftSound.bgmTrack ?? ''}
+            onChange={(v) => onSoundChange({ bgmTrack: v === '' ? null : v })}
+          />
+        </Row>
+        <Row label="音量">
+          <Slider
+            value={draftSound.bgmVolume}
+            onChange={(v) => onSoundChange({ bgmVolume: v })}
+            min={0} max={1} step={0.05}
+            format={(v) => `${Math.round(v * 100)}%`}
+            disabled={draftSound.bgmTrack === null}
           />
         </Row>
       </Section>

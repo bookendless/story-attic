@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import type { ProjectSettings, ProofreadSettings } from '../types';
 import { DEFAULT_SETTINGS, DEFAULT_PROOFREAD_SETTINGS } from '../types';
+import { BGM_TRACKS } from '@/features/ambience/generators/bgmTracks';
 
 /** エディタのビューモード */
 export type EditorViewMode = 'editor' | 'diff' | 'proofread' | 'dialogue' | 'preview' | 'dual';
@@ -44,6 +45,8 @@ export interface SoundSettings {
   masterVolume: number;    // 0 ~ 1
   typingType: TypingSoundType;
   typingVolume: number;    // 0 ~ 1
+  bgmTrack: string | null; // BGMトラックID（null = オフ）
+  bgmVolume: number;       // 0 ~ 1
 }
 
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
@@ -51,6 +54,8 @@ export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   masterVolume: 0.5,
   typingType: 'none',
   typingVolume: 0.3,
+  bgmTrack: null,
+  bgmVolume: 0.5,
 };
 
 /** 読者シミュレーターのペルソナ */
@@ -222,6 +227,7 @@ function loadSoundSettings(): SoundSettings {
     if (stored) {
       const parsed = JSON.parse(stored);
       const TYPING_TYPES: TypingSoundType[] = ['mechanical', 'wooden', 'soft', 'none'];
+      const validBgm = typeof parsed.bgmTrack === 'string' && BGM_TRACKS.some((t) => t.id === parsed.bgmTrack);
       return {
         enabled: !!parsed.enabled,
         masterVolume: typeof parsed.masterVolume === 'number' && Number.isFinite(parsed.masterVolume)
@@ -231,6 +237,10 @@ function loadSoundSettings(): SoundSettings {
         typingVolume: typeof parsed.typingVolume === 'number' && Number.isFinite(parsed.typingVolume)
           ? Math.max(0, Math.min(1, parsed.typingVolume))
           : DEFAULT_SOUND_SETTINGS.typingVolume,
+        bgmTrack: validBgm ? (parsed.bgmTrack as string) : DEFAULT_SOUND_SETTINGS.bgmTrack,
+        bgmVolume: typeof parsed.bgmVolume === 'number' && Number.isFinite(parsed.bgmVolume)
+          ? Math.max(0, Math.min(1, parsed.bgmVolume))
+          : DEFAULT_SOUND_SETTINGS.bgmVolume,
       };
     }
   } catch {
