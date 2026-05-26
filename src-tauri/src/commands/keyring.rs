@@ -98,6 +98,24 @@ pub fn has_api_key(service: String) -> Result<bool, String> {
     }
 }
 
+/// 起動時に許可された全プロバイダーのキーを OS キーチェーンから読み出し、
+/// セッションキャッシュに先読みする。
+///
+/// 別スレッドで実行する想定。失敗 (NoEntry / バックエンド未対応 等) は無視。
+pub fn prewarm_session_cache() {
+    for service in ALLOWED_SERVICES {
+        if *service == "local" {
+            continue;
+        }
+        let Ok(entry) = Entry::new(service, KEYRING_USER) else { continue };
+        if let Ok(key) = entry.get_password() {
+            if let Ok(mut cache) = session_cache().lock() {
+                cache.insert((*service).to_string(), key);
+            }
+        }
+    }
+}
+
 /// APIキーを削除する
 #[tauri::command]
 pub fn delete_api_key(service: String) -> Result<(), String> {

@@ -28,7 +28,7 @@ flate2 = "1"
 base64 = "0.22"
 thiserror = "1"
 log = "0.4"
-keyring = "3"
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "vendored"] }
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 reqwest = { version = "0.12", features = ["stream", "json"] }
 futures-util = "0.3"

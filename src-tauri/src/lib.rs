@@ -33,6 +33,12 @@ pub fn run() {
                 db: Mutex::new(conn),
             });
 
+            // OS キーチェーンから全プロバイダーの API キーを先読みして
+            // セッションキャッシュを温める (起動時の has_api_key 応答が即時化)
+            std::thread::spawn(|| {
+                commands::keyring::prewarm_session_cache();
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

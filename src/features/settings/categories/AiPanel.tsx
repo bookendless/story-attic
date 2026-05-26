@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { AiSettings } from '@/shared/types';
 import { Row, Section, Badge } from '../atoms';
@@ -46,6 +46,9 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
   const [keySaving, setKeySaving] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [keyDeleting, setKeyDeleting] = useState(false);
+  const [keyDeleteConfirm, setKeyDeleteConfirm] = useState(false);
+  const keyDeleteTimerRef = useRef<number | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [charCount, setCharCount] = useState(draftAi.system_prompt.length);
 
@@ -55,12 +58,22 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
     setKeyError(null);
     setKeySaved(false);
     setTestResult(null);
+    setKeyDeleteConfirm(false);
+    if (keyDeleteTimerRef.current) {
+      window.clearTimeout(keyDeleteTimerRef.current);
+      keyDeleteTimerRef.current = null;
+    }
     if (!draftAi.provider || draftAi.provider === 'local') return;
     invoke<boolean>('has_api_key', { service: draftAi.provider })
       .then((exists) => { if (!cancelled && exists) setKeySaved(true); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [draftAi.provider]);
+
+  // アンマウント時に確認タイマー解放
+  useEffect(() => () => {
+    if (keyDeleteTimerRef.current) window.clearTimeout(keyDeleteTimerRef.current);
+  }, []);
 
   const update = (patch: Partial<AiSettings>) => onAiChange({ ...draftAi, ...patch });
 
@@ -88,6 +101,36 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
       setKeySaving(false);
     }
   }, [apiKey, draftAi.provider]);
+
+  const handleDeleteApiKey = useCallback(async () => {
+    if (!draftAi.provider || draftAi.provider === 'local') return;
+    if (!keyDeleteConfirm) {
+      setKeyDeleteConfirm(true);
+      if (keyDeleteTimerRef.current) window.clearTimeout(keyDeleteTimerRef.current);
+      keyDeleteTimerRef.current = window.setTimeout(() => {
+        setKeyDeleteConfirm(false);
+        keyDeleteTimerRef.current = null;
+      }, 3000);
+      return;
+    }
+    if (keyDeleteTimerRef.current) {
+      window.clearTimeout(keyDeleteTimerRef.current);
+      keyDeleteTimerRef.current = null;
+    }
+    setKeyDeleting(true);
+    setKeyError(null);
+    try {
+      await invoke('delete_api_key', { service: draftAi.provider });
+      setKeySaved(false);
+      setApiKey('');
+      setKeyDeleteConfirm(false);
+      setTestResult({ ok: true, message: 'APIキーを削除しました' });
+    } catch (e) {
+      setKeyError(`削除に失敗しました: ${String(e)}`);
+    } finally {
+      setKeyDeleting(false);
+    }
+  }, [draftAi.provider, keyDeleteConfirm]);
 
   const handleTestConnection = useCallback(async () => {
     if (!draftAi.provider) return;
@@ -144,6 +187,25 @@ export function AiPanel({ draftAi, onAiChange }: AiPanelProps) {
                     >
                       {keySaving ? '保存中...' : '保存'}
                     </button>
+                    {keySaved && (
+                      <button
+                        className="btn btn-ghost text-xs"
+                        style={{
+                          padding: '3px 10px',
+                          color: 'var(--warning)',
+                          borderColor: keyDeleteConfirm ? 'var(--warning)' : undefined,
+                        }}
+                        onClick={handleDeleteApiKey}
+                        disabled={keyDeleting}
+                        title="OS キーチェーンから API キーを削除します"
+                      >
+                        {keyDeleting
+                          ? '削除中...'
+                          : keyDeleteConfirm
+                            ? 'もう一度クリックで削除'
+                            : '削除'}
+                      </button>
+                    )}
                   </div>
                   {keyError && (
                     <span style={{ fontSize: '11px', color: 'var(--warning)' }}>{keyError}</span>
