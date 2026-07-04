@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
+import type { ResonanceScore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { AnalysisResult, StructureSection } from '@/shared/types';
@@ -132,6 +133,7 @@ export function AnalysisModal() {
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
           {activeTab === 'resonance' ? (
             <ResonanceTab
+              episodeId={currentEpisode?.id ?? ''}
               projectId={currentEpisode?.projectId ?? ''}
               content={currentEpisode?.body ?? ''}
             />
@@ -807,28 +809,21 @@ function SensoryBalanceSection({ result }: { result: AnalysisResult }) {
 // 共鳴スコアタブ（AI分析）
 // =========================================
 
-interface ResonanceScore {
-  tension: number;
-  empathy: number;
-  tempo: number;
-  surprise: number;
-  suggestions: string[];
-}
-
-function ResonanceTab({ projectId, content }: { projectId: string; content: string }) {
-  const [score, setScore] = useState<ResonanceScore | null>(null);
+function ResonanceTab({ episodeId, projectId, content }: { episodeId: string; projectId: string; content: string }) {
+  const score = useUIStore((s) => (episodeId ? s.resonanceScoresByEpisode[episodeId] ?? null : null));
+  const setResonanceScore = useUIStore((s) => s.setResonanceScore);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleAnalyze = () => {
-    if (!projectId || !content) return;
+    if (!projectId || !content || !episodeId) return;
     setLoading(true);
     setError(null);
     invoke<string>('ai_get_resonance_score', { projectId, content })
       .then((raw) => {
         const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
         const parsed = JSON.parse(cleaned) as ResonanceScore;
-        setScore({
+        setResonanceScore(episodeId, {
           tension: Number(parsed.tension ?? 0),
           empathy: Number(parsed.empathy ?? 0),
           tempo: Number(parsed.tempo ?? 0),

@@ -74,6 +74,15 @@ export const DEFAULT_CHARACTER_SETTINGS: CharacterSettings = {
   readerPersona: 'casual',
 };
 
+/** 共鳴スコア（AI 4軸評価の結果） */
+export interface ResonanceScore {
+  tension: number;
+  empathy: number;
+  tempo: number;
+  surprise: number;
+  suggestions: string[];
+}
+
 /** 右パネルのアクティブタブ（AIは独立パネルに分離済み） */
 export type RightPanelTab =
   | 'chapter' | 'character' | 'plot' | 'synopsis'
@@ -399,6 +408,10 @@ interface UIState {
   dismissedIssuesByEpisode: Record<string, string[]>;
   addDismissedIssueKey: (episodeId: string, key: string) => void;
   removeDismissedIssueKey: (episodeId: string, key: string) => void;
+
+  /** エピソードIDごとの共鳴スコア（セッション内メモリ保持・localStorage非永続） */
+  resonanceScoresByEpisode: Record<string, ResonanceScore>;
+  setResonanceScore: (episodeId: string, score: ResonanceScore) => void;
 }
 
 const initialAmbience = loadAmbienceSettings();
@@ -592,6 +605,12 @@ export const useUIStore = create<UIState>((set, get) => ({
       try { localStorage.setItem('story-attic-dismissed-issues', JSON.stringify(next)); } catch { /* 無視 */ }
       return { dismissedIssuesByEpisode: next };
     }),
+
+  resonanceScoresByEpisode: {},
+  setResonanceScore: (episodeId, score) =>
+    set((s) => ({
+      resonanceScoresByEpisode: { ...s.resonanceScoresByEpisode, [episodeId]: score },
+    })),
 
   setDailyGoal: (goal) => {
     const value = goal && goal > 0 ? goal : null;
