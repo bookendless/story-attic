@@ -43,7 +43,7 @@ export function SessionSummaryCard() {
     setNote('');
     if (!projectId) { setStreak(null); return; }
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const raw = await invoke<unknown[]>('get_diary_entries', { projectId });
         const entries = toCamelCase<DiaryEntry[]>(raw);

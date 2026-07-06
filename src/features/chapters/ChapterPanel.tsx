@@ -101,7 +101,7 @@ export function ChapterPanel() {
   }, [projectId]);
 
   useEffect(() => {
-    loadTimelines();
+    void loadTimelines();
   }, [loadTimelines]);
 
   useEffect(() => () => {
@@ -392,7 +392,7 @@ function SortableChapterCard({ cwe, index, onOpenDetail, onDelete, onNodesChange
           {chapter.title || '（タイトルなし）'}
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); onDelete(chapter.id); }}
+          onClick={(e) => { e.stopPropagation(); void onDelete(chapter.id); }}
           onDoubleClick={(e) => e.stopPropagation()}
           className="text-xs flex-shrink-0 px-1.5 py-0.5 rounded"
           style={{ color: 'var(--text-muted)', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}

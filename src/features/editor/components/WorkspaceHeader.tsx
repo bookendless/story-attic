@@ -167,7 +167,7 @@ export function WorkspaceHeader() {
               onChange={(e) => setTitleInput(e.target.value)}
               onBlur={handleTitleSubmit}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleTitleSubmit();
+                if (e.key === 'Enter') void handleTitleSubmit();
                 if (e.key === 'Escape') setIsEditingTitle(false);
               }}
               autoFocus
@@ -360,7 +360,7 @@ export function WorkspaceHeader() {
                 className="btn btn-primary"
                 onClick={() => {
                   setShowUnsavedWarning(false);
-                  handleSaveAndGoHome();
+                  void handleSaveAndGoHome();
                 }}
               >
                 保存して戻る

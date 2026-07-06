@@ -26,7 +26,7 @@ export function GlossaryPanel() {
     } catch { /* 無視 */ }
   }, [projectId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => { void loadItems(); }, [loadItems]);
 
   const loadTags = useCallback(async () => {
     if (!projectId || !editingId) { setTags([]); return; }
@@ -38,7 +38,7 @@ export function GlossaryPanel() {
     } catch { /* 無視 */ }
   }, [projectId, editingId]);
 
-  useEffect(() => { loadTags(); }, [loadTags]);
+  useEffect(() => { void loadTags(); }, [loadTags]);
 
   const handleCreate = useCallback(async () => {
     if (!projectId) return;

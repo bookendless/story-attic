@@ -32,11 +32,27 @@ fn register_text_char_count(conn: &Connection) -> Result<()> {
             let html: String = ctx.get(0)?;
             let mut count: i64 = 0;
             let mut in_tag = false;
+            let mut in_rt = false;
+            let mut tag_buf = String::new();
             for ch in html.chars() {
                 match ch {
-                    '<' => in_tag = true,
-                    '>' => in_tag = false,
-                    _ if !in_tag && ch != '\n' && ch != '\r' => count += 1,
+                    '<' => {
+                        in_tag = true;
+                        tag_buf.clear();
+                    }
+                    '>' if in_tag => {
+                        in_tag = false;
+                        // ルビの読み（<rt>〜</rt>）は文字数に含めない
+                        // （フロントエンド src/shared/utils/charCount.ts と同一仕様を維持）
+                        let tag = tag_buf.trim();
+                        if tag == "rt" || tag.starts_with("rt ") {
+                            in_rt = true;
+                        } else if tag == "/rt" {
+                            in_rt = false;
+                        }
+                    }
+                    _ if in_tag => tag_buf.push(ch),
+                    _ if !in_rt && ch != '\n' && ch != '\r' => count += 1,
                     _ => {}
                 }
             }

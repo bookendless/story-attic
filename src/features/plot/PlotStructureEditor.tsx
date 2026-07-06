@@ -34,7 +34,7 @@ export function PlotStructureEditor({ projectId }: PlotStructureEditorProps) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    (async () => {
+    void (async () => {
       try {
         const result = await invoke<{ project_id: string; data: string }>('get_plot_structure', { projectId });
         setData(parseData(result.data));

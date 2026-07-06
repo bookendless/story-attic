@@ -4,6 +4,7 @@ import { useUIStore } from '@/shared/stores/uiStore';
 import { HomePage } from '@/features/project/HomePage';
 import { WorkspacePage } from '@/features/editor/WorkspacePage';
 import { OnboardingTour } from '@/features/onboarding/OnboardingTour';
+import { ToastContainer } from '@/shared/components/Toast';
 
 export function App() {
   const currentView = useAppStore((s) => s.currentView);
@@ -18,6 +19,7 @@ export function App() {
     <div className="h-screen w-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       {currentView === 'home' ? <HomePage /> : <WorkspacePage />}
       {currentView === 'workspace' && <OnboardingTour />}
+      <ToastContainer />
     </div>
   );
 }

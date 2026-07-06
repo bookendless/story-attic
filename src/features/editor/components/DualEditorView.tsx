@@ -188,7 +188,7 @@ function SecondaryPane() {
           style={{ padding: '2px 6px', height: '24px' }}
           value={secondaryEpisode?.id ?? ''}
           onChange={(e) => {
-            if (e.target.value) switchSecondaryEpisode(e.target.value);
+            if (e.target.value) void switchSecondaryEpisode(e.target.value);
           }}
         >
           <option value="">話を選択...</option>

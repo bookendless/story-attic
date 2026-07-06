@@ -54,7 +54,7 @@ export function DataPanel({ draftProject, onProjectChange, currentProjectId }: D
     }
   }, [currentProjectId]);
 
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => { void loadStats(); }, [loadStats]);
 
   const handleDeleteAll = async () => {
     if (!currentProjectId) return;

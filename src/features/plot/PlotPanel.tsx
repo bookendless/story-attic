@@ -28,7 +28,7 @@ export function PlotPanel() {
   }, [projectId]);
 
   useEffect(() => {
-    loadPlots();
+    void loadPlots();
   }, [loadPlots]);
 
   if (!projectId) return null;

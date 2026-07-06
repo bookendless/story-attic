@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { ImportAiStoryBuilderDialog } from '@/features/import/ImportAiStoryBuilderDialog';
+import { showToast } from '@/shared/stores/toastStore';
 
 interface Props {
   onImported: () => void;
@@ -30,7 +31,7 @@ export function ImportExportButtons({ onImported, onAiImported, showAiDialog: sh
       await invoke('import_project_json', { jsonText: text });
       onImported();
     } catch (e) {
-      alert(`インポートに失敗しました: ${e}`);
+      showToast('error', `インポートに失敗しました: ${String(e)}`);
     } finally {
       setIsImporting(false);
     }

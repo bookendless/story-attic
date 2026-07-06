@@ -263,7 +263,7 @@ export function SettingsModal() {
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (isDirty && !saving) handleSave();
+        if (isDirty && !saving) void handleSave();
       }
     };
     document.addEventListener('keydown', handler);

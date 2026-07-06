@@ -2,6 +2,27 @@ import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import type { ChapterTree, Episode } from '../types';
 import { toCamelCase } from '../hooks/useTauriCommand';
+import { showToast } from './toastStore';
+import { countHtmlChars } from '../utils/charCount';
+
+/**
+ * ツリー内の該当エピソードの文字数だけを差し替える。
+ * 保存のたびに全ツリーを IPC で再取得するのを避けるためのローカル更新
+ */
+function updateTreeCharCount(
+  tree: ChapterTree | null,
+  episodeId: string,
+  charCount: number,
+): ChapterTree | null {
+  if (!tree) return tree;
+  const mapEp = <E extends { id: string; charCount: number }>(ep: E): E =>
+    ep.id === episodeId ? { ...ep, charCount } : ep;
+  return {
+    ...tree,
+    chapters: tree.chapters.map((c) => ({ ...c, episodes: c.episodes.map(mapEp) })),
+    ungrouped: tree.ungrouped.map(mapEp),
+  };
+}
 
 interface EditorState {
   chapterTree: ChapterTree | null;
@@ -87,11 +108,24 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ isSaving: true });
     try {
       await invoke('save_episode', { id: currentEpisode.id, body: currentEpisode.body });
-      set({ isDirty: false, isSaving: false });
-      // チャプターツリーを再読み込みして文字数を更新
-      await get().loadChapterTree(currentEpisode.projectId);
+      // 文字数はローカルで再計算してツリーへ反映（全ツリー再取得を避ける）
+      const charCount = countHtmlChars(currentEpisode.body);
+      set((s) => ({
+        isDirty: false,
+        isSaving: false,
+        error: null,
+        currentEpisode: s.currentEpisode?.id === currentEpisode.id
+          ? { ...s.currentEpisode, charCount }
+          : s.currentEpisode,
+        chapterTree: updateTreeCharCount(s.chapterTree, currentEpisode.id, charCount),
+      }));
     } catch (e) {
+      // isDirty は true のまま維持し、本文を失わない
       set({ error: String(e), isSaving: false });
+      showToast('error', '保存に失敗しました。再試行してください。', {
+        label: '再試行',
+        run: () => { void get().save(); },
+      });
     }
   },
 
@@ -102,10 +136,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     try {
       await invoke('save_episode', { id: currentEpisode.id, body: currentEpisode.body });
       const now = new Date().toISOString();
-      set({ isDirty: false, isSaving: false, lastAutoSavedAt: now });
-      await get().loadChapterTree(currentEpisode.projectId);
+      // 文字数はローカルで再計算してツリーへ反映（全ツリー再取得を避ける）
+      const charCount = countHtmlChars(currentEpisode.body);
+      set((s) => ({
+        isDirty: false,
+        isSaving: false,
+        lastAutoSavedAt: now,
+        error: null,
+        currentEpisode: s.currentEpisode?.id === currentEpisode.id
+          ? { ...s.currentEpisode, charCount }
+          : s.currentEpisode,
+        chapterTree: updateTreeCharCount(s.chapterTree, currentEpisode.id, charCount),
+      }));
     } catch (e) {
+      // isDirty は true のまま維持し、次回オートセーブ/手動保存で再試行される
       set({ error: String(e), isSaving: false });
+      showToast('error', '自動保存に失敗しました。Ctrl+S で手動保存を試してください。', {
+        label: '再試行',
+        run: () => { void get().autoSave(); },
+      });
     }
   },
 
@@ -197,6 +246,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       set({ secondaryIsDirty: false });
     } catch (e) {
       set({ error: String(e) });
+      showToast('error', 'セカンダリエピソードの保存に失敗しました。', {
+        label: '再試行',
+        run: () => { void get().saveSecondary(); },
+      });
     }
   },
 

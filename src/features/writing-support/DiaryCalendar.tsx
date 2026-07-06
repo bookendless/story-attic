@@ -30,7 +30,7 @@ export function DiaryCalendar({ projectId }: DiaryCalendarProps) {
     } catch { /* 無視 */ }
   }, [projectId]);
 
-  useEffect(() => { loadEntries(); }, [loadEntries]);
+  useEffect(() => { void loadEntries(); }, [loadEntries]);
 
   // 日付→文字数マップ
   const charMap = useMemo(() => {

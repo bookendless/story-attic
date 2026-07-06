@@ -215,7 +215,7 @@ export const TimelineTable = forwardRef<TimelineTableHandle, TimelineTableProps>
               <button
                 className="text-xs flex-shrink-0"
                 style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
-                onClick={(e) => { e.stopPropagation(); handleDelete(tl.id); }}
+                onClick={(e) => { e.stopPropagation(); void handleDelete(tl.id); }}
               >
                 ×
               </button>

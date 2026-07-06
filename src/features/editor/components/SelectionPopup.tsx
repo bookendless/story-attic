@@ -81,7 +81,7 @@ export function SelectionPopup({ editor }: SelectionPopupProps) {
       setPos({ x: coords.left, y: coords.top - 4 });
       setQuery(text);
       setVisible(true);
-      loadCache();
+      void loadCache();
     };
 
     editor.on('selectionUpdate', handleSelection);

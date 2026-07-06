@@ -255,10 +255,10 @@ export function AiChat({ chatRef, writeLevel }: AiChatProps) {
 
   const handleRetry = useCallback(() => {
     removeLastError();
-    doSend(retryTextRef.current);
+    void doSend(retryTextRef.current);
   }, [removeLastError, doSend]);
 
-  const handleSend = () => doSend(input);
+  const handleSend = () => { void doSend(input); };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -281,7 +281,7 @@ export function AiChat({ chatRef, writeLevel }: AiChatProps) {
       structure: '構造的な停滞を感じています。このシーンについて問いをください。',
       motivation: '少し書くのが重くなっています。小さく始められる問いをください。',
     };
-    doSend(blockPrompts[detectedBlock] ?? '');
+    void doSend(blockPrompts[detectedBlock] ?? '');
   };
 
   return (

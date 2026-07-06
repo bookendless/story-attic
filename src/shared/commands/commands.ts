@@ -95,6 +95,14 @@ export function getCommands(): Command[] {
       group: 'ビュー',
       run: () => ui.toggleParagraphFocusMode(),
     },
+    {
+      id: 'zen.toggle',
+      label: '集中モード 切替',
+      keywords: 'zen focus しゅうちゅう 集中 没入 全画面 distraction free',
+      group: 'ビュー',
+      shortcut: 'Ctrl+Shift+F',
+      run: () => ui.toggleZenMode(),
+    },
 
     // ==================================================
     // ビューモード

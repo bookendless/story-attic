@@ -32,7 +32,7 @@ class SoundManagerImpl {
       this.typingGain.connect(this.masterGain);
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      void this.ctx.resume();
     }
     return this.ctx;
   }
@@ -142,7 +142,7 @@ class SoundManagerImpl {
 
   dispose() {
     if (this.ctx) {
-      this.ctx.close();
+      void this.ctx.close();
       this.ctx = null;
       this.masterGain = null;
       this.typingGain = null;

@@ -6,6 +6,7 @@ import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAppStore } from '@/shared/stores/appStore';
 import { IconSun, IconMoon, IconGhost, IconTypewriter, IconParagraphFocus } from '@/shared/components/Icons';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
+import { debounce } from '@/shared/utils/debounce';
 import type { ProofIssue } from '@/shared/types';
 
 interface Props {
@@ -28,6 +29,8 @@ function StatusBarToggle({
     <button
       onClick={onClick}
       title={title}
+      aria-label={title}
+      aria-pressed={active}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -84,6 +87,7 @@ function ProofSummaryPopup({
         <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>校正チェック</span>
         <button
           onClick={onClose}
+          aria-label="校正サマリーを閉じる"
           style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '13px', lineHeight: 1 }}
         >
           ✕
@@ -136,6 +140,7 @@ export function StatusBar({ editor }: Props) {
   const toggleTypewriterMode = useUIStore((s) => s.toggleTypewriterMode);
   const paragraphFocusMode = useUIStore((s) => s.paragraphFocusMode);
   const toggleParagraphFocusMode = useUIStore((s) => s.toggleParagraphFocusMode);
+  const toggleZenMode = useUIStore((s) => s.toggleZenMode);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const ambienceEnabled = useUIStore((s) => s.ambienceEnabled);
@@ -145,6 +150,7 @@ export function StatusBar({ editor }: Props) {
   const setCharacterSettings = useUIStore((s) => s.setCharacterSettings);
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
   const lastSnapshotAt = useEditorStore((s) => s.lastSnapshotAt);
+  const saveError = useEditorStore((s) => s.error);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
   const chapterTree = useEditorStore((s) => s.chapterTree);
   const projectId = useAppStore((s) => s.currentProjectId);
@@ -160,16 +166,26 @@ export function StatusBar({ editor }: Props) {
   const shortcutsRef = useRef<HTMLDivElement>(null);
   const proofSummaryRef = useRef<HTMLDivElement>(null);
 
-  // エディタの更新イベントを直接サブスクライブしてリアルタイム更新
+  // エディタの更新イベントを購読して文字数を再計算する。
+  // 毎打鍵の全文走査を避けるため 300ms debounce。IME 変換中はスキップし、確定時の update で反映される。
+  // 文字数はバックエンドの text_char_count と同じく改行を含めない
   useEffect(() => {
     const updateCounts = () => {
-      const text = editor.getText();
-      setCharCount(text.length);
+      const text = editor.getText({ blockSeparator: '\n' });
+      setCharCount(text.replace(/\n/g, '').length);
       setLineCount(text.split('\n').length);
     };
     updateCounts();
-    editor.on('update', updateCounts);
-    return () => { editor.off('update', updateCounts); };
+    const debouncedUpdateCounts = debounce(updateCounts, 300);
+    const handler = () => {
+      if (editor.view.composing) return;
+      debouncedUpdateCounts();
+    };
+    editor.on('update', handler);
+    return () => {
+      editor.off('update', handler);
+      debouncedUpdateCounts.cancel();
+    };
   }, [editor]);
 
   // 校正件数をバックグラウンドで定期チェック（debounce 2秒）
@@ -210,18 +226,22 @@ export function StatusBar({ editor }: Props) {
       setProofCount(null);
       return;
     }
-    checkProofread();
+    // 校正ビュー表示中は ProofreadPanel 側がチェックを担うため、ここでの再チェックは行わない
+    if (editorViewMode === 'proofread') return;
+    void checkProofread();
     let timer: ReturnType<typeof setTimeout>;
     const handler = () => {
+      // IME 変換中は発火させない。長文の全文 IPC を抑えるため 5秒 debounce
+      if (editor.view.composing) return;
       clearTimeout(timer);
-      timer = setTimeout(checkProofread, 2000);
+      timer = setTimeout(checkProofread, 5000);
     };
     editor.on('update', handler);
     return () => {
       editor.off('update', handler);
       clearTimeout(timer);
     };
-  }, [editor, proofreadSettings.enabled, checkProofread]);
+  }, [editor, proofreadSettings.enabled, checkProofread, editorViewMode]);
 
   // 自動保存完了時に3秒間「自動保存済み」を表示
   useEffect(() => {
@@ -359,7 +379,16 @@ export function StatusBar({ editor }: Props) {
             作品計 {totalWorkPages} 枚
           </span>
         )}
-        {showAutoSaved && (
+        {saveError && (
+          <span
+            role="alert"
+            title={saveError}
+            style={{ color: 'var(--danger)', fontWeight: 600 }}
+          >
+            ⚠ 保存失敗
+          </span>
+        )}
+        {showAutoSaved && !saveError && (
           <span
             style={{
               color: 'var(--success)',
@@ -473,6 +502,15 @@ export function StatusBar({ editor }: Props) {
           <IconParagraphFocus size={14} />
         </StatusBarToggle>
 
+        {/* 集中モード (Ctrl+Shift+F / Escで解除) */}
+        <StatusBarToggle
+          active={false}
+          onClick={toggleZenMode}
+          title="集中モード (Ctrl+Shift+F, Escで解除)"
+        >
+          <span style={{ fontSize: '13px' }}>⛶</span>
+        </StatusBarToggle>
+
         {/* 雰囲気ポップオーバー起動 (演出/サウンド) */}
         <StatusBarToggle
           active={ambienceEnabled || soundEnabled}
@@ -537,11 +575,21 @@ export function StatusBar({ editor }: Props) {
                   items: [
                     { name: '保存', keys: ['Ctrl', 'S'] },
                     { name: 'コマンドパレット', keys: ['Ctrl', 'P'] },
+                    { name: '検索・置換', keys: ['Ctrl', 'F'] },
+                  ],
+                },
+                {
+                  label: '検索バー内',
+                  items: [
+                    { name: '次の結果', keys: ['Enter'] },
+                    { name: '前の結果', keys: ['Shift', 'Enter'] },
+                    { name: '閉じる', keys: ['Esc'] },
                   ],
                 },
                 {
                   label: 'ビューモード',
                   items: [
+                    { name: '集中モード', keys: ['Ctrl', 'Shift', 'F'] },
                     { name: 'デュアルビュー', keys: ['Ctrl', 'Shift', 'D'] },
                     { name: 'プレビュー', keys: ['Ctrl', 'Shift', 'P'] },
                     { name: '台詞ビュー', keys: ['Ctrl', 'Shift', 'L'] },

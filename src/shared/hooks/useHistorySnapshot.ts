@@ -25,7 +25,7 @@ export function useHistorySnapshot() {
       // 本文が前回と同じなら作成しない
       if (lastBodyRef.current === currentEpisode.body) return;
 
-      takeSnapshot().then(() => {
+      void takeSnapshot().then(() => {
         lastBodyRef.current = currentEpisode.body;
       });
     }, SNAPSHOT_INTERVAL_MS);

@@ -459,10 +459,10 @@ export function LeftPanel() {
             setContextMenu(null);
           }}
           onAssign={(chapterId) => {
-            assignEpisodeToChapter(contextMenu.episode.id, chapterId);
+            void assignEpisodeToChapter(contextMenu.episode.id, chapterId);
           }}
           onUnassign={() => {
-            unassignEpisode(contextMenu.episode.id);
+            void unassignEpisode(contextMenu.episode.id);
           }}
           onClose={() => setContextMenu(null)}
         />
@@ -592,7 +592,7 @@ function EpisodeItem({ episode, isActive, onSelect, onRename, onContextMenu, ind
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') commitEdit();
+            if (e.key === 'Enter') void commitEdit();
             if (e.key === 'Escape') setIsEditing(false);
           }}
         />

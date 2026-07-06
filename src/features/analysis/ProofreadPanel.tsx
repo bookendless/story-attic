@@ -237,9 +237,9 @@ export function ProofreadPanel({ editor }: { editor?: Editor | null }) {
   }, [currentEpisode]);
 
   const runCurrentTab = useCallback(() => {
-    if (tab === 'rules') runRulesCheck();
-    else if (tab === 'readability') runReadabilityCheck();
-    else if (tab === 'consistency') runConsistencyCheck();
+    if (tab === 'rules') void runRulesCheck();
+    else if (tab === 'readability') void runReadabilityCheck();
+    else if (tab === 'consistency') void runConsistencyCheck();
     // cliche タブは API 課金が発生するため手動実行のみ（自動実行しない）
   }, [tab, runRulesCheck, runReadabilityCheck, runConsistencyCheck]);
 
@@ -268,7 +268,7 @@ export function ProofreadPanel({ editor }: { editor?: Editor | null }) {
     const projectId = currentEpisode?.projectId;
     if (!projectId) { setApiConfigured(false); return; }
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         const settings = await invoke<{ provider: string; model: string }>('ai_get_settings', { projectId });
         // local はモデル未指定でも可（LMStudio が起動中モデルを使用）

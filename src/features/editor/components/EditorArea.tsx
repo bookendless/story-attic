@@ -23,21 +23,14 @@ import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
 import { SelectionPopup } from './SelectionPopup';
 import { EditorEmptyState } from './EditorEmptyState';
-
-// debounce ユーティリティ
-function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number) {
-  let timer: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
+import { debounce } from '@/shared/utils/debounce';
 
 export function EditorArea() {
-  const { currentEpisode, updateBody, save } = useEditorStore();
+  const { currentEpisode, updateBody } = useEditorStore();
   const { searchBarVisible, isTategaki, settings, editorViewMode } = useUIStore();
   const typewriterMode = useUIStore((s) => s.typewriterMode);
   const paragraphFocusMode = useUIStore((s) => s.paragraphFocusMode);
+  const zenMode = useUIStore((s) => s.zenMode);
   const lastEpisodeIdRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -95,7 +88,11 @@ export function EditorArea() {
       },
     },
     onUpdate: ({ editor, transaction }) => {
-      debouncedUpdate(editor.getHTML());
+      // IME 変換中は未確定文字列を store に流さない。
+      // 変換確定時に composing=false の update が発火するので、そこで全文が反映される
+      if (!editor.view.composing) {
+        debouncedUpdate(editor.getHTML());
+      }
       // テキスト入力時にタイピング音を再生 + アイドルタイマーをリセット
       if (transaction.docChanged) {
         soundManager.playTyping();
@@ -131,7 +128,9 @@ export function EditorArea() {
     lastEpisodeIdRef.current = currentEpisode?.id ?? null;
     editor.commands.setContent(currentEpisode?.body ?? '', false);
 
-    // エピソード切替時にUndo/Redo履歴をクリアする
+    // エピソード切替時にUndo/Redo履歴をクリアする（意図的設計）。
+    // 前エピソードの編集内容への誤 Undo で本文が壊れるのを防ぐ。
+    // 切替時は switchEpisode 側で保存 + スナップショット作成済みのため、履歴ビューアから復元可能。
     // 新しいEditorStateを生成することでプラグイン状態（History含む）をリセット
     const freshState = EditorState.create({
       doc: editor.state.doc,
@@ -196,24 +195,7 @@ export function EditorArea() {
     };
   }, [editor, typewriterMode, isTategaki]);
 
-  // Ctrl+S で保存
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        save();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [save]);
-
-  // 自動保存
-  useEffect(() => {
-    if (!settings.auto_save) return;
-    const interval = setInterval(() => save(), settings.auto_save_interval_sec * 1000);
-    return () => clearInterval(interval);
-  }, [save, settings.auto_save, settings.auto_save_interval_sec]);
+  // 注: Ctrl+S 保存と自動保存は WorkspacePage 側（グローバルショートカット + useAutoSave）に一本化済み
 
   if (!currentEpisode) {
     return <EditorEmptyState />;
@@ -245,12 +227,12 @@ export function EditorArea() {
       <div className="h-full flex">
         {/* エディタ部分 */}
         <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
-          {editor && <EditorToolbar editor={editor} />}
+          {!zenMode && editor && <EditorToolbar editor={editor} />}
           {searchBarVisible && editor && <SearchBar editor={editor} />}
           <div ref={scrollContainerRef} className="flex-1 overflow-auto">
             <EditorContent editor={editor} className="h-full" />
           </div>
-          {settings.show_char_count && editor && <StatusBar editor={editor} />}
+          {settings.show_char_count && !zenMode && editor && <StatusBar editor={editor} />}
         </div>
         {/* 校正パネル（右側 320px） */}
         <div className="flex-shrink-0" style={{ width: '320px' }}>
@@ -263,8 +245,8 @@ export function EditorArea() {
   // 通常エディタモード
   return (
     <div className={`h-full flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
-      {/* ツールバー */}
-      {editor && <EditorToolbar editor={editor} />}
+      {/* ツールバー（集中モード中は非表示） */}
+      {!zenMode && editor && <EditorToolbar editor={editor} />}
 
       {/* 検索・置換バー */}
       {searchBarVisible && editor && <SearchBar editor={editor} />}
@@ -274,8 +256,8 @@ export function EditorArea() {
         <EditorContent editor={editor} className="h-full" />
       </div>
 
-      {/* ステータスバー */}
-      {settings.show_char_count && editor && (
+      {/* ステータスバー（集中モード中は非表示） */}
+      {settings.show_char_count && !zenMode && editor && (
         <StatusBar editor={editor} />
       )}
 

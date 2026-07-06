@@ -474,6 +474,9 @@ interface UIState {
   /** 段落フォーカスモード（編集中の段落以外を淡色化） */
   paragraphFocusMode: boolean;
   toggleParagraphFocusMode: () => void;
+  /** 集中モード（ヘッダー/ツールバー/ステータスバー/パネルを隠す没入モード。セッション限り） */
+  zenMode: boolean;
+  toggleZenMode: () => void;
 
   /** 目標文字数を設定（0やnullで解除） */
   setDailyGoal: (goal: number | null) => void;
@@ -530,6 +533,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   sessionSummary: null,
   typewriterMode: initialFocusModes.typewriter,
   paragraphFocusMode: initialFocusModes.paragraphFocus,
+  zenMode: false,
   previewSubMode: 'manuscript' as PreviewSubMode,
   commandPaletteVisible: false,
   ambiencePopoverVisible: false,
@@ -673,6 +677,9 @@ export const useUIStore = create<UIState>((set, get) => ({
       saveFocusModesToStorage(s.typewriterMode, next);
       return { paragraphFocusMode: next };
     }),
+
+  toggleZenMode: () =>
+    set((s) => ({ zenMode: !s.zenMode })),
 
   setPreviewSubMode: (previewSubMode) => set({ previewSubMode }),
 

@@ -39,7 +39,7 @@ export function TagPicker({ projectId, entityType, entityId, tags, onTagsChange 
   }, [projectId]);
 
   useEffect(() => {
-    loadAllTags();
+    void loadAllTags();
   }, [loadAllTags]);
 
   // 入力値でフィルタ
@@ -113,9 +113,9 @@ export function TagPicker({ projectId, entityType, entityId, tags, onTagsChange 
     if (e.key === 'Enter') {
       e.preventDefault();
       if (selectedIndex >= 0 && selectedIndex < suggestions.length) {
-        addTag(suggestions[selectedIndex]);
+        void addTag(suggestions[selectedIndex]);
       } else {
-        addTag(input);
+        void addTag(input);
       }
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();

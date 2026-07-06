@@ -19,7 +19,7 @@ export function HomePage() {
   const [showAiDialog, setShowAiDialog] = useState(false);
 
   useEffect(() => {
-    loadProjects();
+    void loadProjects();
   }, [loadProjects]);
 
   const handleOpen = (id: string) => {

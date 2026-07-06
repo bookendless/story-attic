@@ -22,6 +22,7 @@ import { WritingSupportModal } from '@/features/writing-support/WritingSupportMo
 import { AiManualModal } from '@/features/ai/AiManualModal';
 import { CommandPalette } from './components/CommandPalette';
 import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
+import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
@@ -36,6 +37,7 @@ export function WorkspacePage() {
     toggleCommandPalette, commandPaletteVisible,
     setActiveSideTab,
     ambiencePopoverVisible, toggleAmbiencePopover,
+    zenMode, toggleZenMode,
   } = useUIStore();
 
   // 自動保存フック
@@ -53,8 +55,8 @@ export function WorkspacePage() {
   useEffect(() => {
     if (currentProjectId) {
       clearCurrentEpisode();
-      openProject(currentProjectId);
-      loadChapterTree(currentProjectId);
+      void openProject(currentProjectId);
+      void loadChapterTree(currentProjectId);
     }
   }, [currentProjectId, openProject, loadChapterTree, clearCurrentEpisode]);
 
@@ -104,6 +106,12 @@ export function WorkspacePage() {
         toggleSidePanel();
         return;
       }
+      // Ctrl+Shift+F: 集中モード切替
+      if (ctrl && shift && e.key === 'F') {
+        e.preventDefault();
+        toggleZenMode();
+        return;
+      }
       // Ctrl+P: コマンドパレット
       if (ctrl && !shift && (e.key === 'p' || e.key === 'P')) {
         e.preventDefault();
@@ -121,8 +129,8 @@ export function WorkspacePage() {
       // Ctrl+S: 保存（プライマリ＋セカンダリ両方）
       if (ctrl && !shift && e.key === 's') {
         e.preventDefault();
-        save();
-        saveSecondary();
+        void save();
+        void saveSecondary();
         return;
       }
       // Escape: モーダル/フローティングパネル閉じ
@@ -133,6 +141,7 @@ export function WorkspacePage() {
         if (settingsModalVisible) { toggleSettingsModal(); return; }
         if (writingSupportModalVisible) { toggleWritingSupportModal(); return; }
         if (aiPanelVisible) { toggleAiPanel(); return; }
+        if (zenMode) { toggleZenMode(); return; }
         return;
       }
     };
@@ -144,6 +153,7 @@ export function WorkspacePage() {
     aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible, aiManualVisible,
     toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal, toggleAiManual,
     toggleCommandPalette, commandPaletteVisible, setActiveSideTab,
+    zenMode, toggleZenMode,
   ]);
 
   // プロジェクトの設定をUIストアに反映
@@ -167,10 +177,15 @@ export function WorkspacePage() {
 
   return (
     <div className="flex flex-col h-full ambient-noise" style={{ background: 'var(--bg)' }}>
-      <WorkspaceHeader />
+      {/* 集中モード中はヘッダー・サイドパネルを隠してエディタだけにする */}
+      {!zenMode && <WorkspaceHeader />}
       <div className="flex flex-1 overflow-hidden">
         {/* 統合サイドパネル (アクティビティバー + コンテンツ) */}
-        <SidePanel />
+        {!zenMode && (
+          <ErrorBoundary variant="panel" name="サイドパネル">
+            <SidePanel />
+          </ErrorBoundary>
+        )}
 
         {/* エディタエリア（可変） */}
         <div className="flex-1 overflow-hidden relative">
@@ -179,11 +194,19 @@ export function WorkspacePage() {
         </div>
 
         {/* AIパネル — サイドバーモード */}
-        {aiPanelVisible && aiPanelMode === 'sidebar' && <AiPanel />}
+        {aiPanelVisible && aiPanelMode === 'sidebar' && (
+          <ErrorBoundary variant="panel" name="AIパネル">
+            <AiPanel />
+          </ErrorBoundary>
+        )}
       </div>
 
       {/* AIパネル — フローティングモード */}
-      {aiPanelVisible && aiPanelMode === 'float' && <AiPanel />}
+      {aiPanelVisible && aiPanelMode === 'float' && (
+        <ErrorBoundary variant="panel" name="AIパネル">
+          <AiPanel />
+        </ErrorBoundary>
+      )}
 
       {/* キャラクターウィジェット */}
       <CharacterWidget />

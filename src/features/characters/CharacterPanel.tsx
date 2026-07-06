@@ -29,7 +29,7 @@ export function CharacterPanel() {
   }, [projectId]);
 
   useEffect(() => {
-    loadCharacters();
+    void loadCharacters();
   }, [loadCharacters]);
 
   // 編集中キャラクターのタグを取得
@@ -51,7 +51,7 @@ export function CharacterPanel() {
   }, [projectId, editingId]);
 
   useEffect(() => {
-    loadTags();
+    void loadTags();
   }, [loadTags]);
 
   const handleCreate = useCallback(async () => {

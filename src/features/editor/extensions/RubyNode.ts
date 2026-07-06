@@ -31,6 +31,11 @@ export const RubyNode = Node.create({
     ];
   },
 
+  // getText() にルビの本文（漢字部分）を含める。読み（rt）は含めない
+  renderText({ node }) {
+    return (node.attrs.text as string) ?? '';
+  },
+
   renderHTML({ node, HTMLAttributes }) {
     return [
       'ruby',

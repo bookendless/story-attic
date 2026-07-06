@@ -64,7 +64,7 @@ export function ChapterModal({ projectId, onClose }: Props) {
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleRename(chapter.id);
+                      if (e.key === 'Enter') void handleRename(chapter.id);
                       if (e.key === 'Escape') setEditingId(null);
                     }}
                     onBlur={() => handleRename(chapter.id)}
@@ -103,7 +103,7 @@ export function ChapterModal({ projectId, onClose }: Props) {
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreate();
+              if (e.key === 'Enter') void handleCreate();
             }}
           />
           <button

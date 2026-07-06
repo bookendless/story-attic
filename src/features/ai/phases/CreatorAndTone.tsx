@@ -14,7 +14,7 @@ export function CreatorAndTone({ accent }: { accent: string }) {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
 
   const changeType = (type: CreatorType) => {
-    if (currentProjectId) saveCreatorType(currentProjectId, type);
+    if (currentProjectId) void saveCreatorType(currentProjectId, type);
   };
 
   return (

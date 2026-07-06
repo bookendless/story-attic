@@ -37,7 +37,7 @@ export function usePassiveSessionTracker(
     if (timerRunning) {
       const pid = projectIdRef.current;
       if (pid) {
-        flushPassiveSession(pid, charCountRef.current);
+        void flushPassiveSession(pid, charCountRef.current);
       }
       lastActivityAtRef.current = null;
     }
@@ -58,7 +58,7 @@ export function usePassiveSessionTracker(
       } else {
         const pid = projectIdRef.current;
         if (pid) {
-          flushPassiveSession(pid, charCountRef.current);
+          void flushPassiveSession(pid, charCountRef.current);
         }
         lastActivityAtRef.current = null;
       }

@@ -24,7 +24,7 @@ export function MemoPanel() {
     } catch { /* 無視 */ }
   }, [projectId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => { void loadItems(); }, [loadItems]);
 
   const loadTags = useCallback(async () => {
     if (!projectId || !selectedId) { setTags([]); return; }
@@ -36,7 +36,7 @@ export function MemoPanel() {
     } catch { /* 無視 */ }
   }, [projectId, selectedId]);
 
-  useEffect(() => { loadTags(); }, [loadTags]);
+  useEffect(() => { void loadTags(); }, [loadTags]);
 
   const handleCreate = useCallback(async () => {
     if (!projectId) return;

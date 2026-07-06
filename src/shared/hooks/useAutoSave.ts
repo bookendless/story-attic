@@ -32,7 +32,7 @@ export function useAutoSave() {
       // isDirty の最新値を直接ストアから取得
       const { isDirty: currentDirty, isSaving } = useEditorStore.getState();
       if (currentDirty && !isSaving) {
-        useEditorStore.getState().autoSave();
+        void useEditorStore.getState().autoSave();
       }
     }, intervalMs);
 

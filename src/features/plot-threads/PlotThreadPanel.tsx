@@ -46,7 +46,7 @@ export function PlotThreadPanel() {
     } catch { /* 無視 */ }
   }, [projectId]);
 
-  useEffect(() => { loadItems(); }, [loadItems]);
+  useEffect(() => { void loadItems(); }, [loadItems]);
 
   const handleCreate = useCallback(async () => {
     if (!projectId) return;

@@ -98,7 +98,7 @@ export function useCreativeCore(): UseCreativeCoreResult {
   useEffect(() => {
     if (!isUserEditing.current) return;
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => { handleSave(); }, 3000);
+    debounceTimer.current = setTimeout(() => { void handleSave(); }, 3000);
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
     };

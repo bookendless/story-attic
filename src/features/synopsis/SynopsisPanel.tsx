@@ -24,7 +24,7 @@ export function SynopsisPanel() {
     } catch { /* 無視 */ }
   }, [projectId]);
 
-  useEffect(() => { loadSynopsis(); }, [loadSynopsis]);
+  useEffect(() => { void loadSynopsis(); }, [loadSynopsis]);
 
   const handleSave = useCallback(async () => {
     if (!projectId) return;

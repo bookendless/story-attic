@@ -35,7 +35,7 @@ export function HistoryViewer({ episodeId }: HistoryViewerProps) {
   }, [episodeId]);
 
   useEffect(() => {
-    loadSnapshots();
+    void loadSnapshots();
     setDiffResult(null);
     setSelectedIdx(null);
   }, [loadSnapshots]);
@@ -176,7 +176,7 @@ export function HistoryViewer({ episodeId }: HistoryViewerProps) {
                   autoFocus
                   onChange={(e) => setEditingLabel(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitLabel(s.id);
+                    if (e.key === 'Enter') void commitLabel(s.id);
                     if (e.key === 'Escape') setEditingId(null);
                   }}
                   onBlur={() => commitLabel(s.id)}

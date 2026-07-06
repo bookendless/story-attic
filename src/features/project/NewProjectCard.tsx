@@ -33,7 +33,7 @@ export function NewProjectCard({ onCreated }: Props) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleCreate();
+    if (e.key === 'Enter') void handleCreate();
     if (e.key === 'Escape') {
       setTitle('');
       setIsOpen(false);
