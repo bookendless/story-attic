@@ -9,6 +9,8 @@ import { RubyNode } from '../extensions/RubyNode';
 import { DotenMark } from '../extensions/DotenMark';
 import { AutoIndent } from '../extensions/AutoIndent';
 import { DashRule } from '../extensions/DashRule';
+import { ParagraphFocus } from '../extensions/ParagraphFocus';
+import { saveCursorPosition, getCursorPosition } from '@/shared/utils/resumeSession';
 import { StatusBar } from './StatusBar';
 import { SearchBar } from './SearchBar';
 import { EditorToolbar } from './EditorToolbar';
@@ -34,6 +36,8 @@ function debounce<T extends (...args: Parameters<T>) => void>(fn: T, ms: number)
 export function EditorArea() {
   const { currentEpisode, updateBody, save } = useEditorStore();
   const { searchBarVisible, isTategaki, settings, editorViewMode } = useUIStore();
+  const typewriterMode = useUIStore((s) => s.typewriterMode);
+  const paragraphFocusMode = useUIStore((s) => s.paragraphFocusMode);
   const lastEpisodeIdRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +78,7 @@ export function EditorArea() {
       RubyNode,
       DotenMark,
       DashRule,
+      ParagraphFocus,
       ...(settings.auto_indent ? [AutoIndent] : []),
     ],
     content: currentEpisode?.body ?? '',
@@ -133,7 +138,63 @@ export function EditorArea() {
       plugins: editor.state.plugins,
     });
     editor.view.updateState(freshState);
-  }, [editor, currentEpisode?.id, currentEpisode?.body]);
+
+    // 保存済みカーソル位置を復元（前回の続きから書き始められる）
+    if (currentEpisode) {
+      const saved = getCursorPosition(currentEpisode.projectId, currentEpisode.id);
+      if (saved !== null) {
+        const pos = Math.min(saved, editor.state.doc.content.size);
+        editor.chain().focus().setTextSelection(pos).scrollIntoView().run();
+      }
+    }
+  }, [editor, currentEpisode]);
+
+  // カーソル位置を保存（再開用・800ms debounce）
+  useEffect(() => {
+    if (!editor) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const handler = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        const ep = useEditorStore.getState().currentEpisode;
+        if (!ep) return;
+        saveCursorPosition(ep.projectId, ep.id, editor.state.selection.head);
+      }, 800);
+    };
+    editor.on('selectionUpdate', handler);
+    return () => {
+      editor.off('selectionUpdate', handler);
+      clearTimeout(timer);
+    };
+  }, [editor]);
+
+  // タイプライターモード: カーソル行を常にビューポート中央へ
+  useEffect(() => {
+    if (!editor || !typewriterMode) return;
+    const center = () => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      try {
+        const coords = editor.view.coordsAtPos(editor.state.selection.head);
+        if (isTategaki) {
+          // 縦書きは editor-content 自体が横スクロールする
+          const content = container.querySelector<HTMLElement>('.editor-content');
+          if (!content) return;
+          const rect = content.getBoundingClientRect();
+          content.scrollLeft += coords.left - (rect.left + rect.width / 2);
+        } else {
+          const rect = container.getBoundingClientRect();
+          container.scrollTop += coords.top - (rect.top + rect.height / 2);
+        }
+      } catch { /* coordsAtPos失敗（描画前など）は無視 */ }
+    };
+    editor.on('selectionUpdate', center);
+    editor.on('update', center);
+    return () => {
+      editor.off('selectionUpdate', center);
+      editor.off('update', center);
+    };
+  }, [editor, typewriterMode, isTategaki]);
 
   // Ctrl+S で保存
   useEffect(() => {
@@ -183,7 +244,7 @@ export function EditorArea() {
     return (
       <div className="h-full flex">
         {/* エディタ部分 */}
-        <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''}`} style={{ background: 'var(--bg)' }}>
+        <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
           {editor && <EditorToolbar editor={editor} />}
           {searchBarVisible && editor && <SearchBar editor={editor} />}
           <div ref={scrollContainerRef} className="flex-1 overflow-auto">
@@ -201,7 +262,7 @@ export function EditorArea() {
 
   // 通常エディタモード
   return (
-    <div className={`h-full flex flex-col ${isTategaki ? 'editor-tategaki' : ''}`} style={{ background: 'var(--bg)' }}>
+    <div className={`h-full flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
       {/* ツールバー */}
       {editor && <EditorToolbar editor={editor} />}
 

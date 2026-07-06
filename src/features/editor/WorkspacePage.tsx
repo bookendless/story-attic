@@ -7,6 +7,9 @@ import { useAutoSave } from '@/shared/hooks/useAutoSave';
 import { useHistorySnapshot } from '@/shared/hooks/useHistorySnapshot';
 import { useSound } from '@/shared/hooks/useSound';
 import { usePassiveSessionTracker } from '@/features/writing-support/usePassiveSessionTracker';
+import { useTodayWrittenTracker } from '@/features/writing-support/useTodayWrittenTracker';
+import { SessionSummaryCard } from '@/features/writing-support/SessionSummaryCard';
+import { ResumeCard } from '@/features/writing-support/ResumeCard';
 import { WorkspaceHeader } from './components/WorkspaceHeader';
 import { EditorArea } from './components/EditorArea';
 import { SidePanel } from './components/SidePanel';
@@ -44,6 +47,8 @@ export function WorkspacePage() {
   // パッシブ執筆追跡フック
   const currentEpisodeForTracker = useEditorStore((s) => s.currentEpisode);
   usePassiveSessionTracker(currentProjectId, currentEpisodeForTracker?.charCount ?? 0);
+  // 今日の執筆量トラッカー（日次目標・セッションサマリー・再開情報の基礎データ）
+  useTodayWrittenTracker(currentProjectId);
 
   useEffect(() => {
     if (currentProjectId) {
@@ -182,6 +187,12 @@ export function WorkspacePage() {
 
       {/* キャラクターウィジェット */}
       <CharacterWidget />
+
+      {/* 「おかえり」再開カード */}
+      <ResumeCard />
+
+      {/* セッション終了サマリー */}
+      <SessionSummaryCard />
 
       {/* コマンドパレット */}
       <CommandPalette />

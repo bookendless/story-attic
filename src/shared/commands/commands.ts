@@ -81,6 +81,20 @@ export function getCommands(): Command[] {
       group: 'ビュー',
       run: () => ui.toggleTategaki(),
     },
+    {
+      id: 'typewriter.toggle',
+      label: 'タイプライターモード 切替',
+      keywords: 'typewriter たいぷらいたー 中央 スクロール 集中',
+      group: 'ビュー',
+      run: () => ui.toggleTypewriterMode(),
+    },
+    {
+      id: 'paragraph-focus.toggle',
+      label: '段落フォーカス 切替',
+      keywords: 'paragraph focus だんらく ふぉーかす 集中',
+      group: 'ビュー',
+      run: () => ui.toggleParagraphFocusMode(),
+    },
 
     // ==================================================
     // ビューモード

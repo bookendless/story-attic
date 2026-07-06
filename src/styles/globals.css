@@ -625,6 +625,14 @@ body {
   overflow-y: hidden;
 }
 
+/* 段落フォーカスモード: 編集中の段落以外を淡色化 */
+.paragraph-focus-on .editor-content > * {
+  transition: opacity 240ms ease;
+}
+.paragraph-focus-on .editor-content .paragraph-dimmed {
+  opacity: 0.35;
+}
+
 /* 検索ハイライト */
 .search-result {
   background: color-mix(in srgb, var(--warning) 35%, transparent);

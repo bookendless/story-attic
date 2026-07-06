@@ -412,6 +412,28 @@ export function IconEditorWidth({ size = defaults.size, className }: IconProps) 
   );
 }
 
+/** タイプライターモード（カーソル行を中央固定） */
+export function IconTypewriter({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M2 4h9M2 12h7" opacity="0.45" />
+      <path d="M2 8h10" />
+      <path d="M14 6.5v3" />
+    </svg>
+  );
+}
+
+/** 段落フォーカス（編集中の段落のみ強調） */
+export function IconParagraphFocus({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M3 3h10M3 13h7" opacity="0.45" />
+      <rect x="2" y="5.8" width="12" height="4.4" rx="1" />
+      <path d="M4.5 8h7" />
+    </svg>
+  );
+}
+
 /** 集中モード（左パネル非表示） */
 export function IconFocus({ size = defaults.size, className }: IconProps) {
   return (

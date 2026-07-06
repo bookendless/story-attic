@@ -294,6 +294,64 @@ function saveTodaySessionToStorage(date: string, sec: number) {
   try { localStorage.setItem('story-attic-today-session', JSON.stringify({ date, sec })); } catch { /* 無視 */ }
 }
 
+/** 今日の執筆量トラッキング（エピソードごとの当日基準値と現在値） */
+export interface TodayWrittenState {
+  date: string;
+  byEpisode: Record<string, { base: number; cur: number }>;
+}
+
+/** エピソードごとの差分を合算して「今日書いた字数」を返す（負値は0に丸める） */
+export function sumTodayWritten(byEpisode: TodayWrittenState['byEpisode']): number {
+  let total = 0;
+  for (const v of Object.values(byEpisode)) total += v.cur - v.base;
+  return Math.max(0, total);
+}
+
+/** 今日の執筆量をlocalStorageから復元（別日付なら空にリセット） */
+function loadTodayWritten(): TodayWrittenState {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const stored = localStorage.getItem('story-attic-today-written');
+    if (stored) {
+      const parsed = JSON.parse(stored) as TodayWrittenState;
+      if (parsed.date === today && parsed.byEpisode && typeof parsed.byEpisode === 'object') {
+        return { date: today, byEpisode: parsed.byEpisode };
+      }
+    }
+  } catch { /* 無視 */ }
+  return { date: today, byEpisode: {} };
+}
+
+/** 今日の執筆量をlocalStorageに保存 */
+function saveTodayWrittenToStorage(state: TodayWrittenState) {
+  try { localStorage.setItem('story-attic-today-written', JSON.stringify(state)); } catch { /* 無視 */ }
+}
+
+/** セッション終了サマリー（タイマー終了時の達成フィードバック用） */
+export interface SessionSummary {
+  /** セッション中に書いた字数 */
+  chars: number;
+  /** セッションの経過秒数 */
+  sec: number;
+}
+
+/** 執筆集中モード（タイプライター/段落フォーカス）の復元 */
+function loadFocusModes(): { typewriter: boolean; paragraphFocus: boolean } {
+  try {
+    const stored = localStorage.getItem('story-attic-focus-modes');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return { typewriter: !!parsed.typewriter, paragraphFocus: !!parsed.paragraphFocus };
+    }
+  } catch { /* 無視 */ }
+  return { typewriter: false, paragraphFocus: false };
+}
+
+/** 執筆集中モードの保存 */
+function saveFocusModesToStorage(typewriter: boolean, paragraphFocus: boolean) {
+  try { localStorage.setItem('story-attic-focus-modes', JSON.stringify({ typewriter, paragraphFocus })); } catch { /* 無視 */ }
+}
+
 interface UIState {
   searchBarVisible: boolean;
   isTategaki: boolean;
@@ -398,6 +456,25 @@ interface UIState {
   flushPassiveSession: (projectId: string, charCount: number) => Promise<void>;
   resetTodayIfNeeded: () => void;
 
+  /** 今日の執筆量（エピソード横断・基準値との差分で計測） */
+  todayWritten: TodayWrittenState;
+  todayWrittenChars: number;
+  updateTodayWritten: (episodeId: string, chars: number) => void;
+
+  /** タイマー開始時点の「今日書いた字数」（セッション執筆量の算出用） */
+  sessionStartWritten: number | null;
+  /** セッション終了サマリー（nullで非表示） */
+  sessionSummary: SessionSummary | null;
+  setSessionSummary: (summary: SessionSummary) => void;
+  clearSessionSummary: () => void;
+
+  /** タイプライターモード（カーソル行を常に中央へ） */
+  typewriterMode: boolean;
+  toggleTypewriterMode: () => void;
+  /** 段落フォーカスモード（編集中の段落以外を淡色化） */
+  paragraphFocusMode: boolean;
+  toggleParagraphFocusMode: () => void;
+
   /** 目標文字数を設定（0やnullで解除） */
   setDailyGoal: (goal: number | null) => void;
 
@@ -417,6 +494,10 @@ interface UIState {
 const initialAmbience = loadAmbienceSettings();
 
 const initialTodaySession = loadTodaySession();
+
+const initialTodayWritten = loadTodayWritten();
+
+const initialFocusModes = loadFocusModes();
 
 export const useUIStore = create<UIState>((set, get) => ({
   searchBarVisible: false,
@@ -443,6 +524,12 @@ export const useUIStore = create<UIState>((set, get) => ({
   passiveSessionSec: 0,
   todayTotalSec: initialTodaySession.sec,
   todayDate: initialTodaySession.date,
+  todayWritten: initialTodayWritten,
+  todayWrittenChars: sumTodayWritten(initialTodayWritten.byEpisode),
+  sessionStartWritten: null,
+  sessionSummary: null,
+  typewriterMode: initialFocusModes.typewriter,
+  paragraphFocusMode: initialFocusModes.paragraphFocus,
   previewSubMode: 'manuscript' as PreviewSubMode,
   commandPaletteVisible: false,
   ambiencePopoverVisible: false,
@@ -519,7 +606,8 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   startTimer: (minutes) => {
     const totalSec = minutes * 60;
-    set({ timerRunning: true, timerRemaining: totalSec, timerTotal: totalSec });
+    // セッション執筆量の基準として開始時点の「今日書いた字数」を記録
+    set({ timerRunning: true, timerRemaining: totalSec, timerTotal: totalSec, sessionStartWritten: get().todayWrittenChars });
   },
   stopTimer: () => {
     set({ timerRunning: false, timerRemaining: 0, timerTotal: 0 });
@@ -557,6 +645,34 @@ export const useUIStore = create<UIState>((set, get) => ({
       saveTodaySessionToStorage(today, 0);
     }
   },
+
+  updateTodayWritten: (episodeId, chars) =>
+    set((s) => {
+      const today = new Date().toISOString().slice(0, 10);
+      // 日付が変わっていたら基準値をリセット
+      const byEpisode = s.todayWritten.date === today ? { ...s.todayWritten.byEpisode } : {};
+      const prev = byEpisode[episodeId];
+      byEpisode[episodeId] = prev ? { ...prev, cur: chars } : { base: chars, cur: chars };
+      const next: TodayWrittenState = { date: today, byEpisode };
+      saveTodayWrittenToStorage(next);
+      return { todayWritten: next, todayWrittenChars: sumTodayWritten(byEpisode) };
+    }),
+
+  setSessionSummary: (sessionSummary) => set({ sessionSummary }),
+  clearSessionSummary: () => set({ sessionSummary: null }),
+
+  toggleTypewriterMode: () =>
+    set((s) => {
+      const next = !s.typewriterMode;
+      saveFocusModesToStorage(next, s.paragraphFocusMode);
+      return { typewriterMode: next };
+    }),
+  toggleParagraphFocusMode: () =>
+    set((s) => {
+      const next = !s.paragraphFocusMode;
+      saveFocusModesToStorage(s.typewriterMode, next);
+      return { paragraphFocusMode: next };
+    }),
 
   setPreviewSubMode: (previewSubMode) => set({ previewSubMode }),
 

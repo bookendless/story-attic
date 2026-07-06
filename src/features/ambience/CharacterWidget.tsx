@@ -37,6 +37,20 @@ const READER_FALLBACKS = [
   '次の展開を待っています',
 ];
 
+/** セッション終了時のお祝いメッセージ（+N字 が埋め込まれる） */
+const CELEBRATE_WITH_CHARS = [
+  'おつかれさま！{chars}字、すてきです',
+  '{chars}字も進みましたね。えらい！',
+  'いい執筆でした。{chars}字ぶん、物語が育ちましたよ',
+];
+
+/** 書けなかったセッションへのねぎらい */
+const CELEBRATE_NO_CHARS = [
+  'おつかれさま。机に向かえたこと、えらいです',
+  '今日も来てくれてうれしいです',
+  '考える時間も、大切な執筆時間ですよ',
+];
+
 /** 吹き出しが自動で消えるまでの時間（ms） */
 const BUBBLE_AUTO_HIDE_MS = 8_000;
 
@@ -47,6 +61,7 @@ function stripHtml(html: string): string {
 
 export function CharacterWidget() {
   const { characterSettings, setCharacterSettings, theme } = useUIStore();
+  const sessionSummary = useUIStore((s) => s.sessionSummary);
   const currentProjectId = useAppStore((s) => s.currentProjectId);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
 
@@ -110,6 +125,26 @@ export function CharacterWidget() {
       if (sleepTimerRef.current) clearTimeout(sleepTimerRef.current);
     };
   }, [characterSettings.enabled]);
+
+  // セッション終了時にお祝いリアクション（喜びアニメーション + ねぎらいの吹き出し）
+  const celebratedRef = useRef<typeof sessionSummary>(null);
+  useEffect(() => {
+    if (!sessionSummary || !characterSettings.enabled) return;
+    // 同じサマリーへの再発火（キャラON/OFF切替など）を防ぐ
+    if (celebratedRef.current === sessionSummary) return;
+    celebratedRef.current = sessionSummary;
+    setIsHappy(true);
+    const happyTimer = setTimeout(() => setIsHappy(false), 1400);
+
+    const pool = sessionSummary.chars > 0 ? CELEBRATE_WITH_CHARS : CELEBRATE_NO_CHARS;
+    const template = pool[Math.floor(Math.random() * pool.length)];
+    setMessage(template.replace('{chars}', `+${sessionSummary.chars.toLocaleString()}`));
+    setShowBubble(true);
+    if (bubbleTimerRef.current) clearTimeout(bubbleTimerRef.current);
+    bubbleTimerRef.current = setTimeout(() => setShowBubble(false), BUBBLE_AUTO_HIDE_MS);
+
+    return () => clearTimeout(happyTimer);
+  }, [sessionSummary, characterSettings.enabled]);
 
   // クリーンアップ
   useEffect(() => {

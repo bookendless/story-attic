@@ -15,8 +15,6 @@ export function WritingSupportModal() {
   const projectId = useAppStore((s) => s.currentProjectId);
   const { currentEpisode } = useEditorStore();
 
-  const currentCharCount = currentEpisode?.charCount ?? 0;
-
   if (!writingSupportModalVisible) return null;
 
   return (
@@ -45,7 +43,7 @@ export function WritingSupportModal() {
 
         {/* コンテンツ */}
         <div className="flex-1 overflow-y-auto flex flex-col gap-6 pr-1">
-          <GoalSetting currentCharCount={currentCharCount} />
+          <GoalSetting />
 
           <div style={{ borderTop: '1px solid var(--border)' }} />
 

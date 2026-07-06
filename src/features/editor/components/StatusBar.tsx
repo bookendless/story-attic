@@ -4,7 +4,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useUIStore } from '@/shared/stores/uiStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useAppStore } from '@/shared/stores/appStore';
-import { IconSun, IconMoon, IconGhost } from '@/shared/components/Icons';
+import { IconSun, IconMoon, IconGhost, IconTypewriter, IconParagraphFocus } from '@/shared/components/Icons';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { ProofIssue } from '@/shared/types';
 
@@ -129,6 +129,13 @@ export function StatusBar({ editor }: Props) {
   const { timerRunning, timerRemaining, timerTotal, startTimer, stopTimer, tickTimer, dailyGoal } = useUIStore();
   const todayTotalSec = useUIStore((s) => s.todayTotalSec);
   const passiveSessionSec = useUIStore((s) => s.passiveSessionSec);
+  const todayWrittenChars = useUIStore((s) => s.todayWrittenChars);
+  const sessionStartWritten = useUIStore((s) => s.sessionStartWritten);
+  const setSessionSummary = useUIStore((s) => s.setSessionSummary);
+  const typewriterMode = useUIStore((s) => s.typewriterMode);
+  const toggleTypewriterMode = useUIStore((s) => s.toggleTypewriterMode);
+  const paragraphFocusMode = useUIStore((s) => s.paragraphFocusMode);
+  const toggleParagraphFocusMode = useUIStore((s) => s.toggleParagraphFocusMode);
   const theme = useUIStore((s) => s.theme);
   const toggleTheme = useUIStore((s) => s.toggleTheme);
   const ambienceEnabled = useUIStore((s) => s.ambienceEnabled);
@@ -139,7 +146,7 @@ export function StatusBar({ editor }: Props) {
   const lastAutoSavedAt = useEditorStore((s) => s.lastAutoSavedAt);
   const lastSnapshotAt = useEditorStore((s) => s.lastSnapshotAt);
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
-  const episodes = useEditorStore((s) => s.episodes);
+  const chapterTree = useEditorStore((s) => s.chapterTree);
   const projectId = useAppStore((s) => s.currentProjectId);
   const [charCount, setCharCount] = useState(0);
   const [lineCount, setLineCount] = useState(0);
@@ -233,7 +240,7 @@ export function StatusBar({ editor }: Props) {
     return () => clearInterval(interval);
   }, [timerRunning, tickTimer]);
 
-  // タイマー終了時に日記記録
+  // タイマー終了時に日記記録 + セッションサマリー表示
   useEffect(() => {
     if (timerTotal > 0 && !timerRunning && timerRemaining === 0) {
       // タイマーが自然終了した（totalが残っている = stopTimerではなくtickで0になった）
@@ -247,8 +254,12 @@ export function StatusBar({ editor }: Props) {
           sessionSec: durationSec,
         }).catch(() => { /* 無視 */ });
       }
+      const written = Math.max(0, todayWrittenChars - (sessionStartWritten ?? todayWrittenChars));
+      setSessionSummary({ chars: written, sec: durationSec });
+      // timerTotal を0に戻し、依存変化による日記の重複記録を防ぐ
+      stopTimer();
     }
-  }, [timerRunning, timerRemaining, timerTotal, projectId, currentEpisode]);
+  }, [timerRunning, timerRemaining, timerTotal, projectId, currentEpisode, todayWrittenChars, sessionStartWritten, setSessionSummary, stopTimer]);
 
   // ポップオーバー外クリックで閉じる
   useEffect(() => {
@@ -299,6 +310,11 @@ export function StatusBar({ editor }: Props) {
           sessionSec: elapsed,
         }).catch(() => { /* 無視 */ });
       }
+      // 1分以上のセッションなら達成サマリーを表示
+      if (elapsed >= 60) {
+        const written = Math.max(0, todayWrittenChars - (sessionStartWritten ?? todayWrittenChars));
+        setSessionSummary({ chars: written, sec: elapsed });
+      }
       stopTimer();
     } else {
       startTimer(timerMinutes);
@@ -317,7 +333,10 @@ export function StatusBar({ editor }: Props) {
   const pageCount = charsPerPage > 0 ? Math.ceil(charCount / charsPerPage) : 0;
 
   // 作品全体の原稿換算枚数（400字詰め固定）
-  const totalWorkCharCount = episodes.reduce((sum, ep) => sum + ep.charCount, 0);
+  const totalWorkCharCount = chapterTree
+    ? [...chapterTree.chapters.flatMap((c) => c.episodes), ...chapterTree.ungrouped]
+        .reduce((sum, ep) => sum + ep.charCount, 0)
+    : 0;
   const totalWorkPages = totalWorkCharCount > 0 ? Math.ceil(totalWorkCharCount / 400) : 0;
 
   return (
@@ -403,7 +422,11 @@ export function StatusBar({ editor }: Props) {
           </div>
         )}
         {dailyGoal && dailyGoal > 0 && (
-          <div className="flex items-center gap-1.5" style={{ minWidth: '100px', maxWidth: '160px' }}>
+          <div
+            className="flex items-center gap-1.5"
+            style={{ minWidth: '100px', maxWidth: '180px' }}
+            title={`今日書いた字数 ${todayWrittenChars.toLocaleString()} / 目標 ${dailyGoal.toLocaleString()} 字`}
+          >
             <div
               style={{
                 flex: 1,
@@ -416,15 +439,15 @@ export function StatusBar({ editor }: Props) {
               <div
                 style={{
                   height: '100%',
-                  width: `${Math.min(100, Math.round((charCount / dailyGoal) * 100))}%`,
-                  background: charCount >= dailyGoal ? 'var(--success)' : 'var(--accent)',
+                  width: `${Math.min(100, Math.round((todayWrittenChars / dailyGoal) * 100))}%`,
+                  background: todayWrittenChars >= dailyGoal ? 'var(--success)' : 'var(--accent)',
                   borderRadius: '3px',
                   transition: 'width 0.3s ease',
                 }}
               />
             </div>
-            <span style={{ color: charCount >= dailyGoal ? 'var(--success)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-              {Math.min(100, Math.round((charCount / dailyGoal) * 100))}%
+            <span style={{ color: todayWrittenChars >= dailyGoal ? 'var(--success)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+              今日 +{todayWrittenChars.toLocaleString()}字 {Math.min(100, Math.round((todayWrittenChars / dailyGoal) * 100))}%
             </span>
           </div>
         )}
@@ -432,6 +455,24 @@ export function StatusBar({ editor }: Props) {
 
       {/* 右側: トグル群 + タイマー */}
       <div className="flex items-center gap-1 px-2 relative" style={{ flexShrink: 0 }}>
+        {/* タイプライターモード */}
+        <StatusBarToggle
+          active={typewriterMode}
+          onClick={toggleTypewriterMode}
+          title="タイプライターモード (カーソル行を中央に保持)"
+        >
+          <IconTypewriter size={14} />
+        </StatusBarToggle>
+
+        {/* 段落フォーカス */}
+        <StatusBarToggle
+          active={paragraphFocusMode}
+          onClick={toggleParagraphFocusMode}
+          title="段落フォーカス (編集中の段落以外を淡く)"
+        >
+          <IconParagraphFocus size={14} />
+        </StatusBarToggle>
+
         {/* 雰囲気ポップオーバー起動 (演出/サウンド) */}
         <StatusBarToggle
           active={ambienceEnabled || soundEnabled}

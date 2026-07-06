@@ -1,17 +1,15 @@
 /**
- * 目標設定 — 目標文字数・締切・進捗バー
+ * 目標設定 — 1日の目標文字数・締切・進捗バー
  * uiStoreのdailyGoalと同期し、StatusBarの進捗バーに反映
+ * 進捗は「今日書いた字数」（エピソード横断の当日差分）で計測する
  */
 
 import { useState } from 'react';
 import { useUIStore } from '@/shared/stores/uiStore';
 
-interface GoalSettingProps {
-  currentCharCount: number;
-}
-
-export function GoalSetting({ currentCharCount }: GoalSettingProps) {
+export function GoalSetting() {
   const { dailyGoal, setDailyGoal } = useUIStore();
+  const todayWrittenChars = useUIStore((s) => s.todayWrittenChars);
   const [goalChars, setGoalChars] = useState(dailyGoal ?? 0);
   const [deadline, setDeadline] = useState(() => {
     try { return localStorage.getItem('story-attic-goal-deadline') || ''; } catch { return ''; }
@@ -27,7 +25,7 @@ export function GoalSetting({ currentCharCount }: GoalSettingProps) {
     try { localStorage.setItem('story-attic-goal-deadline', d); } catch { /* 無視 */ }
   };
 
-  const progress = goalChars > 0 ? Math.min(100, Math.round((currentCharCount / goalChars) * 100)) : 0;
+  const progress = goalChars > 0 ? Math.min(100, Math.round((todayWrittenChars / goalChars) * 100)) : 0;
 
   // 残り日数
   const daysLeft = deadline
@@ -39,14 +37,14 @@ export function GoalSetting({ currentCharCount }: GoalSettingProps) {
       <h3 className="text-xs font-medium" style={{ color: 'var(--text)' }}>目標設定</h3>
 
       <div className="flex items-center gap-2">
-        <span className="text-xs" style={{ color: 'var(--text-muted)', width: '60px' }}>目標文字数</span>
+        <span className="text-xs" style={{ color: 'var(--text-muted)', width: '60px' }}>1日の目標</span>
         <input
           type="number"
           className="flex-1 text-xs bg-transparent outline-none"
           style={{ color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 6px' }}
           value={goalChars || ''}
           onChange={(e) => saveGoal(Number(e.target.value) || 0)}
-          placeholder="例: 100000"
+          placeholder="例: 2000"
           min={0}
         />
       </div>
@@ -66,7 +64,7 @@ export function GoalSetting({ currentCharCount }: GoalSettingProps) {
         <div>
           <div className="flex justify-between text-xs mb-1">
             <span style={{ color: 'var(--text-mid)' }}>
-              {currentCharCount.toLocaleString()} / {goalChars.toLocaleString()} 文字
+              今日 +{todayWrittenChars.toLocaleString()} / {goalChars.toLocaleString()} 文字
             </span>
             <span style={{ color: 'var(--accent)' }}>{progress}%</span>
           </div>

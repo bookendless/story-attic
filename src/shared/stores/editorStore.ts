@@ -1,10 +1,9 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
-import type { ChapterTree, Episode, EpisodeSummary } from '../types';
+import type { ChapterTree, Episode } from '../types';
 import { toCamelCase } from '../hooks/useTauriCommand';
 
 interface EditorState {
-  episodes: EpisodeSummary[];
   chapterTree: ChapterTree | null;
   currentEpisode: Episode | null;
   isDirty: boolean;
@@ -44,7 +43,6 @@ interface EditorState {
 }
 
 export const useEditorStore = create<EditorState>((set, get) => ({
-  episodes: [],
   chapterTree: null,
   currentEpisode: null,
   isDirty: false,
