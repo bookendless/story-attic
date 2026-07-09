@@ -478,6 +478,11 @@ interface UIState {
   zenMode: boolean;
   toggleZenMode: () => void;
 
+  /** 没入読書モード（全画面の書籍風ビュー。セッション限り） */
+  readingMode: boolean;
+  toggleReadingMode: () => void;
+  closeReadingMode: () => void;
+
   /** 目標文字数を設定（0やnullで解除） */
   setDailyGoal: (goal: number | null) => void;
 
@@ -534,6 +539,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   typewriterMode: initialFocusModes.typewriter,
   paragraphFocusMode: initialFocusModes.paragraphFocus,
   zenMode: false,
+  readingMode: false,
   previewSubMode: 'manuscript' as PreviewSubMode,
   commandPaletteVisible: false,
   ambiencePopoverVisible: false,
@@ -680,6 +686,10 @@ export const useUIStore = create<UIState>((set, get) => ({
 
   toggleZenMode: () =>
     set((s) => ({ zenMode: !s.zenMode })),
+
+  toggleReadingMode: () =>
+    set((s) => ({ readingMode: !s.readingMode })),
+  closeReadingMode: () => set({ readingMode: false }),
 
   setPreviewSubMode: (previewSubMode) => set({ previewSubMode }),
 

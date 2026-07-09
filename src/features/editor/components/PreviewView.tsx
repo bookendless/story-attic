@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import DOMPurify from 'dompurify';
+import { sanitizeHtml } from '@/shared/utils/sanitizeHtml';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore, type PreviewSubMode } from '@/shared/stores/uiStore';
 
@@ -183,11 +183,7 @@ function SmartphonePreview({ html }: { html: string }) {
             maxHeight: 'calc(100vh - 200px)',
           }}
           dangerouslySetInnerHTML={{
-            __html: DOMPurify.sanitize(html, {
-              USE_PROFILES: { html: true },
-              FORBID_TAGS: ['style', 'iframe', 'object', 'embed', 'form', 'script', 'base', 'link'],
-              FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onmouseout', 'onfocus', 'onblur'],
-            }),
+            __html: sanitizeHtml(html),
           }}
         />
       </div>

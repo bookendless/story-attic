@@ -1,85 +1,15 @@
-import { useState, useRef, useEffect } from 'react';
-import type { Editor } from '@tiptap/react';
 import { useUIStore } from '@/shared/stores/uiStore';
+import { useRubyDialog } from '../hooks/useRubyDialog';
 import {
   IconUndo, IconRedo, IconRuby, IconDoten,
   IconFontMinus, IconFontPlus, IconEditorWidth,
   IconFocus, IconPanelShow,
-  IconTategaki, IconProofread, IconDiff,
+  IconTategaki, IconProofread, IconDiff, IconBook,
 } from '@/shared/components/Icons';
+import type { Editor } from '@tiptap/react';
 
 interface Props {
   editor: Editor;
-}
-
-// =========================================
-// ルビ入力ダイアログ
-// =========================================
-interface RubyDialogProps {
-  selectedText: string;
-  onConfirm: (ruby: string) => void;
-  onClose: () => void;
-}
-
-function RubyDialog({ selectedText, onConfirm, onClose }: RubyDialogProps) {
-  const [ruby, setRuby] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 30);
-  }, []);
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ minWidth: '320px' }}>
-        <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--text)' }}>
-          ルビを設定
-        </h3>
-        <div className="mb-3">
-          <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>対象テキスト</p>
-          <div
-            className="px-3 py-2 rounded text-sm"
-            style={{
-              background: 'var(--bg-deep)',
-              border: '1px solid var(--border)',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-editor)',
-            }}
-          >
-            {selectedText || '（テキストが選択されていません）'}
-          </div>
-        </div>
-        <div className="mb-4">
-          <label className="text-xs block mb-1" style={{ color: 'var(--text-muted)' }}>
-            読み（ふりがな）
-          </label>
-          <input
-            ref={inputRef}
-            className="input text-sm"
-            placeholder="例：かんじ"
-            value={ruby}
-            onChange={(e) => setRuby(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && ruby.trim() && selectedText) onConfirm(ruby.trim());
-              if (e.key === 'Escape') onClose();
-            }}
-          />
-        </div>
-        <div className="flex justify-end gap-2">
-          <button className="btn btn-ghost text-xs" onClick={onClose}>
-            キャンセル
-          </button>
-          <button
-            className="btn btn-primary text-xs"
-            onClick={() => ruby.trim() && selectedText && onConfirm(ruby.trim())}
-            disabled={!ruby.trim() || !selectedText}
-          >
-            適用
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 // =========================================
@@ -91,38 +21,15 @@ export function EditorToolbar({ editor }: Props) {
     sidePanelVisible, toggleSidePanel,
     isTategaki, toggleTategaki,
     editorViewMode, setEditorViewMode,
+    toggleReadingMode,
   } = useUIStore();
-  const [showRubyDialog, setShowRubyDialog] = useState(false);
-  const [selectedTextForRuby, setSelectedTextForRuby] = useState('');
+  const { openRubyDialog, dialog: rubyDialog } = useRubyDialog(editor);
 
   const canUndo = editor.can().undo();
   const canRedo = editor.can().redo();
   const isBold = editor.isActive('bold');
   const isItalic = editor.isActive('italic');
   const isDoten = editor.isActive('doten');
-
-  const handleRuby = () => {
-    const { from, to, empty } = editor.state.selection;
-    if (empty) return;
-    const text = editor.state.doc.textBetween(from, to, '');
-    setSelectedTextForRuby(text);
-    setShowRubyDialog(true);
-  };
-
-  const handleRubyConfirm = (ruby: string) => {
-    const { from, to } = editor.state.selection;
-    const text = editor.state.doc.textBetween(from, to, '');
-    editor
-      .chain()
-      .focus()
-      .deleteRange({ from, to })
-      .insertContent({
-        type: 'ruby',
-        attrs: { text, ruby },
-      })
-      .run();
-    setShowRubyDialog(false);
-  };
 
   const changeFontSize = (delta: number) => {
     const next = Math.max(10, Math.min(32, settings.editor_font_size + delta));
@@ -229,7 +136,7 @@ export function EditorToolbar({ editor }: Props) {
         {/* 日本語小説専用 */}
         <button
           style={btn(false, editor.state.selection.empty)}
-          onClick={handleRuby}
+          onClick={openRubyDialog}
           disabled={editor.state.selection.empty}
           title="ルビを設定"
         >
@@ -312,6 +219,15 @@ export function EditorToolbar({ editor }: Props) {
           <IconDiff size={14} />
         </button>
 
+        {/* 読書モード（通し読み） */}
+        <button
+          style={btn()}
+          onClick={toggleReadingMode}
+          title="読書モード（通し読み） (Ctrl+Shift+B)"
+        >
+          <IconBook size={14} />
+        </button>
+
         {sep}
 
         {/* 集中モード: サイドパネル開閉 */}
@@ -325,13 +241,7 @@ export function EditorToolbar({ editor }: Props) {
       </div>
 
       {/* ルビ入力ダイアログ */}
-      {showRubyDialog && (
-        <RubyDialog
-          selectedText={selectedTextForRuby}
-          onConfirm={handleRubyConfirm}
-          onClose={() => setShowRubyDialog(false)}
-        />
-      )}
+      {rubyDialog}
     </>
   );
 }

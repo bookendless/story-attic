@@ -660,6 +660,28 @@ rt {
   text-emphasis-position: over right;
 }
 
+/* 読書モード本文（縦書きフロー）
+   列ピッチ = line-height を保証するため段落マージンを禁止する。
+   マージンが入ると列単位のページ送り計算（ReadingView）が狂う */
+.reading-flow p {
+  margin: 0;
+}
+/* 空段落（場面区切りの空行）も1列として保持する */
+.reading-flow p:empty::before {
+  content: '\200B';
+}
+/* ルビ注記が line box を膨張させないための対（ReadingView の line-height 2.1 とセット）。
+   rt を 1 行高に固定すると注記(0.5em)が半レディング(0.55em)内に収まり、
+   ルビ行だけ列ピッチが広がる問題を防ぐ */
+.reading-flow rt {
+  line-height: 1;
+}
+/* 傍点の代替ルビ（useBookContent が span.doten を1文字ルビへ変換して描画する）。
+   注記の中黒は読み仮名と違い本文と同色にする */
+.reading-flow ruby.doten-ruby rt {
+  color: inherit;
+}
+
 /* ツールバーボタンホバー（グローバル補完） */
 .toolbar-btn:hover {
   background: var(--bg-elevated) !important;

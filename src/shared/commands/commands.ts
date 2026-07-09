@@ -103,6 +103,14 @@ export function getCommands(): Command[] {
       shortcut: 'Ctrl+Shift+F',
       run: () => ui.toggleZenMode(),
     },
+    {
+      id: 'reading.toggle',
+      label: '読書モード（通し読み）',
+      keywords: 'reading book どくしょ 読書 通し読み ページ めくり 縦書き ブックビュー',
+      group: 'ビュー',
+      shortcut: 'Ctrl+Shift+B',
+      run: () => ui.toggleReadingMode(),
+    },
 
     // ==================================================
     // ビューモード

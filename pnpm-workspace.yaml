@@ -1,0 +1,4 @@
+# ビルドスクリプトの実行を許可する依存（pnpm v10 のセキュリティ設定）
+onlyBuiltDependencies:
+  - esbuild
+  - '@tauri-apps/cli'

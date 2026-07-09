@@ -1,5 +1,5 @@
-import { useEffect, useCallback, useRef } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEffect, useCallback, useRef, useState } from 'react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { EditorState } from '@tiptap/pm/state';
 import { StarterKit } from '@tiptap/starter-kit';
 import { SearchAndReplace } from '@sereneinserenade/tiptap-search-and-replace';
@@ -23,7 +23,40 @@ import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
 import { SelectionPopup } from './SelectionPopup';
 import { EditorEmptyState } from './EditorEmptyState';
+import { EditorContextMenu } from './EditorContextMenu';
+import { useRubyDialog } from '../hooks/useRubyDialog';
 import { debounce } from '@/shared/utils/debounce';
+
+/**
+ * 右クリックメニューとルビダイアログをまとめて保持するレイヤー。
+ * ルビダイアログの状態はメニュー自身より長生きする必要があるため、
+ * メニュー本体（EditorContextMenu）とは別にここで管理する。
+ */
+function ContextMenuLayer({
+  editor,
+  menuPos,
+  onCloseMenu,
+}: {
+  editor: Editor;
+  menuPos: { x: number; y: number } | null;
+  onCloseMenu: () => void;
+}) {
+  const { openRubyDialog, dialog: rubyDialog } = useRubyDialog(editor);
+  return (
+    <>
+      {menuPos && (
+        <EditorContextMenu
+          editor={editor}
+          x={menuPos.x}
+          y={menuPos.y}
+          onClose={onCloseMenu}
+          onOpenRuby={openRubyDialog}
+        />
+      )}
+      {rubyDialog}
+    </>
+  );
+}
 
 export function EditorArea() {
   const { currentEpisode, updateBody } = useEditorStore();
@@ -33,6 +66,11 @@ export function EditorArea() {
   const zenMode = useUIStore((s) => s.zenMode);
   const lastEpisodeIdRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+  };
 
   // 縦書きモード時: マウスホイール縦スクロール → 横スクロールに変換
   useEffect(() => {
@@ -229,7 +267,7 @@ export function EditorArea() {
         <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
           {!zenMode && editor && <EditorToolbar editor={editor} />}
           {searchBarVisible && editor && <SearchBar editor={editor} />}
-          <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+          <div ref={scrollContainerRef} className="flex-1 overflow-auto" onContextMenu={handleContextMenu}>
             <EditorContent editor={editor} className="h-full" />
           </div>
           {settings.show_char_count && !zenMode && editor && <StatusBar editor={editor} />}
@@ -238,6 +276,9 @@ export function EditorArea() {
         <div className="flex-shrink-0" style={{ width: '320px' }}>
           <ProofreadPanel editor={editor} />
         </div>
+
+        {/* 右クリックメニュー */}
+        {editor && <ContextMenuLayer editor={editor} menuPos={menuPos} onCloseMenu={() => setMenuPos(null)} />}
       </div>
     );
   }
@@ -252,7 +293,7 @@ export function EditorArea() {
       {searchBarVisible && editor && <SearchBar editor={editor} />}
 
       {/* エディタ本体 */}
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto" onContextMenu={handleContextMenu}>
         <EditorContent editor={editor} className="h-full" />
       </div>
 
@@ -263,6 +304,9 @@ export function EditorArea() {
 
       {/* 選択語句ポップアップ */}
       {editor && <SelectionPopup editor={editor} />}
+
+      {/* 右クリックメニュー */}
+      {editor && <ContextMenuLayer editor={editor} menuPos={menuPos} onCloseMenu={() => setMenuPos(null)} />}
     </div>
   );
 }

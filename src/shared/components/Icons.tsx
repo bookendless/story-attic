@@ -82,6 +82,16 @@ export function IconTategaki({ size = defaults.size, className }: IconProps) {
   );
 }
 
+/** 読書モード（開いた本） */
+export function IconBook({ size = defaults.size, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M8 3.5C6.8 2.5 5 2 2 2v11c3 0 4.8.5 6 1.5 1.2-1 3-1.5 6-1.5V2c-3 0-4.8.5-6 1.5z" />
+      <path d="M8 3.5v11" />
+    </svg>
+  );
+}
+
 /** 設定（歯車） */
 export function IconSettings({ size = defaults.size, className }: IconProps) {
   return (

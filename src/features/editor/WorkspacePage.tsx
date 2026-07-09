@@ -22,6 +22,7 @@ import { WritingSupportModal } from '@/features/writing-support/WritingSupportMo
 import { AiManualModal } from '@/features/ai/AiManualModal';
 import { CommandPalette } from './components/CommandPalette';
 import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
+import { ReadingView } from '@/features/reading/ReadingView';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 
 export function WorkspacePage() {
@@ -38,6 +39,7 @@ export function WorkspacePage() {
     setActiveSideTab,
     ambiencePopoverVisible, toggleAmbiencePopover,
     zenMode, toggleZenMode,
+    toggleReadingMode,
   } = useUIStore();
 
   // 自動保存フック
@@ -65,6 +67,18 @@ export function WorkspacePage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey;
       const shift = e.shiftKey;
+
+      // Ctrl+Shift+B: 読書モード（通し読み）開閉 — 読書モード中も開閉できるようガードより先に判定
+      if (ctrl && shift && e.key === 'B') {
+        e.preventDefault();
+        toggleReadingMode();
+        return;
+      }
+
+      // 読書モード中はエディタ用ショートカットを無効化（ReadingViewが自前で処理）
+      if (useUIStore.getState().readingMode) {
+        return;
+      }
 
       // Ctrl+Shift+A: AIパネル開閉
       if (ctrl && shift && e.key === 'A') {
@@ -153,7 +167,7 @@ export function WorkspacePage() {
     aiPanelVisible, analysisModalVisible, settingsModalVisible, writingSupportModalVisible, aiManualVisible,
     toggleAnalysisModal, toggleSettingsModal, toggleWritingSupportModal, toggleAiManual,
     toggleCommandPalette, commandPaletteVisible, setActiveSideTab,
-    zenMode, toggleZenMode,
+    zenMode, toggleZenMode, toggleReadingMode,
   ]);
 
   // プロジェクトの設定をUIストアに反映
@@ -232,6 +246,9 @@ export function WorkspacePage() {
           </div>
         </div>
       )}
+
+      {/* 没入読書モード（全画面オーバーレイ） */}
+      <ReadingView />
 
       {/* モーダル */}
       <AnalysisModal />

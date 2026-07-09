@@ -15,6 +15,16 @@ export function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // OS/WebView既定の右クリックメニューをアプリ全体で抑制する。
+  // 編集領域では contentEditable 上で WebView2 既定メニューが preventDefault より優先して
+  // 出現することがあり、自前メニューの初回クリックが「既定メニューを閉じるだけ」になってしまう。
+  // capture フェーズで最優先に preventDefault することで既定メニューの出現自体を防ぐ。
+  useEffect(() => {
+    const handler = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', handler, true);
+    return () => document.removeEventListener('contextmenu', handler, true);
+  }, []);
+
   return (
     <div className="h-screen w-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
       {currentView === 'home' ? <HomePage /> : <WorkspacePage />}
