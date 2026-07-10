@@ -22,10 +22,33 @@ import { useAppStore } from '@/shared/stores/appStore';
 import { READING_CHARS_PER_MINUTE } from '@/shared/constants/reading';
 import { useBookContent, type BookSection } from './useBookContent';
 import { loadBookmark, saveBookmark } from './bookmark';
+import { matchTcyRuns, wrapTcyHtml } from '@/shared/utils/tateChuYoko';
 
 /** 読了予測（分）。換算レートは分析機能（Rust側）と共有 */
 function estimateMinutes(chars: number): number {
   return Math.max(1, Math.ceil(chars / READING_CHARS_PER_MINUTE));
+}
+
+/**
+ * プレーンテキストを描画し、縦中横対象範囲（数字・略語）を <span class="tcy"> で囲む。
+ * 章扉タイトル等の React テキストノード用（本文 HTML は wrapTcyHtml を使う）。
+ */
+function TcyText({ text, enabled }: { text: string; enabled: boolean }) {
+  const ranges = enabled ? matchTcyRuns(text) : [];
+  if (ranges.length === 0) return <>{text}</>;
+  const parts: React.ReactNode[] = [];
+  let cursor = 0;
+  ranges.forEach(([start, end], i) => {
+    if (start > cursor) parts.push(text.slice(cursor, start));
+    parts.push(
+      <span key={i} className="tcy">
+        {text.slice(start, end)}
+      </span>,
+    );
+    cursor = end;
+  });
+  if (cursor < text.length) parts.push(text.slice(cursor));
+  return <>{parts}</>;
 }
 
 /** ページ左右の最小余白(px)。ここを除いた幅を列ピッチの整数倍に量子化する */
@@ -63,6 +86,21 @@ export function ReadingView() {
 
   const font = settings.editor_font || '游明朝';
   const fontSize = settings.editor_font_size || 18;
+  const tcyOn = settings.vertical_tcy;
+
+  // エピソード本文HTMLを縦中横変換した Map（episodeId -> html）。
+  // 測定と表示の両方でこの Map を参照し、両者の HTML を必ず一致させる
+  // （text-combine-upright はインライン方向に短縮され列数に影響しうるため）。
+  // 再フェッチせず、トグルや本文更新時のみ再計算する。
+  const htmlByEpisode = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const sec of sections) {
+      if (sec.kind === 'episode') {
+        map.set(sec.episodeId, tcyOn ? wrapTcyHtml(sec.html) : sec.html);
+      }
+    }
+    return map;
+  }, [sections, tcyOn]);
 
   // 縦書きコンテンツの共通スタイル（測定用と表示用で完全一致させる）
   // 水平パディングは持たない: 列の量子化はクリップボックス幅と MIN_GUTTER で行う
@@ -114,12 +152,12 @@ export function ReadingView() {
     const pitch = Number.isFinite(lh) && lh > 0 ? lh : fontSize * 2.1;
     const cols = sections.map((sec) => {
       if (sec.kind === 'cover') return 0;
-      measurer.innerHTML = sec.html;
+      measurer.innerHTML = htmlByEpisode.get(sec.episodeId) ?? sec.html;
       return Math.max(1, Math.round(measurer.scrollWidth / pitch));
     });
     measurer.innerHTML = '';
     setMeasured({ pitch, cols });
-  }, [readingMode, sections, size.w, size.h, font, fontSize]);
+  }, [readingMode, sections, htmlByEpisode, size.w, size.h, font, fontSize]);
 
   // 1ページあたりの列数と、クリップボックス幅（列ピッチの整数倍）
   const colsPerPage = useMemo(() => {
@@ -334,7 +372,7 @@ export function ReadingView() {
         {!loading && currentSection?.kind === 'cover' && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div
-              className="flex flex-col items-center gap-6 px-8 text-center"
+              className="reading-cover flex flex-col items-center gap-6 px-8 text-center"
               style={{ writingMode: 'vertical-rl', maxHeight: '80%' }}
             >
               <div
@@ -345,11 +383,11 @@ export function ReadingView() {
                   color: 'var(--text)',
                 }}
               >
-                {currentSection.title || '無題の章'}
+                <TcyText text={currentSection.title || '無題の章'} enabled={tcyOn} />
               </div>
               {currentSection.mood && (
                 <div style={{ fontSize: `${fontSize}px`, color: 'var(--text-mid)', letterSpacing: '0.1em' }}>
-                  {currentSection.mood}
+                  <TcyText text={currentSection.mood} enabled={tcyOn} />
                 </div>
               )}
               {currentSection.summary && (
@@ -361,7 +399,7 @@ export function ReadingView() {
                     lineHeight: 1.9,
                   }}
                 >
-                  {currentSection.summary}
+                  <TcyText text={currentSection.summary} enabled={tcyOn} />
                 </div>
               )}
             </div>
@@ -390,7 +428,9 @@ export function ReadingView() {
                   transform: `translateX(${shift}px)`,
                   transition: 'transform 280ms ease',
                 }}
-                dangerouslySetInnerHTML={{ __html: currentSection.html }}
+                dangerouslySetInnerHTML={{
+                  __html: htmlByEpisode.get(currentSection.episodeId) ?? currentSection.html,
+                }}
               />
             </div>
           </div>
@@ -436,22 +476,25 @@ export function ReadingView() {
         style={{ borderColor: 'var(--border)', background: 'var(--bg-surface)' }}
       >
         <div className="flex items-center gap-3">
+          {/* 縦書きは右→左へ読み進むため、次へ=左 / 前へ=右（タップゾーン・キー操作と整合） */}
           <button
             className="text-xs px-2 py-0.5 rounded"
             style={{ color: 'var(--text-mid)', border: '1px solid var(--border)' }}
-            onClick={goPrev}
-            disabled={globalPage <= 0}
+            onClick={goNext}
+            disabled={globalPage >= totalPages - 1}
           >
-            ← 前へ
+            ← 次へ
           </button>
           <div
             className="flex-1 h-1.5 rounded-full overflow-hidden"
             style={{ background: 'var(--border)' }}
           >
+            {/* 読み進む向き（右→左）に合わせ、充填は右端起点で左へ伸ばす */}
             <div
               style={{
                 width: `${Math.round(progress * 100)}%`,
                 height: '100%',
+                marginLeft: 'auto',
                 background: 'var(--accent)',
                 transition: 'width 200ms ease',
               }}
@@ -463,10 +506,10 @@ export function ReadingView() {
           <button
             className="text-xs px-2 py-0.5 rounded"
             style={{ color: 'var(--text-mid)', border: '1px solid var(--border)' }}
-            onClick={goNext}
-            disabled={globalPage >= totalPages - 1}
+            onClick={goPrev}
+            disabled={globalPage <= 0}
           >
-            次へ →
+            前へ →
           </button>
         </div>
       </div>

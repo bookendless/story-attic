@@ -185,6 +185,7 @@ export function WorkspacePage() {
         editor_font: typeof s.editor_font === 'string' ? s.editor_font : '游明朝',
         editor_font_size: typeof s.editor_font_size === 'number' ? s.editor_font_size : 16,
         editor_max_width: typeof s.editor_max_width === 'number' ? s.editor_max_width : 860,
+        vertical_tcy: typeof s.vertical_tcy === 'boolean' ? s.vertical_tcy : true,
       });
     }
   }, [currentProject, setSettings]);

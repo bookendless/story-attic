@@ -10,6 +10,7 @@ import { DotenMark } from '../extensions/DotenMark';
 import { AutoIndent } from '../extensions/AutoIndent';
 import { DashRule } from '../extensions/DashRule';
 import { ParagraphFocus } from '../extensions/ParagraphFocus';
+import { TateChuYoko } from '../extensions/TateChuYoko';
 import { saveCursorPosition, getCursorPosition } from '@/shared/utils/resumeSession';
 import { StatusBar } from './StatusBar';
 import { SearchBar } from './SearchBar';
@@ -110,6 +111,8 @@ export function EditorArea() {
       DotenMark,
       DashRule,
       ParagraphFocus,
+      // 縦中横は常時登録し、ON/OFF はコンテナの tcy-on クラスで即時切替する
+      TateChuYoko,
       ...(settings.auto_indent ? [AutoIndent] : []),
     ],
     content: currentEpisode?.body ?? '',
@@ -264,7 +267,7 @@ export function EditorArea() {
     return (
       <div className="h-full flex">
         {/* エディタ部分 */}
-        <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
+        <div className={`flex-1 flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${settings.vertical_tcy ? 'tcy-on' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
           {!zenMode && editor && <EditorToolbar editor={editor} />}
           {searchBarVisible && editor && <SearchBar editor={editor} />}
           <div ref={scrollContainerRef} className="flex-1 overflow-auto" onContextMenu={handleContextMenu}>
@@ -285,7 +288,7 @@ export function EditorArea() {
 
   // 通常エディタモード
   return (
-    <div className={`h-full flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
+    <div className={`h-full flex flex-col ${isTategaki ? 'editor-tategaki' : ''} ${settings.vertical_tcy ? 'tcy-on' : ''} ${paragraphFocusMode ? 'paragraph-focus-on' : ''}`} style={{ background: 'var(--bg)' }}>
       {/* ツールバー（集中モード中は非表示） */}
       {!zenMode && editor && <EditorToolbar editor={editor} />}
 

@@ -106,6 +106,8 @@ export interface ProjectSettings {
   editor_font: string;
   editor_font_size: number;
   editor_max_width: number;
+  /** 縦書きで数字・略語を直立表示（縦中横）する */
+  vertical_tcy: boolean;
 }
 
 export interface ProofreadSettings {
@@ -138,6 +140,7 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
   editor_font: '游明朝',
   editor_font_size: 16,
   editor_max_width: 860,
+  vertical_tcy: true,
 };
 
 // =========================================

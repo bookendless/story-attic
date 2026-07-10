@@ -22,10 +22,17 @@ pub struct Settings {
     /// エディタ最大幅（px、0 = 制限なし）
     #[serde(default = "default_editor_max_width")]
     pub editor_max_width: u32,
+    /// 縦書きで数字・略語を直立表示（縦中横）する ON/OFF
+    #[serde(default = "default_true")]
+    pub vertical_tcy: bool,
 }
 
 fn default_editor_max_width() -> u32 {
     860
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -40,6 +47,7 @@ impl Default for Settings {
             editor_font: "游明朝".to_string(),
             editor_font_size: 16,
             editor_max_width: 860,
+            vertical_tcy: true,
         }
     }
 }

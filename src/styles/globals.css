@@ -625,6 +625,16 @@ body {
   overflow-y: hidden;
 }
 
+/* 縦中横（数字・略語を直立表示）。対象範囲は読書モードは <span class="tcy">、
+   エディタは TateChuYoko 拡張のインラインデコレーションで付与する。
+   スコープを縦書きコンテナに限定し、横書き（プレビュー等）への副作用をなくす。
+   Chromium/WebView2 は text-combine-upright: all のみ対応（digits N は未実装）。 */
+.reading-flow .tcy,
+.reading-cover .tcy,
+.editor-tategaki.tcy-on .tcy {
+  text-combine-upright: all;
+}
+
 /* 段落フォーカスモード: 編集中の段落以外を淡色化 */
 .paragraph-focus-on .editor-content > * {
   transition: opacity 240ms ease;

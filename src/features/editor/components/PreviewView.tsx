@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { sanitizeHtml } from '@/shared/utils/sanitizeHtml';
 import { useEditorStore } from '@/shared/stores/editorStore';
 import { useUIStore, type PreviewSubMode } from '@/shared/stores/uiStore';
+import { IconBook } from '@/shared/components/Icons';
 
 /** HTMLタグを除去してプレーンテキストを返す（ブロック要素は改行に変換） */
 function stripHtml(html: string): string {
@@ -66,9 +67,16 @@ interface ManuscriptPreviewProps {
   charsPerLine: number;
   /** 1ページの行数（縦書きでは列数） */
   linesPerPage: number;
+  /** 縦中横（数字・英字を直立表示）を有効にするか */
+  tcy: boolean;
 }
 
-function ManuscriptPreview({ pages, charsPerLine, linesPerPage }: ManuscriptPreviewProps) {
+/** 縦書きマスで直立させる文字か（ASCII 英数字。1マス1文字なので upright のみで足りる） */
+function isUprightChar(ch: string): boolean {
+  return /[0-9A-Za-z]/.test(ch);
+}
+
+function ManuscriptPreview({ pages, charsPerLine, linesPerPage, tcy }: ManuscriptPreviewProps) {
   const charsPerPage = charsPerLine * linesPerPage;
   // 列数に応じてセルサイズを調整（最小14px・最大24px）
   const cellSize = Math.min(24, Math.max(14, Math.floor(480 / linesPerPage)));
@@ -116,6 +124,7 @@ function ManuscriptPreview({ pages, charsPerLine, linesPerPage }: ManuscriptPrev
                     fontSize: `${Math.max(10, cellSize - 6)}px`,
                     fontFamily: 'var(--font-heading)',
                     color: 'var(--text)',
+                    textOrientation: tcy && isUprightChar(ch) ? 'upright' : undefined,
                   }}
                 >
                   {ch}
@@ -193,7 +202,7 @@ function SmartphonePreview({ html }: { html: string }) {
 
 export function PreviewView() {
   const currentEpisode = useEditorStore((s) => s.currentEpisode);
-  const { previewSubMode, setPreviewSubMode, settings } = useUIStore();
+  const { previewSubMode, setPreviewSubMode, toggleReadingMode, settings } = useUIStore();
 
   const charsPerLine = settings.chars_per_line;
   const linesPerPage = settings.lines_per_page;
@@ -253,13 +262,24 @@ export function PreviewView() {
               {label}
             </button>
           ))}
+          {/* サブモード選択とは別アクション（全画面オーバーレイ起動）なので区切りを挟む */}
+          <span className="mx-1 self-stretch w-px" style={{ background: 'var(--border)' }} />
+          <button
+            className="text-xs px-3 py-1 rounded flex items-center gap-1"
+            style={{ background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+            onClick={toggleReadingMode}
+            title="読書モード（通し読み） (Ctrl+Shift+B)"
+          >
+            <IconBook size={13} />
+            読書モード
+          </button>
         </div>
       </div>
 
       {/* プレビュー本体 */}
       <div className="flex-1 overflow-auto">
         {previewSubMode === 'manuscript' ? (
-          <ManuscriptPreview pages={manuscriptPages} charsPerLine={charsPerLine} linesPerPage={linesPerPage} />
+          <ManuscriptPreview pages={manuscriptPages} charsPerLine={charsPerLine} linesPerPage={linesPerPage} tcy={settings.vertical_tcy} />
         ) : (
           <SmartphonePreview html={currentEpisode?.body ?? ''} />
         )}

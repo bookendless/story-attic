@@ -262,6 +262,15 @@ export function ProofreadPanel({ editor }: { editor?: Editor | null }) {
     setClicheNotice(null);
   }, [currentEpisode?.id]);
 
+  // 校正ビューを閉じた（アンマウント）際、ジャンプで付与した強調（検索ハイライト）を解除する。
+  // 残ったままだと執筆時の集中を妨げるため。
+  useEffect(() => {
+    return () => {
+      if (!editor || editor.isDestroyed) return;
+      editor.commands.setSearchTerm('');
+    };
+  }, [editor]);
+
   // 常套句タブを開いたとき、AI（API）が設定済みかを1回だけ確認
   useEffect(() => {
     if (editorViewMode !== 'proofread' || tab !== 'cliche' || apiConfigured !== null) return;

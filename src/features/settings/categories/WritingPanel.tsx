@@ -64,6 +64,12 @@ export function WritingPanel({ draftProject, onProjectChange, draftTheme, onThem
             onChange={(v) => onProjectChange({ auto_indent: v })}
           />
         </Row>
+        <Row label="数字を直立（縦中横）" desc="縦書きで数字・略語を横倒しにせず直立表示">
+          <Toggle
+            checked={draftProject.vertical_tcy}
+            onChange={(v) => onProjectChange({ vertical_tcy: v })}
+          />
+        </Row>
         <Row
           label="フォント"
           desc={
