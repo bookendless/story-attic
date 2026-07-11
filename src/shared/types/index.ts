@@ -430,6 +430,7 @@ export interface CharacterProfile {
   appearance: string;
   personality: string;
   background: string;
+  speechStyle: string;
 }
 
 /** キャラクターのカスタムタブ */
@@ -459,6 +460,7 @@ export const DEFAULT_CHARACTER_DATA: CharacterData = {
     appearance: '',
     personality: '',
     background: '',
+    speechStyle: '',
   },
   tabs: [],
   extra_fields: [],
@@ -770,6 +772,7 @@ export interface ParsedCharacter {
   appearance: string;
   personality: string;
   background: string;
+  speechStyle: string;
 }
 
 export interface ParsedPlotPhase {

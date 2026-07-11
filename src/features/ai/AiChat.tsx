@@ -66,7 +66,8 @@ async function fetchContextData(
           const text = chars.map((c) => {
             const d: CharacterData = JSON.parse(c.data || '{}');
             const profile = d.profile;
-            return `${c.name}（${c.category}）: ${profile?.personality || ''} ${profile?.background || ''}`.trim();
+            const speech = profile?.speechStyle ? ` 口調: ${profile.speechStyle}` : '';
+            return `${c.name}（${c.category}）: ${profile?.personality || ''} ${profile?.background || ''}${speech}`.trim();
           }).join('\n');
           if (text) parts.push(`【人物】\n${truncate(text, CONTEXT_MAX_CHARS.characters)}`);
           break;

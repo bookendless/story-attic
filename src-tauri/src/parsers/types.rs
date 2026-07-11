@@ -49,6 +49,9 @@ pub struct ParsedCharacter {
     pub appearance: String,
     pub personality: String,
     pub background: String,
+    /// 口調（ASB v1.1+ エクスポートに含まれる。旧形式では空文字）
+    #[serde(default)]
+    pub speech_style: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

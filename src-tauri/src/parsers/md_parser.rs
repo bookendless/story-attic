@@ -123,6 +123,7 @@ fn parse_characters_md(lines: &[String]) -> Vec<ParsedCharacter> {
             appearance: String::new(),
             personality: String::new(),
             background: String::new(),
+            speech_style: String::new(),
         };
 
         parse_char_fields_md(&body, &mut char);
@@ -161,6 +162,10 @@ fn parse_char_fields_md(lines: &[String], char: &mut ParsedCharacter) {
                     if !char.background.is_empty() { char.background.push('\n'); }
                     char.background.push_str(t);
                 }
+                "speech_style" => {
+                    if !char.speech_style.is_empty() { char.speech_style.push('\n'); }
+                    char.speech_style.push_str(t);
+                }
                 _ => {}
             }
             continue;
@@ -193,6 +198,14 @@ fn parse_char_fields_md(lines: &[String], char: &mut ParsedCharacter) {
                         collecting_multiline = true;
                     } else {
                         char.background = val.trim_matches('*').trim().to_string();
+                    }
+                }
+                "口調" => {
+                    if val.is_empty() || val == "**" {
+                        current_field = "speech_style";
+                        collecting_multiline = true;
+                    } else {
+                        char.speech_style = val.trim_matches('*').trim().to_string();
                     }
                 }
                 _ => {}
@@ -1069,7 +1082,7 @@ mod tests {
             "",
             "#### ポイント",
             "",
-            "- **📍設置**: ロイが「最新ヒット曲」を口ずさむ。",
+            "- **📍設置**: ロイが「最新ヒット曲」を口ずさむ。 (路地裏の自称・人間と、逃亡癖の王女様)",
             "",
             "**関連キャラクター**: ロイ",
             "",
@@ -1104,6 +1117,42 @@ mod tests {
         assert_eq!(t.notes, "AI提案から作成");
         assert!(t.recommended_placement.contains("第1章"));
         assert!(t.expected_effect.contains("エモーショナル"));
+    }
+
+    #[test]
+    fn characters_md_parses_speech_style() {
+        let lines: Vec<String> = [
+            "### **ロイ** (主人公。29歳。)",
+            "",
+            "**外見**: 黒髪の青年。",
+            "",
+            "**性格**: 飄々としている。",
+            "",
+            "**背景**: 転生者。",
+            "",
+            "**口調**: 軽口混じりの敬語。一人称は「僕」。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let chars = parse_characters_md(&lines);
+        assert_eq!(chars.len(), 1);
+        assert_eq!(chars[0].name, "ロイ");
+        assert_eq!(chars[0].speech_style, "軽口混じりの敬語。一人称は「僕」。");
+    }
+
+    #[test]
+    fn characters_md_speech_style_absent_is_empty() {
+        let lines: Vec<String> = [
+            "### ルナ (ヒロイン)",
+            "**外見**: 銀髪。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let chars = parse_characters_md(&lines);
+        assert_eq!(chars.len(), 1);
+        assert!(chars[0].speech_style.is_empty());
     }
 
     #[test]

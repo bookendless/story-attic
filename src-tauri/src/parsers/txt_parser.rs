@@ -206,8 +206,9 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
             continue;
         }
 
-        // キャラクター名行の検出: `(` を含み、外見:/性格:/背景: で始まらない行
+        // キャラクター名行の検出: `(` を含み、外見:/性格:/背景:/口調: で始まらない行
         if !t.starts_with("外見:") && !t.starts_with("性格:") && !t.starts_with("背景:")
+            && !t.starts_with("口調:")
             && (t.contains('(') || t.contains('（'))
             && current.is_none()
         {
@@ -218,6 +219,7 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
                 appearance: String::new(),
                 personality: String::new(),
                 background: String::new(),
+                speech_style: String::new(),
             });
             current_field = "";
             continue;
@@ -233,6 +235,9 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
             } else if let Some(v) = t.strip_prefix("背景:") {
                 current_field = "background";
                 c.background = v.trim().to_string();
+            } else if let Some(v) = t.strip_prefix("口調:") {
+                current_field = "speech_style";
+                c.speech_style = v.trim().to_string();
             } else {
                 // 継続行
                 match current_field {
@@ -248,6 +253,10 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
                         c.background.push('\n');
                         c.background.push_str(t);
                     }
+                    "speech_style" => {
+                        c.speech_style.push('\n');
+                        c.speech_style.push_str(t);
+                    }
                     _ => {
                         // キャラクター名行の継続（括弧なしケース）
                         if !t.starts_with('(') && !t.starts_with('（') {
@@ -261,6 +270,7 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
                                     appearance: String::new(),
                                     personality: String::new(),
                                     background: String::new(),
+                                    speech_style: String::new(),
                                 };
                                 current_field = "";
                             }
@@ -277,6 +287,7 @@ fn parse_characters_txt(lines: &[String]) -> Vec<ParsedCharacter> {
                 appearance: String::new(),
                 personality: String::new(),
                 background: String::new(),
+                speech_style: String::new(),
             });
             current_field = "";
         }
@@ -1054,6 +1065,31 @@ mod tests {
         assert_eq!(events[0].related_characters.len(), 2);
         assert!(events[1].description.contains("包囲"));
         assert_eq!(events[1].related_characters, vec!["ロイ", "シリウス"]);
+    }
+
+    #[test]
+    fn characters_txt_parses_speech_style() {
+        let lines: Vec<String> = [
+            "ロイ (主人公。29歳。)",
+            "外見: 黒髪の青年。",
+            "性格: 飄々としている。",
+            "背景: 転生者。",
+            "口調: 軽口混じりの敬語。",
+            "一人称は「僕」。",
+            "",
+            "ルナ (ヒロイン)",
+            "外見: 銀髪。",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let chars = parse_characters_txt(&lines);
+        assert_eq!(chars.len(), 2);
+        assert_eq!(chars[0].name, "ロイ");
+        // 継続行も収集される
+        assert_eq!(chars[0].speech_style, "軽口混じりの敬語。\n一人称は「僕」。");
+        // 口調なしのキャラは空文字
+        assert!(chars[1].speech_style.is_empty());
     }
 
     #[test]

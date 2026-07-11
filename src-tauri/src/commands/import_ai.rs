@@ -147,7 +147,8 @@ pub fn import_ai_story_builder(
                     "occupation": extract_role_from_meta(&ch.meta),
                     "appearance": ch.appearance,
                     "personality": ch.personality,
-                    "background": ch.background
+                    "background": ch.background,
+                    "speechStyle": ch.speech_style
                 },
                 "tabs": [],
                 "extra_fields": [

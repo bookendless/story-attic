@@ -1,7 +1,7 @@
 /**
  * キャラクター詳細 — ASB 準拠プロフィール + 詳細折り畳み
  *
- * 主表示: 外見 / 性格 / 背景 (ASB Character 準拠)
+ * 主表示: 外見 / 性格 / 背景 / 口調 (ASB Character 準拠)
  * 折り畳み「詳細」: 性別 / 年齢 / 職業 / 追加フィールド / カスタムタブ
  */
 
@@ -27,11 +27,12 @@ interface CharacterDetailProps {
   onTagsChange: () => void;
 }
 
-// ASB Character 準拠のメイン 3 項目
+// ASB Character 準拠のメイン 4 項目
 const MAIN_FIELDS: { key: keyof CharacterProfile; label: string }[] = [
   { key: 'appearance', label: '外見' },
   { key: 'personality', label: '性格' },
   { key: 'background', label: '背景' },
+  { key: 'speechStyle', label: '口調' },
 ];
 
 // 詳細折り畳みに退避する Story-attic 独自項目
