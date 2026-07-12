@@ -16,13 +16,15 @@ interface Props {
 // ツールバー本体
 // =========================================
 export function EditorToolbar({ editor }: Props) {
-  const {
-    settings, setSettings,
-    sidePanelVisible, toggleSidePanel,
-    isTategaki, toggleTategaki,
-    editorViewMode, setEditorViewMode,
-    toggleReadingMode,
-  } = useUIStore();
+  const settings = useUIStore((s) => s.settings);
+  const setSettings = useUIStore((s) => s.setSettings);
+  const sidePanelVisible = useUIStore((s) => s.sidePanelVisible);
+  const toggleSidePanel = useUIStore((s) => s.toggleSidePanel);
+  const isTategaki = useUIStore((s) => s.isTategaki);
+  const toggleTategaki = useUIStore((s) => s.toggleTategaki);
+  const editorViewMode = useUIStore((s) => s.editorViewMode);
+  const setEditorViewMode = useUIStore((s) => s.setEditorViewMode);
+  const toggleReadingMode = useUIStore((s) => s.toggleReadingMode);
   const { openRubyDialog, dialog: rubyDialog } = useRubyDialog(editor);
 
   const canUndo = editor.can().undo();

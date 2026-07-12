@@ -30,6 +30,12 @@ const SUB_ITEMS: SubItem[] = [
     desc: '文法・表記ゆれ・可読性を検査します',
   },
   {
+    key: 'reactions',
+    icon: '👀',
+    label: '読者の反応',
+    desc: 'AI読者たちが本文を読んでコメントします',
+  },
+  {
     key: 'diff',
     icon: '⇄',
     label: '変更履歴',
@@ -54,7 +60,7 @@ export function ViewModeSegmented() {
     return () => document.removeEventListener('mousedown', handler);
   }, [dropOpen]);
 
-  const isSubMode = editorViewMode === 'proofread' || editorViewMode === 'diff';
+  const isSubMode = editorViewMode === 'proofread' || editorViewMode === 'reactions' || editorViewMode === 'diff';
   const activeSubItem = SUB_ITEMS.find((s) => s.key === editorViewMode);
   const displayMode = isSubMode ? null : editorViewMode;
 

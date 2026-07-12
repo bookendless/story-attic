@@ -19,3 +19,4 @@ pub mod synopsis;
 pub mod plot_thread;
 pub mod correlation;
 pub mod import_ai;
+pub mod reader_reactions;

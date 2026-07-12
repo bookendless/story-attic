@@ -15,6 +15,7 @@ pub mod writing_support;
 pub mod synopsis;
 pub mod plot_thread;
 pub mod correlation;
+pub mod reader_reaction;
 
 pub use project::*;
 pub use episode::*;
@@ -32,3 +33,4 @@ pub use writing_support::*;
 pub use synopsis::*;
 pub use plot_thread::*;
 pub use correlation::*;
+pub use reader_reaction::*;

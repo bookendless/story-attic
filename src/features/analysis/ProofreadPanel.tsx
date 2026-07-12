@@ -6,6 +6,7 @@ import { useUIStore } from '@/shared/stores/uiStore';
 import { toCamelCase } from '@/shared/hooks/useTauriCommand';
 import type { Character, ProofIssue, ClicheIssue } from '@/shared/types';
 import { buildWorldviewContext } from '@/features/ai/worldviewContext';
+import { stripHtml, jumpToPlainOffset } from './textAnchoring';
 
 type TabType = 'rules' | 'readability' | 'consistency' | 'cliche';
 
@@ -60,35 +61,6 @@ function detectNameVariants(plainText: string, characters: Character[]): ProofIs
     }
   }
   return issues;
-}
-
-/** Rust の strip_html と同一ロジック：</p> </div> </li> <br> を \n に変換 */
-function stripHtml(html: string): string {
-  let result = '';
-  let inTag = false;
-  let tagBuf = '';
-  for (const ch of html) {
-    if (ch === '<') {
-      inTag = true;
-      tagBuf = '';
-    } else if (ch === '>' && inTag) {
-      inTag = false;
-      const tl = tagBuf.toLowerCase();
-      if (
-        tl.startsWith('/p') ||
-        tl.startsWith('/div') ||
-        tl.startsWith('/li') ||
-        tl.startsWith('br')
-      ) {
-        if (!result.endsWith('\n')) result += '\n';
-      }
-    } else if (inTag) {
-      tagBuf += ch;
-    } else {
-      result += ch;
-    }
-  }
-  return result;
 }
 
 function issueKey(issue: ProofIssue): string {
@@ -354,38 +326,8 @@ export function ProofreadPanel({ editor }: { editor?: Editor | null }) {
 
   // 平文オフセットからエディタの該当箇所にジャンプ
   const jumpToRange = useCallback((offset: number, length: number) => {
-    if (!editor || length === 0 || offset < 0) return;
-
-    const plainText = stripHtml(currentEpisode?.body ?? '');
-    let matched = plainText.slice(offset, offset + length);
-    if (matched.length === 0) return;
-
-    // 改行を含む場合（長文・読点過多など）は最初の空でない行を検索ワードに使用
-    let searchOffset = offset;
-    if (matched.includes('\n')) {
-      const firstLine = matched.split('\n').find(l => l.trim().length > 0) ?? '';
-      if (firstLine.length === 0) return;
-      searchOffset = offset + matched.indexOf(firstLine);
-      matched = firstLine;
-    }
-
-    // searchOffset より前に同テキストが何回出現するか = SearchAndReplace results[] のインデックス
-    let prior = 0;
-    let idx = 0;
-    while ((idx = plainText.indexOf(matched, idx)) !== -1 && idx < searchOffset) {
-      prior++;
-      idx += matched.length;
-    }
-
-    editor.commands.setSearchTerm(matched);
-
-    requestAnimationFrame(() => {
-      const results: Array<{ from: number; to: number }> =
-        editor.storage.searchAndReplace?.results ?? [];
-      const target = results[prior] ?? results[0];
-      if (!target) { editor.commands.focus(); return; }
-      editor.chain().focus().setTextSelection({ from: target.from, to: target.to }).scrollIntoView().run();
-    });
+    if (!editor) return;
+    jumpToPlainOffset(editor, stripHtml(currentEpisode?.body ?? ''), offset, length);
   }, [editor, currentEpisode?.body]);
 
   const jumpToIssue = useCallback((issue: ProofIssue) => {

@@ -129,8 +129,20 @@ function formatMinutes(sec: number) {
 }
 
 export function StatusBar({ editor }: Props) {
-  const { settings, proofreadSettings, setEditorViewMode, editorViewMode, dismissedIssuesByEpisode } = useUIStore();
-  const { timerRunning, timerRemaining, timerTotal, startTimer, stopTimer, tickTimer, dailyGoal } = useUIStore();
+  // ストア全購読はどのフィールドの変更でも再レンダーを誘発するため、
+  // 必要なフィールドだけをセレクタで購読する
+  const settings = useUIStore((s) => s.settings);
+  const proofreadSettings = useUIStore((s) => s.proofreadSettings);
+  const setEditorViewMode = useUIStore((s) => s.setEditorViewMode);
+  const editorViewMode = useUIStore((s) => s.editorViewMode);
+  const dismissedIssuesByEpisode = useUIStore((s) => s.dismissedIssuesByEpisode);
+  const timerRunning = useUIStore((s) => s.timerRunning);
+  const timerRemaining = useUIStore((s) => s.timerRemaining);
+  const timerTotal = useUIStore((s) => s.timerTotal);
+  const startTimer = useUIStore((s) => s.startTimer);
+  const stopTimer = useUIStore((s) => s.stopTimer);
+  const tickTimer = useUIStore((s) => s.tickTimer);
+  const dailyGoal = useUIStore((s) => s.dailyGoal);
   const todayTotalSec = useUIStore((s) => s.todayTotalSec);
   const passiveSessionSec = useUIStore((s) => s.passiveSessionSec);
   const todayWrittenChars = useUIStore((s) => s.todayWrittenChars);
@@ -221,6 +233,13 @@ export function StatusBar({ editor }: Props) {
     }
   }, [currentEpisode, proofreadSettings, dismissedIssuesByEpisode]);
 
+  // checkProofread は currentEpisode（本文更新のたびに差し替わる）に依存するため、
+  // effect の依存に関数そのものを入れると約300msごとに即時チェックが走り
+  // 5秒 debounce が無効化される。ref 経由で最新の関数を参照し、
+  // 即時チェックはエピソード切替・設定変更・ビュー復帰時のみに限定する。
+  const checkProofreadRef = useRef(checkProofread);
+  checkProofreadRef.current = checkProofread;
+
   useEffect(() => {
     if (!proofreadSettings.enabled) {
       setProofCount(null);
@@ -228,20 +247,20 @@ export function StatusBar({ editor }: Props) {
     }
     // 校正ビュー表示中は ProofreadPanel 側がチェックを担うため、ここでの再チェックは行わない
     if (editorViewMode === 'proofread') return;
-    void checkProofread();
+    void checkProofreadRef.current();
     let timer: ReturnType<typeof setTimeout>;
     const handler = () => {
       // IME 変換中は発火させない。長文の全文 IPC を抑えるため 5秒 debounce
       if (editor.view.composing) return;
       clearTimeout(timer);
-      timer = setTimeout(checkProofread, 5000);
+      timer = setTimeout(() => void checkProofreadRef.current(), 5000);
     };
     editor.on('update', handler);
     return () => {
       editor.off('update', handler);
       clearTimeout(timer);
     };
-  }, [editor, proofreadSettings.enabled, checkProofread, editorViewMode]);
+  }, [editor, proofreadSettings, editorViewMode, currentEpisode?.id]);
 
   // 自動保存完了時に3秒間「自動保存済み」を表示
   useEffect(() => {

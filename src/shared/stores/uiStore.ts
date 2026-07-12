@@ -5,7 +5,7 @@ import { DEFAULT_SETTINGS, DEFAULT_PROOFREAD_SETTINGS } from '../types';
 import { BGM_TRACKS } from '@/features/ambience/generators/bgmTracks';
 
 /** エディタのビューモード */
-export type EditorViewMode = 'editor' | 'diff' | 'proofread' | 'dialogue' | 'preview' | 'dual';
+export type EditorViewMode = 'editor' | 'diff' | 'proofread' | 'reactions' | 'dialogue' | 'preview' | 'dual';
 
 /** プレビューのサブモード */
 export type PreviewSubMode = 'manuscript' | 'smartphone';

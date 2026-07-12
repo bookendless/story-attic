@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useCallback, useRef, useState } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { EditorState } from '@tiptap/pm/state';
 import { StarterKit } from '@tiptap/starter-kit';
@@ -15,11 +15,26 @@ import { saveCursorPosition, getCursorPosition } from '@/shared/utils/resumeSess
 import { StatusBar } from './StatusBar';
 import { SearchBar } from './SearchBar';
 import { EditorToolbar } from './EditorToolbar';
-import { ProofreadPanel } from '@/features/analysis/ProofreadPanel';
-import { DiffView } from '@/features/analysis/DiffView';
-import { DialogueView } from './DialogueView';
-import { PreviewView } from './PreviewView';
-import { DualEditorView } from './DualEditorView';
+// 通常エディタ以外のビューモードは使用時まで別チャンクに分割する
+// （editorViewMode による条件レンダーが lazy ロードのトリガーを兼ねる）
+const ProofreadPanel = lazy(() =>
+  import('@/features/analysis/ProofreadPanel').then((m) => ({ default: m.ProofreadPanel })),
+);
+const ReaderReactionsPanel = lazy(() =>
+  import('@/features/analysis/ReaderReactionsPanel').then((m) => ({ default: m.ReaderReactionsPanel })),
+);
+const DiffView = lazy(() =>
+  import('@/features/analysis/DiffView').then((m) => ({ default: m.DiffView })),
+);
+const DialogueView = lazy(() =>
+  import('./DialogueView').then((m) => ({ default: m.DialogueView })),
+);
+const PreviewView = lazy(() =>
+  import('./PreviewView').then((m) => ({ default: m.PreviewView })),
+);
+const DualEditorView = lazy(() =>
+  import('./DualEditorView').then((m) => ({ default: m.DualEditorView })),
+);
 import { soundManager } from '@/features/ambience/SoundManager';
 import { notifyActivity } from '@/shared/utils/idleTracker';
 import { SelectionPopup } from './SelectionPopup';
@@ -60,8 +75,14 @@ function ContextMenuLayer({
 }
 
 export function EditorArea() {
-  const { currentEpisode, updateBody } = useEditorStore();
-  const { searchBarVisible, isTategaki, settings, editorViewMode } = useUIStore();
+  // ストア全購読は無関係なフィールド更新（タイマー毎秒tick等）でも再レンダーを
+  // 誘発するため、セレクタで必要なフィールドだけ購読する
+  const currentEpisode = useEditorStore((s) => s.currentEpisode);
+  const updateBody = useEditorStore((s) => s.updateBody);
+  const searchBarVisible = useUIStore((s) => s.searchBarVisible);
+  const isTategaki = useUIStore((s) => s.isTategaki);
+  const settings = useUIStore((s) => s.settings);
+  const editorViewMode = useUIStore((s) => s.editorViewMode);
   const typewriterMode = useUIStore((s) => s.typewriterMode);
   const paragraphFocusMode = useUIStore((s) => s.paragraphFocusMode);
   const zenMode = useUIStore((s) => s.zenMode);
@@ -172,12 +193,17 @@ export function EditorArea() {
     // エピソード切替時にUndo/Redo履歴をクリアする（意図的設計）。
     // 前エピソードの編集内容への誤 Undo で本文が壊れるのを防ぐ。
     // 切替時は switchEpisode 側で保存 + スナップショット作成済みのため、履歴ビューアから復元可能。
-    // 新しいEditorStateを生成することでプラグイン状態（History含む）をリセット
-    const freshState = EditorState.create({
-      doc: editor.state.doc,
-      plugins: editor.state.plugins,
-    });
-    editor.view.updateState(freshState);
+    // 新しいEditorStateを生成することでプラグイン状態（History含む）をリセット。
+    // StrictMode の二重マウント等でビューが破棄/未装着（docView=null）の場合は
+    // updateState が matchesNode で NPE を投げるためスキップする。
+    // その状況では消すべき Undo 履歴も無いため、スキップして問題ない。
+    if (!editor.isDestroyed && editor.view.docView) {
+      const freshState = EditorState.create({
+        doc: editor.state.doc,
+        plugins: editor.state.plugins,
+      });
+      editor.view.updateState(freshState);
+    }
 
     // 保存済みカーソル位置を復元（前回の続きから書き始められる）
     if (currentEpisode) {
@@ -244,26 +270,26 @@ export function EditorArea() {
 
   // 差分ビューモード
   if (editorViewMode === 'diff') {
-    return <DiffView />;
+    return <Suspense fallback={null}><DiffView /></Suspense>;
   }
 
   // 台詞ビューモード
   if (editorViewMode === 'dialogue') {
-    return <DialogueView />;
+    return <Suspense fallback={null}><DialogueView /></Suspense>;
   }
 
   // プレビューモード
   if (editorViewMode === 'preview') {
-    return <PreviewView />;
+    return <Suspense fallback={null}><PreviewView /></Suspense>;
   }
 
   // デュアルビューモード
   if (editorViewMode === 'dual') {
-    return <DualEditorView />;
+    return <Suspense fallback={null}><DualEditorView /></Suspense>;
   }
 
-  // 校正ビューモード: エディタ + 校正パネルの横並び
-  if (editorViewMode === 'proofread') {
+  // 校正/読者反応ビューモード: エディタ + サイドパネルの横並び
+  if (editorViewMode === 'proofread' || editorViewMode === 'reactions') {
     return (
       <div className="h-full flex">
         {/* エディタ部分 */}
@@ -275,9 +301,13 @@ export function EditorArea() {
           </div>
           {settings.show_char_count && !zenMode && editor && <StatusBar editor={editor} />}
         </div>
-        {/* 校正パネル（右側 320px） */}
+        {/* サイドパネル（右側 320px） */}
         <div className="flex-shrink-0" style={{ width: '320px' }}>
-          <ProofreadPanel editor={editor} />
+          <Suspense fallback={null}>
+            {editorViewMode === 'proofread'
+              ? <ProofreadPanel editor={editor} />
+              : <ReaderReactionsPanel editor={editor} />}
+          </Suspense>
         </div>
 
         {/* 右クリックメニュー */}

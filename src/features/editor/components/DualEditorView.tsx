@@ -79,11 +79,14 @@ function PrimaryPane() {
     if (currentEpisode?.id === lastIdRef.current) return;
     lastIdRef.current = currentEpisode?.id ?? null;
     editor.commands.setContent(currentEpisode?.body ?? '', false);
-    const freshState = EditorState.create({
-      doc: editor.state.doc,
-      plugins: editor.state.plugins,
-    });
-    editor.view.updateState(freshState);
+    // ビュー未装着/破棄済み（docView=null）だと updateState が NPE を投げるためガード
+    if (!editor.isDestroyed && editor.view.docView) {
+      const freshState = EditorState.create({
+        doc: editor.state.doc,
+        plugins: editor.state.plugins,
+      });
+      editor.view.updateState(freshState);
+    }
   }, [editor, currentEpisode?.id, currentEpisode?.body]);
 
   return (
@@ -169,11 +172,14 @@ function SecondaryPane() {
     if (secondaryEpisode?.id === lastIdRef.current) return;
     lastIdRef.current = secondaryEpisode?.id ?? null;
     editor.commands.setContent(secondaryEpisode?.body ?? '', false);
-    const freshState = EditorState.create({
-      doc: editor.state.doc,
-      plugins: editor.state.plugins,
-    });
-    editor.view.updateState(freshState);
+    // ビュー未装着/破棄済み（docView=null）だと updateState が NPE を投げるためガード
+    if (!editor.isDestroyed && editor.view.docView) {
+      const freshState = EditorState.create({
+        doc: editor.state.doc,
+        plugins: editor.state.plugins,
+      });
+      editor.view.updateState(freshState);
+    }
   }, [editor, secondaryEpisode?.id, secondaryEpisode?.body]);
 
   return (

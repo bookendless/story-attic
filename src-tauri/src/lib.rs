@@ -108,6 +108,11 @@ pub fn run() {
             commands::ai::ai_get_resonance_score,
             commands::ai::ai_get_info_asymmetry,
             commands::ai::ai_get_cliche_check,
+            commands::ai::ai_get_reader_reactions,
+            // 読者反応（永続化）
+            commands::reader_reactions::list_reader_reactions,
+            commands::reader_reactions::save_reader_reactions,
+            commands::reader_reactions::delete_reader_reactions,
             // タグ
             commands::tag::add_tag,
             commands::tag::remove_tag,

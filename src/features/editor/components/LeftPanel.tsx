@@ -258,17 +258,15 @@ function TrashDropZone() {
 // =========================================
 export function LeftPanel() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
-  const {
-    chapterTree,
-    currentEpisode,
-    switchEpisode,
-    createEpisode,
-    renameEpisode,
-    deleteEpisode,
-    reorderEpisodes,
-    assignEpisodeToChapter,
-    unassignEpisode,
-  } = useEditorStore();
+  const chapterTree = useEditorStore((s) => s.chapterTree);
+  const currentEpisode = useEditorStore((s) => s.currentEpisode);
+  const switchEpisode = useEditorStore((s) => s.switchEpisode);
+  const createEpisode = useEditorStore((s) => s.createEpisode);
+  const renameEpisode = useEditorStore((s) => s.renameEpisode);
+  const deleteEpisode = useEditorStore((s) => s.deleteEpisode);
+  const reorderEpisodes = useEditorStore((s) => s.reorderEpisodes);
+  const assignEpisodeToChapter = useEditorStore((s) => s.assignEpisodeToChapter);
+  const unassignEpisode = useEditorStore((s) => s.unassignEpisode);
   const [showChapterModal, setShowChapterModal] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EpisodeSummary | null>(null);

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useProjectStore } from '@/shared/stores/projectStore';
 import { useEditorStore } from '@/shared/stores/editorStore';
@@ -15,32 +15,69 @@ import { EditorArea } from './components/EditorArea';
 import { SidePanel } from './components/SidePanel';
 import { ParticleEffect } from '@/features/ambience/ParticleEffect';
 import { CharacterWidget } from '@/features/ambience/CharacterWidget';
-import { AiPanel } from '@/features/ai/AiPanel';
-import { AnalysisModal } from '@/features/analysis/AnalysisModal';
-import { SettingsModal } from '@/features/settings/SettingsModal';
-import { WritingSupportModal } from '@/features/writing-support/WritingSupportModal';
-import { AiManualModal } from '@/features/ai/AiManualModal';
 import { CommandPalette } from './components/CommandPalette';
 import { AmbiencePopover } from '@/features/ambience/AmbiencePopover';
-import { ReadingView } from '@/features/reading/ReadingView';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
+
+// 初期表示に不要な重量級UIは別チャンクに分割し、初回表示時にロードする。
+// 表示フラグによる条件マウントと組み合わせないとマウント時点でチャンクが
+// ロードされてしまうため、下の JSX では必ず可視フラグで包む。
+const AiPanel = lazy(() =>
+  import('@/features/ai/AiPanel').then((m) => ({ default: m.AiPanel })),
+);
+const AnalysisModal = lazy(() =>
+  import('@/features/analysis/AnalysisModal').then((m) => ({ default: m.AnalysisModal })),
+);
+const SettingsModal = lazy(() =>
+  import('@/features/settings/SettingsModal').then((m) => ({ default: m.SettingsModal })),
+);
+const WritingSupportModal = lazy(() =>
+  import('@/features/writing-support/WritingSupportModal').then((m) => ({ default: m.WritingSupportModal })),
+);
+const AiManualModal = lazy(() =>
+  import('@/features/ai/AiManualModal').then((m) => ({ default: m.AiManualModal })),
+);
+const ReadingView = lazy(() =>
+  import('@/features/reading/ReadingView').then((m) => ({ default: m.ReadingView })),
+);
 
 export function WorkspacePage() {
   const currentProjectId = useAppStore((s) => s.currentProjectId);
-  const { openProject, currentProject } = useProjectStore();
-  const { loadChapterTree, clearCurrentEpisode, save, saveSecondary } = useEditorStore();
-  const {
-    aiPanelVisible, aiPanelMode,
-    setSettings, toggleAiPanel, toggleSidePanel, setEditorViewMode, editorViewMode,
-    timerRunning, startTimer, stopTimer, toggleWritingSupportModal,
-    analysisModalVisible, settingsModalVisible, writingSupportModalVisible, aiManualVisible,
-    toggleAnalysisModal, toggleSettingsModal, toggleAiManual,
-    toggleCommandPalette, commandPaletteVisible,
-    setActiveSideTab,
-    ambiencePopoverVisible, toggleAmbiencePopover,
-    zenMode, toggleZenMode,
-    toggleReadingMode,
-  } = useUIStore();
+  // ストア全購読は無関係なフィールド更新（タイマー毎秒tick等）でも再レンダーを
+  // 誘発するため、セレクタで必要なフィールドだけ購読する
+  const openProject = useProjectStore((s) => s.openProject);
+  const currentProject = useProjectStore((s) => s.currentProject);
+  const loadChapterTree = useEditorStore((s) => s.loadChapterTree);
+  const clearCurrentEpisode = useEditorStore((s) => s.clearCurrentEpisode);
+  const save = useEditorStore((s) => s.save);
+  const saveSecondary = useEditorStore((s) => s.saveSecondary);
+  const aiPanelVisible = useUIStore((s) => s.aiPanelVisible);
+  const aiPanelMode = useUIStore((s) => s.aiPanelMode);
+  const setSettings = useUIStore((s) => s.setSettings);
+  const toggleAiPanel = useUIStore((s) => s.toggleAiPanel);
+  const toggleSidePanel = useUIStore((s) => s.toggleSidePanel);
+  const setEditorViewMode = useUIStore((s) => s.setEditorViewMode);
+  const editorViewMode = useUIStore((s) => s.editorViewMode);
+  const timerRunning = useUIStore((s) => s.timerRunning);
+  const startTimer = useUIStore((s) => s.startTimer);
+  const stopTimer = useUIStore((s) => s.stopTimer);
+  const toggleWritingSupportModal = useUIStore((s) => s.toggleWritingSupportModal);
+  const analysisModalVisible = useUIStore((s) => s.analysisModalVisible);
+  const settingsModalVisible = useUIStore((s) => s.settingsModalVisible);
+  const writingSupportModalVisible = useUIStore((s) => s.writingSupportModalVisible);
+  const aiManualVisible = useUIStore((s) => s.aiManualVisible);
+  const toggleAnalysisModal = useUIStore((s) => s.toggleAnalysisModal);
+  const toggleSettingsModal = useUIStore((s) => s.toggleSettingsModal);
+  const toggleAiManual = useUIStore((s) => s.toggleAiManual);
+  const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
+  const commandPaletteVisible = useUIStore((s) => s.commandPaletteVisible);
+  const setActiveSideTab = useUIStore((s) => s.setActiveSideTab);
+  const ambiencePopoverVisible = useUIStore((s) => s.ambiencePopoverVisible);
+  const toggleAmbiencePopover = useUIStore((s) => s.toggleAmbiencePopover);
+  const zenMode = useUIStore((s) => s.zenMode);
+  const toggleZenMode = useUIStore((s) => s.toggleZenMode);
+  const toggleReadingMode = useUIStore((s) => s.toggleReadingMode);
+  const readingMode = useUIStore((s) => s.readingMode);
 
   // 自動保存フック
   useAutoSave();
@@ -211,7 +248,9 @@ export function WorkspacePage() {
         {/* AIパネル — サイドバーモード */}
         {aiPanelVisible && aiPanelMode === 'sidebar' && (
           <ErrorBoundary variant="panel" name="AIパネル">
-            <AiPanel />
+            <Suspense fallback={null}>
+              <AiPanel />
+            </Suspense>
           </ErrorBoundary>
         )}
       </div>
@@ -219,7 +258,9 @@ export function WorkspacePage() {
       {/* AIパネル — フローティングモード */}
       {aiPanelVisible && aiPanelMode === 'float' && (
         <ErrorBoundary variant="panel" name="AIパネル">
-          <AiPanel />
+          <Suspense fallback={null}>
+            <AiPanel />
+          </Suspense>
         </ErrorBoundary>
       )}
 
@@ -248,14 +289,15 @@ export function WorkspacePage() {
         </div>
       )}
 
-      {/* 没入読書モード（全画面オーバーレイ） */}
-      <ReadingView />
-
-      {/* モーダル */}
-      <AnalysisModal />
-      <SettingsModal />
-      <WritingSupportModal />
-      <AiManualModal />
+      {/* 没入読書モード（全画面オーバーレイ）とモーダル群。
+          lazy チャンクのロードを開くまで遅延させるため、可視フラグで条件マウントする */}
+      <Suspense fallback={null}>
+        {readingMode && <ReadingView />}
+        {analysisModalVisible && <AnalysisModal />}
+        {settingsModalVisible && <SettingsModal />}
+        {writingSupportModalVisible && <WritingSupportModal />}
+        {aiManualVisible && <AiManualModal />}
+      </Suspense>
     </div>
   );
 }

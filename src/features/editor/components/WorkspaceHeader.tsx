@@ -97,14 +97,15 @@ export function WorkspaceHeader() {
   const navigateTo = useAppStore((s) => s.navigateTo);
   const currentProject = useProjectStore((s) => s.currentProject);
   const updateProject = useProjectStore((s) => s.updateProject);
-  const { currentEpisode, isDirty, save, isSaving } = useEditorStore();
-  const {
-    toggleSearchBar,
-    searchBarVisible,
-    aiPanelVisible,
-    toggleAiPanel,
-    toggleCommandPalette,
-  } = useUIStore();
+  const currentEpisode = useEditorStore((s) => s.currentEpisode);
+  const isDirty = useEditorStore((s) => s.isDirty);
+  const save = useEditorStore((s) => s.save);
+  const isSaving = useEditorStore((s) => s.isSaving);
+  const toggleSearchBar = useUIStore((s) => s.toggleSearchBar);
+  const searchBarVisible = useUIStore((s) => s.searchBarVisible);
+  const aiPanelVisible = useUIStore((s) => s.aiPanelVisible);
+  const toggleAiPanel = useUIStore((s) => s.toggleAiPanel);
+  const toggleCommandPalette = useUIStore((s) => s.toggleCommandPalette);
 
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showHomeConfirm, setShowHomeConfirm] = useState(false);

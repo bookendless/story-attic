@@ -13,7 +13,23 @@
 
 use crate::models::ai::{AiChunkPayload, AiMessage, AiSettings};
 use crate::AppState;
+use std::sync::OnceLock;
 use tauri::Emitter;
+
+/// アプリ全体で共有する HTTP クライアント。
+/// 呼び出しごとに生成するとコネクションプール・TLSセッションが毎回破棄され、
+/// リクエストごとに DNS + TCP + TLS ハンドシェイクが再実行されるため1個を使い回す。
+/// 全体タイムアウトはストリーミング応答を途中で打ち切ってしまうためクライアントには設定せず、
+/// 非ストリーミング呼び出し側が `RequestBuilder::timeout()` でリクエスト単位に指定する。
+fn http_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("HTTPクライアントの初期化に失敗しました")
+    })
+}
 
 // =========================================
 // プロバイダーガード / 既定値 / 秘匿マスキング
@@ -47,10 +63,7 @@ fn validate_local_base_url(raw: &str) -> Result<String, String> {
         .or_else(|| raw.strip_prefix("https://"))
         .ok_or_else(|| "base_url は http:// または https:// で始まる必要があります".to_string())?;
 
-    let host = without_scheme
-        .split(|c: char| c == '/' || c == ':')
-        .next()
-        .unwrap_or("");
+    let host = without_scheme.split(['/', ':']).next().unwrap_or("");
     let host_clean = host.trim_matches('[').trim_matches(']');
 
     if host_clean != "localhost" && host_clean != "127.0.0.1" && host_clean != "::1" {
@@ -314,16 +327,14 @@ pub async fn ai_test_connection(
 
     let api_key = resolve_api_key(&service).await?;
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| e.to_string())?;
+    let client = http_client();
 
     match service.as_str() {
         "anthropic" => {
             // 最小リクエストで疎通確認
             let resp = client
                 .post("https://api.anthropic.com/v1/messages")
+                .timeout(std::time::Duration::from_secs(10))
                 .header("x-api-key", &api_key)
                 .header("anthropic-version", "2023-06-01")
                 .header("Content-Type", "application/json")
@@ -348,6 +359,7 @@ pub async fn ai_test_connection(
             let url_owned = resolve_base_url(&service, base_url.as_deref())?;
             let resp = client
                 .get(format!("{}/models", url_owned))
+                .timeout(std::time::Duration::from_secs(10))
                 .header("Authorization", format!("Bearer {}", api_key))
                 .send()
                 .await
@@ -543,6 +555,159 @@ pub async fn ai_get_reader_perspective(
                 .map_err(|e| mask_secrets(&api_key, &e))
         }
     }
+}
+
+// =========================================
+// 読者ライブ反応（非ストリーミング・JSON返却）
+// =========================================
+
+/// 読者ライブ反応の共通指示（JSON形式・引用ルール）
+const REACTION_COMMON: &str = "\
+これから小説の一章を読みます。読みながら感じた反応を、\
+必ず以下のJSON形式のみで返してください（説明文・前置き・コードブロック記法は一切不要）。\
+{\"reactions\":[{\"quote\":\"...\",\"comment\":\"...\",\"kind\":\"...\"}]}\
+quote=反応した箇所の本文からの逐語引用（10〜25文字程度）。言い換え・要約・省略は禁止。\
+章全体への感想の場合のみ空文字にすること。\
+comment=読者としての生の反応（日本語30〜60文字、一人称）。\
+kind=\"emotion\"（感情の動き・鳥肌・笑い等）/\"prediction\"（この先の展開・伏線・犯人などの予想）\
+/\"concern\"（読みづらさ・中だるみ・離脱しそうな箇所の正直な報告）のいずれか。\
+反応は3〜6件。prediction を必ず1件以上含めること。予想は具体的に（「○○が怪しい」「○○になりそう」等）。\
+執筆技法の改善提案・添削は禁止。あくまで一読者としての体験を語ること。\
+JSON以外の文字は絶対に出力しないこと。";
+
+/// ペルソナID → 人格プロンプト（フロントエンド readerPersonas.ts と対応）
+fn reaction_persona_prompt(persona: &str) -> &'static str {
+    match persona {
+        "light_novel" => "あなたはラノベとWeb小説を読み漁っている高校生読者です。\
+            テンポの良さと勢いが大好きで、熱い展開やキャラの掛け合いに素直に盛り上がります。\
+            口調はネット掲示板・コメント欄風のくだけたノリで。",
+        "mystery" => "あなたはミステリー・サスペンスを年間200冊読む考察マニアです。\
+            伏線・違和感・登場人物の言動の矛盾を見逃さず、常に先の展開と真相を予想しながら読みます。\
+            口調は落ち着いた考察好きのファン。predictionを多めに。",
+        "editor" => "あなたは商業出版で長年小説を担当してきた辛口の編集者です。\
+            ただし今日は読者として読み、読者の目線が離れる箇所・引きの弱さに正直に反応します。\
+            口調は簡潔で遠慮なし。concernを多めに。ただし良い箇所は率直に褒めること。",
+        "romance" => "あなたは恋愛小説と少女漫画が大好きな読者です。\
+            人物の感情の機微・関係性の変化に敏感で、ときめく場面には全力で反応します。\
+            口調は感情豊かで共感重視。",
+        "literary" => "あなたは純文学と翻訳文学を好む読者です。\
+            文体・情景描写・言葉選びの美しさを味わいながらゆっくり読みます。\
+            口調は静かで丁寧、印象に残った一文を引用して語るのが好き。",
+        _ => "あなたは通勤時間にスマホで小説を読むライトな一般読者です。\
+            難しいことは考えず、面白ければ続きを読み、飽きたら離脱します。\
+            口調は気軽な感想コメント風。",
+    }
+}
+
+/// 読者ライブ反応の本文文字数上限（フロントエンド ReaderReactionsPanel と一致させること）
+const REACTION_MAX_CHARS: usize = 8000;
+
+/// 指定ペルソナがエピソード本文を読み、本文引用付きの反応リストを返す（AI生成・非ストリーミング）
+///
+/// `persona`: "light_novel" | "mystery" | "editor" | "romance" | "literary" | "casual"
+/// 1ペルソナ=1呼び出し。フロントエンドは複数ペルソナ分を並列 invoke する。
+#[tauri::command]
+pub async fn ai_get_reader_reactions(
+    state: tauri::State<'_, AppState>,
+    project_id: String,
+    episode_id: String,
+    persona: String,
+) -> Result<String, String> {
+    let (provider, model, base_url, body) = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let result = db.query_row(
+            "SELECT provider, model, data FROM ai_settings WHERE project_id = ?1",
+            [&project_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            },
+        );
+        let (provider, model, data_str) = match result {
+            Ok(r) => r,
+            Err(_) => return Err("AI未設定".into()),
+        };
+        let data: serde_json::Value =
+            serde_json::from_str(&data_str).unwrap_or(serde_json::json!({}));
+        let base_url = data["base_url"].as_str().map(String::from);
+
+        let html: String = db
+            .query_row(
+                "SELECT body FROM episodes WHERE id = ?1",
+                [&episode_id],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+
+        (provider, model, base_url, html)
+    };
+
+    if provider.is_empty() || (model.is_empty() && provider != "local") {
+        return Err("AI未設定".into());
+    }
+    ensure_allowed(&provider)?;
+
+    let api_key = resolve_api_key(&provider).await?;
+
+    // HTMLタグ除去（フロントエンド stripHtml と同様に段落境界を改行へ変換し、
+    // quote の逐語引用が平文と一致するようにする）
+    let plain = strip_html_to_plain(&body);
+    // 読者は頭から読むため先頭優先で切り詰め（文字境界安全）
+    let text: String = plain.chars().take(REACTION_MAX_CHARS).collect();
+
+    if text.trim().is_empty() {
+        return Err("本文が空です".into());
+    }
+
+    let system = format!("{}\n{}", reaction_persona_prompt(&persona), REACTION_COMMON);
+    let user_msg = format!("【本文】\n{}", text);
+
+    // 推論（thinking）モデルは出力枠を内部推論にも消費するため枠を広めに確保する
+    match provider.as_str() {
+        "anthropic" => single_call_anthropic(&api_key, &model, &system, &user_msg, 8000)
+            .await
+            .map_err(|e| mask_secrets(&api_key, &e)),
+        _ => {
+            let url_owned = resolve_base_url(&provider, base_url.as_deref())
+                .map_err(|e| mask_secrets(&api_key, &e))?;
+            single_call_openai_compatible(&api_key, &url_owned, &model, &system, &user_msg, 8000)
+                .await
+                .map_err(|e| mask_secrets(&api_key, &e))
+        }
+    }
+}
+
+/// HTMLを平文へ変換する。</p> </div> </li> <br> を改行に置き換える
+/// （フロントエンド ProofreadPanel.tsx の stripHtml と同一仕様を維持すること）
+fn strip_html_to_plain(html: &str) -> String {
+    let mut result = String::new();
+    let mut in_tag = false;
+    let mut tag_buf = String::new();
+    for ch in html.chars() {
+        match ch {
+            '<' => {
+                in_tag = true;
+                tag_buf.clear();
+            }
+            '>' if in_tag => {
+                in_tag = false;
+                let tl = tag_buf.to_lowercase();
+                let is_break = tl.starts_with("/p")
+                    || tl.starts_with("/div")
+                    || tl.starts_with("/li")
+                    || tl.starts_with("br");
+                if is_break && !result.ends_with('\n') {
+                    result.push('\n');
+                }
+            }
+            _ if in_tag => tag_buf.push(ch),
+            _ => result.push(ch),
+        }
+    }
+    result
 }
 
 // =========================================
@@ -827,13 +992,9 @@ async fn single_call_openai_compatible(
     user_msg: &str,
     max_tokens: u32,
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let resp = client
+    let resp = http_client()
         .post(format!("{}/chat/completions", base_url))
+        .timeout(std::time::Duration::from_secs(60))
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
         .json(&serde_json::json!({
@@ -870,13 +1031,9 @@ async fn single_call_anthropic(
     user_msg: &str,
     max_tokens: u32,
 ) -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let resp = client
+    let resp = http_client()
         .post("https://api.anthropic.com/v1/messages")
+        .timeout(std::time::Duration::from_secs(60))
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("Content-Type", "application/json")
@@ -1013,8 +1170,7 @@ async fn stream_openai_compatible(
         api_messages.push(serde_json::json!({"role": m.role, "content": m.content}));
     }
 
-    let client = reqwest::Client::new();
-    let mut response = client
+    let mut response = http_client()
         .post(format!("{}/chat/completions", base_url))
         .header("Authorization", format!("Bearer {}", api_key))
         .header("Content-Type", "application/json")
@@ -1086,8 +1242,7 @@ async fn stream_anthropic(
         body["system"] = serde_json::json!(system_prompt);
     }
 
-    let client = reqwest::Client::new();
-    let mut response = client
+    let mut response = http_client()
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")

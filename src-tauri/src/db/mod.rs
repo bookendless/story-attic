@@ -215,5 +215,21 @@ fn run_migrations(conn: &Connection) -> Result<()> {
         )?;
     }
 
+    // v10: 読者反応（AI読者のライブ反応）テーブルを追加
+    let applied_v10: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM schema_migrations WHERE version = 10",
+        [],
+        |row| row.get(0),
+    )?;
+
+    if applied_v10 == 0 {
+        let sql = include_str!("migrations/010_reader_reactions.sql");
+        conn.execute_batch(sql)?;
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (10, datetime('now'))",
+            [],
+        )?;
+    }
+
     Ok(())
 }

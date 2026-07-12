@@ -22,7 +22,10 @@ export default defineConfig(async () => ({
   // Viteのビルド出力先（Tauriが参照）
   build: {
     outDir: "dist",
-    target: ["es2021", "chrome100", "safari13"],
+    // WebView2 (Windows) はエバーグリーン Chromium のため chrome110 を下限とする。
+    // safari13 を含めると esbuild は最も古いターゲットに合わせて全構文を
+    // ダウントランスパイルするため除外（macOS 配布を始める際は要再検討）
+    target: ["es2022", "chrome110"],
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,
     sourcemap: !!process.env.TAURI_DEBUG,
   },

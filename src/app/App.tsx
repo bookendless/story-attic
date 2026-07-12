@@ -1,10 +1,19 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useAppStore } from '@/shared/stores/appStore';
 import { useUIStore } from '@/shared/stores/uiStore';
-import { HomePage } from '@/features/project/HomePage';
-import { WorkspacePage } from '@/features/editor/WorkspacePage';
-import { OnboardingTour } from '@/features/onboarding/OnboardingTour';
 import { ToastContainer } from '@/shared/components/Toast';
+
+// ルート単位のコード分割: ホーム/ワークスペースを別チャンクにし、
+// 起動時は表示中のビューのぶんだけロードする
+const HomePage = lazy(() =>
+  import('@/features/project/HomePage').then((m) => ({ default: m.HomePage })),
+);
+const WorkspacePage = lazy(() =>
+  import('@/features/editor/WorkspacePage').then((m) => ({ default: m.WorkspacePage })),
+);
+const OnboardingTour = lazy(() =>
+  import('@/features/onboarding/OnboardingTour').then((m) => ({ default: m.OnboardingTour })),
+);
 
 export function App() {
   const currentView = useAppStore((s) => s.currentView);
@@ -27,8 +36,10 @@ export function App() {
 
   return (
     <div className="h-screen w-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
-      {currentView === 'home' ? <HomePage /> : <WorkspacePage />}
-      {currentView === 'workspace' && <OnboardingTour />}
+      <Suspense fallback={null}>
+        {currentView === 'home' ? <HomePage /> : <WorkspacePage />}
+        {currentView === 'workspace' && <OnboardingTour />}
+      </Suspense>
       <ToastContainer />
     </div>
   );

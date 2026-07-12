@@ -60,6 +60,15 @@ export function getCommands(): Command[] {
         ui.setEditorViewMode(ui.editorViewMode === 'diff' ? 'editor' : 'diff'),
     },
     {
+      id: 'reactions.toggle',
+      label: '読者の反応 切替',
+      keywords: 'reactions reader どくしゃ 読者 反応 コメント AI',
+      group: '執筆',
+      requiresEpisode: true,
+      run: () =>
+        ui.setEditorViewMode(ui.editorViewMode === 'reactions' ? 'editor' : 'reactions'),
+    },
+    {
       id: 'writing-support.open',
       label: '執筆支援を開く',
       keywords: 'writing support しっぴつ しえん 句読点',

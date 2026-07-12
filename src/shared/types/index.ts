@@ -291,6 +291,20 @@ export interface ClicheIssue {
   length: number;
 }
 
+/** AI読者ライブ反応（本文の逐語引用にアンカーされたコメント） */
+export interface ReaderReaction {
+  id: string;
+  episodeId: string;
+  /** ペルソナID（readerPersonas.ts の READER_PERSONAS と対応） */
+  persona: string;
+  /** 本文からの逐語引用（アンカリング用）。章全体への感想は空文字 */
+  quote: string;
+  comment: string;
+  /** "emotion"（感情）| "prediction"（予想）| "concern"（離脱懸念） */
+  kind: string;
+  createdAt: string;
+}
+
 // =========================================
 // AI連携（Rust側 src-tauri/src/models/ai.rs と対応）
 // =========================================

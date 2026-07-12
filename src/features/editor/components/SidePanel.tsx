@@ -62,13 +62,11 @@ const TABS: TabDef[] = [
 ];
 
 export function SidePanel() {
-  const {
-    sidePanelVisible,
-    activeSideTab,
-    setActiveSideTab,
-    rightPanelWidth,
-    setRightPanelWidth,
-  } = useUIStore();
+  const sidePanelVisible = useUIStore((s) => s.sidePanelVisible);
+  const activeSideTab = useUIStore((s) => s.activeSideTab);
+  const setActiveSideTab = useUIStore((s) => s.setActiveSideTab);
+  const rightPanelWidth = useUIStore((s) => s.rightPanelWidth);
+  const setRightPanelWidth = useUIStore((s) => s.setRightPanelWidth);
 
   // lazy mount
   const [mountedTabs, setMountedTabs] = useState<Set<SideTab>>(
