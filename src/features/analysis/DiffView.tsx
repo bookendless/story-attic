@@ -312,7 +312,7 @@ function DiffEditorPane() {
     lastIdRef.current = currentEpisode?.id ?? null;
     editor.commands.setContent(currentEpisode?.body ?? '', false);
     // ビュー未装着/破棄済み（docView=null）だと updateState が NPE を投げるためガード
-    if (!editor.isDestroyed && editor.view.docView) {
+    if (!editor.isDestroyed && (editor.view as any).docView) {
       const freshState = EditorState.create({
         doc: editor.state.doc,
         plugins: editor.state.plugins,

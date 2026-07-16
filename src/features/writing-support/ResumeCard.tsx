@@ -61,7 +61,7 @@ export function ResumeCard() {
   return (
     <div
       style={{
-        position: 'fixed',
+        position: 'absolute',
         bottom: '48px',
         left: '50%',
         transform: 'translateX(-50%)',

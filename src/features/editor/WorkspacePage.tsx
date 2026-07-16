@@ -243,6 +243,8 @@ export function WorkspacePage() {
         <div className="flex-1 overflow-hidden relative">
           <ParticleEffect />
           <EditorArea />
+          {/* 「おかえり」再開カード — エディタ領域基準で中央配置 */}
+          <ResumeCard />
         </div>
 
         {/* AIパネル — サイドバーモード */}
@@ -267,8 +269,6 @@ export function WorkspacePage() {
       {/* キャラクターウィジェット */}
       <CharacterWidget />
 
-      {/* 「おかえり」再開カード */}
-      <ResumeCard />
 
       {/* セッション終了サマリー */}
       <SessionSummaryCard />

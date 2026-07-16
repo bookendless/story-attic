@@ -197,7 +197,7 @@ export function EditorArea() {
     // StrictMode の二重マウント等でビューが破棄/未装着（docView=null）の場合は
     // updateState が matchesNode で NPE を投げるためスキップする。
     // その状況では消すべき Undo 履歴も無いため、スキップして問題ない。
-    if (!editor.isDestroyed && editor.view.docView) {
+    if (!editor.isDestroyed && (editor.view as any).docView) {
       const freshState = EditorState.create({
         doc: editor.state.doc,
         plugins: editor.state.plugins,

@@ -1,6 +1,6 @@
 [package]
 name = "story-attic"
-version = "0.1.0"
+version = "0.1.1"
 description = "StoryAttic — 小説執筆ツール"
 authors = []
 license = ""
